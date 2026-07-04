@@ -64,6 +64,7 @@
 若玩家装备超过 6 件同套装装备，只按 6 件套结算，不额外叠加。不同套装可以同时生效，例如 2 件战士防御套 + 2 件战士怒气套，或 2 件弓箭手标记套 + 2 件弓箭手躲避套。
 
 首版完整基础装备、套装清单与生成规则见 [12_equipment_generation.md](12_equipment_generation.md)。
+套装装备的逐件装备名、栏位和基础属性见 [13_set_equipment_items.md](13_set_equipment_items.md)。
 
 ## 装备效果类型
 
