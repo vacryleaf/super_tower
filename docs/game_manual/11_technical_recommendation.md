@@ -163,7 +163,7 @@ GameProject/
 | ActionResolver | 解释普通攻击、防御、躲避、技能和装备主动效果。 |
 | CardResolver | 解释状态卡修饰效果。 |
 | EquipmentSystem | 管理装备栏、普通装备、套装件数、2/3/4/5/6 套装能力和主动触发。 |
-| FusionSystem | 管理装备、技能、基础行动的融合目标、附着上限和效果合并。 |
+| FusionSystem | 管理装备、技能、基础行动的融合目标和效果合并；不设置附着数量上限。 |
 | RewardGenerator | 根据职业、构筑、层数和怪物类型生成奖励；普通怪/精英怪排除装备卡，并处理技能去重。 |
 | SaveService | 区分永久存档和单局存档。 |
 
