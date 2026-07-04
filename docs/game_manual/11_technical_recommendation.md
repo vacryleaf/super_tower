@@ -20,6 +20,8 @@ GameProject/
     equipment/
     equipment_sets/
     enemies/
+    enemy_traits/
+    enemy_skills/
     rewards/
   scenes/
     boot/
@@ -164,6 +166,7 @@ GameProject/
 | CombatController | 管理回合流程、行动力、基础行动、怪物意图和胜负。 |
 | ActionResolver | 解释普通攻击、防御、躲避、技能和装备主动效果。 |
 | CardResolver | 解释状态卡修饰效果。 |
+| EnemySystem | 管理敌人数据、特性、技能、意图、先手和楼层数值成长。 |
 | EquipmentSystem | 管理装备栏、普通装备、套装件数、2/3/4/5/6 套装能力和主动触发。 |
 | FusionSystem | 管理装备、技能、基础行动的融合目标和效果合并；不设置附着数量上限。 |
 | RewardGenerator | 根据职业、构筑、层数和怪物类型生成奖励；普通怪/精英怪排除装备卡，并处理技能去重。 |
@@ -182,8 +185,9 @@ GameProject/
 9. 实现状态卡抽取，并限制为行动倍率、确定暴击、强化躲避、强化防御和紧急回撤等行动修饰。
 10. 实现塔内附着卡和技能卡融合到装备、已装备技能和基础行动。
 11. 实现永久存档和单局存档分离。
-12. 扩充首版内容表。
-13. 做 PC 与移动端 UI 适配。
+12. 实现敌人数据、特性、技能和普通/精英/Boss 数值成长。
+13. 扩充首版内容表。
+14. 做 PC 与移动端 UI 适配。
 
 ## 风险点
 
