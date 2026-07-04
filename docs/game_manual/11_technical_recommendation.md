@@ -118,8 +118,10 @@ GameProject/
   "source_type": "tower_attachment",
   "rarity": "common",
   "tags": ["attack"],
+  "acquired_floor": 23,
+  "power_tier": 2,
   "effects": [
-    { "kind": "modify_attack_flat", "amount": 3 }
+    { "kind": "modify_attack_flat", "amount": 5, "scaled_field": "A", "locked_on_acquire": true }
   ],
   "run_id": "current_run"
 }
