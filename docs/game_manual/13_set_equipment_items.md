@@ -29,6 +29,8 @@
 | common_deep_lantern | 深灯 | 深灯腰带 | 腰部 | 最大生命 +6。 |
 | common_bone_charm | 骨符 | 骨符面罩 | 头部 | 最大生命 +6。 |
 | common_bone_charm | 骨符 | 骨符戒指 | 戒指 | 生命低于 40% 时防御行动护甲 +1。 |
+| common_moon_pair | 清辉/流霜 | 清辉戒指 | 戒指 | 状态卡持有上限 +1。 |
+| common_moon_pair | 清辉/流霜 | 流霜戒指 | 戒指 | 每场战斗开始抽取状态卡候选 +1。 |
 | common_scavenger | 拾荒者 | 拾荒者兜帽 | 头部 | 金币获得 +5%。 |
 | common_scavenger | 拾荒者 | 拾荒者腰包 | 腰部 | 融合碎片携带上限 +2。 |
 | common_scavenger | 拾荒者 | 拾荒者手套 | 手部 | 分解卡牌获得融合碎片 +1，每层最多 1 次。 |
