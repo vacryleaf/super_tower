@@ -75,7 +75,7 @@ GameProject/
   "equipment_kind": "normal",
   "set_id": null,
   "tags": ["armor"],
-  "stats": { "max_hp": 10 },
+  "stats": { "hp": 14, "attack": 0, "armor": 3 },
   "effects": []
 }
 ```
@@ -91,7 +91,7 @@ GameProject/
   "equipment_kind": "set",
   "set_id": "iron_vanguard",
   "tags": ["armor", "counter"],
-  "stats": { "max_hp": 8 },
+  "stats": { "hp": 4, "attack": 0, "armor": 1 },
   "effects": []
 }
 ```
