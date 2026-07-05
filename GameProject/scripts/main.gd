@@ -15,7 +15,6 @@ var player_status_node: Control = null
 var player_status_labels: Dictionary = {}
 var message_label_node: Label = null
 var pending_state_label_node: Label = null
-var deck_node: Control = null
 var action_buttons: Array[Button] = []
 var skill_buttons: Array[Button] = []
 var log_text_node: RichTextLabel = null
@@ -115,7 +114,6 @@ func _render_battle() -> void:
 	player_status_node = null
 	player_status_labels.clear()
 	pending_state_label_node = null
-	deck_node = null
 	action_buttons.clear()
 	skill_buttons.clear()
 	log_text_node = null
@@ -156,7 +154,6 @@ func _render_battle() -> void:
 	right.custom_minimum_size = Vector2(340, 0)
 	right.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	body.add_child(right)
-	_render_deck(right)
 	_render_log(right)
 	if equipment_open:
 		_show_equipment_overlay()
@@ -317,25 +314,6 @@ func _show_equipment_overlay() -> void:
 	center.set_anchors_preset(Control.PRESET_FULL_RECT)
 	center.add_child(_equipment_panel())
 	overlay.add_child(center)
-
-
-func _render_deck(parent: Control) -> void:
-	var deck_holder := CenterContainer.new()
-	deck_holder.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	deck_holder.custom_minimum_size = Vector2(0, 190)
-	deck_node = PanelContainer.new()
-	deck_node.custom_minimum_size = Vector2(112, 170)
-	var box := VBoxContainer.new()
-	box.alignment = BoxContainer.ALIGNMENT_CENTER
-	deck_node.add_child(box)
-	var title := _label("卡堆", 18)
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	title.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	box.add_child(title)
-	deck_holder.add_child(deck_node)
-	parent.add_child(deck_holder)
-	parent.add_child(_spacer_vertical())
 
 
 func _on_attack_pressed() -> void:
