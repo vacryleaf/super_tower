@@ -15,6 +15,7 @@ func _run() -> void:
 	main.session.delete_save()
 	_press_button(main, "派遣：战士")
 	await process_frame
+	_assert_enemy_tooltip(main)
 	_press_button(main, "普通攻击")
 	await _wait_seconds(1.1)
 	_press_button(main, "普通攻击")
@@ -42,6 +43,25 @@ func _find_button(node: Node, text_value: String) -> Button:
 		return node
 	for child in node.get_children():
 		var found := _find_button(child, text_value)
+		if found != null:
+			return found
+	return null
+
+
+func _assert_enemy_tooltip(node: Node) -> void:
+	var enemy_button := _find_button_containing(node, "特性：")
+	if enemy_button == null:
+		failures.append("missing enemy card with traits")
+		return
+	if String(enemy_button.tooltip_text).is_empty():
+		failures.append("enemy traits tooltip should not be empty")
+
+
+func _find_button_containing(node: Node, text_value: String) -> Button:
+	if node is Button and String(node.text).contains(text_value):
+		return node
+	for child in node.get_children():
+		var found := _find_button_containing(child, text_value)
 		if found != null:
 			return found
 	return null
