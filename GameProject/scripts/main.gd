@@ -312,7 +312,6 @@ func _render_deck(parent: Control) -> void:
 	var box := VBoxContainer.new()
 	deck_node.add_child(box)
 	box.add_child(_label("卡堆", 18))
-	box.add_child(_label("回合开始从这里抽取状态卡到手牌。", 13))
 	parent.add_child(deck_node)
 	parent.add_child(_spacer_vertical())
 
