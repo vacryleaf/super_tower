@@ -4,8 +4,9 @@
   "migration_notes": {
     "runtime_source": "DataCatalog constants remain authoritative until a table is fully migrated and tested.",
     "migrated_tables": ["state_cards", "classes", "skills"],
-    "next_tables": ["equipment", "tutorial_unlocks", "tutorial_encounters", "enemy_units", "reward_pools"],
-    "rule": "Content data belongs here or in split JSON resources; runtime services should consume catalog accessors instead of embedding content lists."
+    "next_tables": ["traits", "equipment", "tutorial_unlocks", "tutorial_encounters", "enemy_units", "reward_pools"],
+    "rule": "Content data belongs here or in split JSON resources; runtime services should consume catalog accessors instead of embedding content lists.",
+    "switching_policy": "Do not switch runtime authority for a table until that table has parity tests against DataCatalog constants and UI smoke coverage."
   },
   "tables": {
     "state_cards": {

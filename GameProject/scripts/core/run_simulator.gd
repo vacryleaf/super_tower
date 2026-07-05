@@ -5,41 +5,17 @@ const DataCatalog = preload("res://scripts/core/data_catalog.gd")
 const MAX_CHARGES := 5
 const CombatEngine = preload("res://scripts/core/combat_engine.gd")
 const EncounterService = preload("res://scripts/core/encounter_service.gd")
+const CharacterService = preload("res://scripts/core/character_service.gd")
+const SimulationRewardPolicy = preload("res://scripts/core/simulation_reward_policy.gd")
 
 var combat := CombatEngine.new()
 var encounters := EncounterService.new()
+var character := CharacterService.new()
+var simulation_rewards := SimulationRewardPolicy.new()
 
 
 func create_character(class_id: String) -> Dictionary:
-	var class_data: Dictionary = DataCatalog.CLASSES[class_id]
-	var player := {
-		"class_id": class_id,
-		"base_max_hp": int(class_data["max_hp"]),
-		"base_attack": int(class_data["base_attack"]),
-		"base_defense": int(class_data["base_defense"]),
-		"base_block": int(class_data.get("base_block", 1)),
-		"max_hp_bonus": 0,
-		"attack_bonus": 0,
-		"defense_bonus": 0,
-		"block_bonus": 0,
-		"skill_bonus": 0,
-		"state_attack_bonus": 0,
-		"state_defense_bonus": 0,
-		"equipment_attachments": {},
-		"skill_attachments": {},
-		"equipment": {},
-		"equipment_ids": [],
-		"unlocked_skills": [],
-		"equipped_skills": [],
-		"tutorial_completed": false,
-		"battles_completed": 0,
-		"boss_rewards": 0,
-		"normal_rewards": 0,
-		"elite_rewards": 0,
-		"tutorial_restarts": 0
-	}
-	_recalculate_player_stats(player, true)
-	return player
+	return character.create_character(class_id)
 
 
 func run_tutorial(class_id: String) -> Dictionary:
@@ -187,253 +163,71 @@ func _battle_pressure_scale(battle_index: int) -> float:
 
 
 func _apply_tutorial_unlock(player: Dictionary, battle_zero_index: int) -> void:
-	var class_id: String = player["class_id"]
-	var unlocks: Array = DataCatalog.TUTORIAL_UNLOCKS[class_id]
-	var unlock_id: String = unlocks[battle_zero_index]
-	if DataCatalog.EQUIPMENT.has(unlock_id):
-		equip_item(player, unlock_id)
-	elif DataCatalog.SKILLS.has(unlock_id):
-		unlock_skill(player, unlock_id, true)
-	_recalculate_player_stats(player, false)
+	simulation_rewards.apply_tutorial_unlock(player, battle_zero_index, character)
 
 
 func _apply_formal_reward(player: Dictionary, battle_type: String, tower_floor: int) -> void:
-	var fixed_scale := maxi(0, int(floor(float(tower_floor - 1) / 10.0)))
-	if battle_type == "normal":
-		var reward_cycle := int(player["normal_rewards"]) % 4
-		if reward_cycle == 0:
-			attach_reward(player, _preferred_attachment_target(player, "attack"), {"kind": "attack", "value": 2 + fixed_scale, "label": "攻击 +%d" % (2 + fixed_scale)})
-		elif reward_cycle == 1:
-			attach_reward(player, _preferred_attachment_target(player, "defense"), {"kind": "defense", "value": 1 + fixed_scale, "label": "护甲 +%d" % (1 + fixed_scale)})
-		elif reward_cycle == 2:
-			attach_reward(player, _preferred_attachment_target(player, "hp"), {"kind": "hp", "value": 6 + fixed_scale, "label": "生命上限 +%d" % (6 + fixed_scale)})
-		else:
-			attach_reward(player, _preferred_attachment_target(player, "charge"), {"kind": "charge_bonus_damage", "value": 7 + fixed_scale, "label": "充能：下一次攻击附加 %d 点伤害" % (7 + fixed_scale)})
-		player["normal_rewards"] += 1
-	elif battle_type == "elite":
-		var elite_cycle := int(player["elite_rewards"]) % 3
-		if elite_cycle == 0:
-			attach_reward(player, _preferred_attachment_target(player, "attack"), {"kind": "attack", "value": 4 + fixed_scale, "label": "攻击 +%d" % (4 + fixed_scale)})
-		elif elite_cycle == 1:
-			attach_reward(player, _preferred_attachment_target(player, "hp"), {"kind": "hp", "value": 18 + fixed_scale, "label": "生命上限 +%d" % (18 + fixed_scale)})
-		else:
-			attach_reward(player, _preferred_attachment_target(player, "charge"), {"kind": "charge_attack_multiplier", "value": 1.2, "label": "充能：下一次攻击效果 x1.2"})
-		player["elite_rewards"] += 1
-	else:
-		var boss_cycle := int(player["boss_rewards"]) % 3
-		if boss_cycle == 0:
-			attach_reward(player, _preferred_attachment_target(player, "attack"), {"kind": "attack", "value": 8 + fixed_scale, "label": "攻击 +%d" % (8 + fixed_scale)})
-		elif boss_cycle == 1:
-			attach_reward(player, _preferred_attachment_target(player, "charge"), {"kind": "charge_repeat_defense", "value": 1, "label": "充能：下一次防御追加一次结算"})
-		else:
-			attach_reward(player, _preferred_attachment_target(player, "skill"), {"kind": "skill_power", "value": 0.10, "label": "技能倍率 +0.10"})
-		_unlock_next_skill(player)
-		player["boss_rewards"] += 1
-	_recalculate_player_stats(player, false)
-	_apply_limited_post_battle_recovery(player, battle_type)
+	simulation_rewards.apply_formal_reward(player, battle_type, tower_floor, character)
 
 
 func _apply_limited_post_battle_recovery(player: Dictionary, battle_type: String) -> void:
-	var cap := int(floor(float(player["max_hp"]) * 0.80))
-	if int(player["hp"]) >= cap:
-		return
-	player["hp"] = mini(cap, int(player["hp"]) + _reward_heal_amount(battle_type, player))
+	simulation_rewards.apply_limited_post_battle_recovery(player, battle_type)
 
 
 func _reward_heal_amount(battle_type: String, player: Dictionary) -> int:
-	if battle_type == "boss":
-		return int(round(float(player["max_hp"]) * 0.35))
-	if battle_type == "elite":
-		return int(round(float(player["max_hp"]) * 0.18))
-	return int(round(float(player["max_hp"]) * 0.08))
+	return simulation_rewards.reward_heal_amount(battle_type, player)
 
 
 func equip_item(player: Dictionary, item_id: String) -> void:
-	var item: Dictionary = DataCatalog.EQUIPMENT[item_id]
-	player["equipment"][item["slot"]] = item_id
-	if not player["equipment_ids"].has(item_id):
-		player["equipment_ids"].append(item_id)
+	character.equip_item(player, item_id)
 
 
 func unlock_skill(player: Dictionary, skill_id: String, equip_now: bool) -> void:
-	if not player["unlocked_skills"].has(skill_id):
-		player["unlocked_skills"].append(skill_id)
-	if equip_now and not player["equipped_skills"].has(skill_id) and player["equipped_skills"].size() < 4:
-		player["equipped_skills"].append(skill_id)
+	character.unlock_skill(player, skill_id, equip_now)
 
 
 func _unlock_next_skill(player: Dictionary) -> void:
-	var class_id: String = player["class_id"]
-	for skill_id in DataCatalog.SKILLS.keys():
-		var skill: Dictionary = DataCatalog.SKILLS[skill_id]
-		if skill.get("class", "") == class_id and not player["unlocked_skills"].has(skill_id):
-			unlock_skill(player, skill_id, player["equipped_skills"].size() < 4)
-			return
-	for skill_id in DataCatalog.SKILLS.keys():
-		var skill: Dictionary = DataCatalog.SKILLS[skill_id]
-		if skill.get("class", "") == "common" and not player["unlocked_skills"].has(skill_id):
-			unlock_skill(player, skill_id, player["equipped_skills"].size() < 4)
-			return
+	character.unlock_next_skill(player)
 
 
 func attach_reward(player: Dictionary, target: Dictionary, reward: Dictionary) -> void:
-	if target.is_empty():
-		return
-	if _is_charge_kind(String(reward.get("kind", ""))) and _charge_count(player) >= MAX_CHARGES:
-		return
-	var target_type := String(target.get("type", ""))
-	var target_id := String(target.get("id", ""))
-	if target_type == "" or target_id == "":
-		return
-	var key := "equipment_attachments" if target_type == "equipment" else "skill_attachments"
-	if not player.has(key):
-		player[key] = {}
-	if not player[key].has(target_id):
-		player[key][target_id] = []
-	var attachment := reward.duplicate(true)
-	attachment["kind"] = String(attachment.get("kind", ""))
-	attachment["label"] = String(attachment.get("label", ""))
-	attachment["target_type"] = target_type
-	attachment["target_id"] = target_id
-	player[key][target_id].append(attachment)
+	character.attach_reward(player, target, reward)
 
 
 func _charge_count(player: Dictionary) -> int:
-	var total := 0
-	for groups in [player.get("equipment_attachments", {}), player.get("skill_attachments", {})]:
-		for attachments in groups.values():
-			for attachment in attachments:
-				if _is_charge_kind(String(attachment.get("kind", ""))):
-					total += 1
-	return total
+	return character.charge_count(player)
 
 
 func _is_charge_kind(kind: String) -> bool:
-	return kind.begins_with("charge_")
+	return character.is_charge_kind(kind)
 
 
 func _preferred_attachment_target(player: Dictionary, reward_kind: String) -> Dictionary:
-	if reward_kind == "attack":
-		var weapon := _equipment_target_by_slot(player, "weapon")
-		if not weapon.is_empty():
-			return weapon
-	if reward_kind == "defense":
-		for slot in ["offhand", "body", "head", "legs"]:
-			var armor_target := _equipment_target_by_slot(player, slot)
-			if not armor_target.is_empty():
-				return armor_target
-	if reward_kind == "skill" and not player["equipped_skills"].is_empty():
-		return {"type": "skill", "id": String(player["equipped_skills"][0])}
-	if reward_kind == "state" and not player["equipment_ids"].is_empty():
-		return {"type": "equipment", "id": String(player["equipment_ids"][0])}
-	if reward_kind == "charge" and not player["equipment_ids"].is_empty():
-		return {"type": "equipment", "id": String(player["equipment_ids"][0])}
-	if not player["equipment_ids"].is_empty():
-		return {"type": "equipment", "id": String(player["equipment_ids"][0])}
-	if not player["equipped_skills"].is_empty():
-		return {"type": "skill", "id": String(player["equipped_skills"][0])}
-	return {}
+	return character.preferred_attachment_target(player, reward_kind)
 
 
 func _equipment_target_by_slot(player: Dictionary, slot: String) -> Dictionary:
-	var equipment: Dictionary = player.get("equipment", {})
-	if equipment.has(slot):
-		return {"type": "equipment", "id": String(equipment[slot])}
-	return {}
+	return character.equipment_target_by_slot(player, slot)
 
 
 func skill_attachment_bonus(player: Dictionary, skill_id: String, kind: String) -> int:
-	var total := 0
-	var attachments: Dictionary = player.get("skill_attachments", {})
-	for attachment in attachments.get(skill_id, []):
-		if _attachment_stat_kind(String(attachment.get("kind", ""))) == kind:
-			total += int(attachment.get("value", 0))
-	return total
+	return character.skill_attachment_bonus(player, skill_id, kind)
 
 
 func skill_multiplier_bonus(player: Dictionary, skill_id: String, kind: String = "") -> float:
-	var total := 0.0
-	var attachments: Dictionary = player.get("skill_attachments", {})
-	for attachment in attachments.get(skill_id, []):
-		var attachment_kind := _attachment_stat_kind(String(attachment.get("kind", "")))
-		if attachment_kind == "skill_power" or attachment_kind == kind:
-			total += _attachment_multiplier_value(float(attachment.get("value", 0.0)))
-	return total
+	return character.skill_multiplier_bonus(player, skill_id, kind)
 
 
 func _attachment_multiplier_value(value: float) -> float:
-	if absf(value) >= 1.0:
-		return value * 0.05
-	return value
+	return character.attachment_multiplier_value(value)
 
 
 func _recalculate_player_stats(player: Dictionary, reset_hp: bool) -> void:
-	if not player.has("base_block"):
-		var class_data: Dictionary = DataCatalog.CLASSES[String(player.get("class_id", "warrior"))]
-		player["base_block"] = int(class_data.get("base_block", 1))
-	if not player.has("block_bonus"):
-		player["block_bonus"] = 0
-	var hp := int(player["base_max_hp"]) + int(player["max_hp_bonus"])
-	var attack := int(player["base_attack"]) + int(player["attack_bonus"])
-	var defense := int(player["base_defense"]) + int(player["defense_bonus"])
-	var block_power := int(player["base_block"]) + int(player["block_bonus"])
-	player["state_attack_bonus"] = 0
-	player["state_defense_bonus"] = 0
-	var equipment_attachments: Dictionary = player.get("equipment_attachments", {})
-	for item_id in player["equipment_ids"]:
-		var item: Dictionary = DataCatalog.EQUIPMENT[item_id]
-		hp += int(item["hp"])
-		attack += int(item["attack"])
-		defense += int(item["armor"])
-		block_power += int(item.get("block", 0))
-		for attachment in equipment_attachments.get(item_id, []):
-			match _attachment_stat_kind(String(attachment.get("kind", ""))):
-				"attack":
-					attack += int(attachment.get("value", 0))
-				"defense":
-					defense += int(attachment.get("value", 0))
-				"hp":
-					hp += int(attachment.get("value", 0))
-				"state_attack":
-					player["state_attack_bonus"] += int(attachment.get("value", 0))
-				"state_defense":
-					player["state_defense_bonus"] += int(attachment.get("value", 0))
-	var skill_attachments: Dictionary = player.get("skill_attachments", {})
-	for skill_id in player["equipped_skills"]:
-		for attachment in skill_attachments.get(skill_id, []):
-			match _attachment_stat_kind(String(attachment.get("kind", ""))):
-				"hp":
-					hp += int(attachment.get("value", 0))
-				"state_attack":
-					player["state_attack_bonus"] += int(attachment.get("value", 0))
-				"state_defense":
-					player["state_defense_bonus"] += int(attachment.get("value", 0))
-	var old_max := int(player.get("max_hp", hp))
-	player["max_hp"] = hp
-	player["attack"] = attack
-	player["defense"] = defense
-	player["block_power"] = block_power
-	if reset_hp or not player.has("hp"):
-		player["hp"] = hp
-	else:
-		player["hp"] = mini(hp, int(player["hp"]) + maxi(0, hp - old_max))
+	character.recalculate_player_stats(player, reset_hp)
 
 
 func _attachment_stat_kind(kind: String) -> String:
-	match kind:
-		"attack":
-			return "attack"
-		"skill_power":
-			return "skill_power"
-		"defense":
-			return "defense"
-		"hp":
-			return "hp"
-		"state":
-			return "state_attack"
-		"state_defense":
-			return "state_defense"
-	return kind
+	return character.attachment_stat_kind(kind)
 
 
 func _failure(player: Dictionary, reason: String, battle_results: Array[Dictionary]) -> Dictionary:

@@ -3,8 +3,11 @@ class_name CombatEngine
 
 const DataCatalog = preload("res://scripts/core/data_catalog.gd")
 const Combatant = preload("res://scripts/core/combatant.gd")
+const EnemyActionRules = preload("res://scripts/core/enemy_action_rules.gd")
 
 const MAX_ROUNDS := 40
+
+var enemy_rules := EnemyActionRules.new()
 
 
 func run_battle(player: Dictionary, encounter: Dictionary, tower_floor: int, battle_index: int) -> Dictionary:
@@ -200,20 +203,7 @@ func _enemy_round_damage(enemy: Dictionary, round_index: int) -> int:
 
 
 func _enemy_attack_segments(enemy: Dictionary, round_index: int, first_strike: bool) -> Array[int]:
-	var damage := int(enemy["attack"])
-	var traits: Array = enemy["traits"]
-	if traits.has("claw"):
-		damage = int(round(float(damage) * 1.15))
-	if traits.has("enrage") and int(enemy["hp"]) <= int(enemy["max_hp"]) * 0.4:
-		damage = int(round(float(damage) * 1.30))
-	if first_strike:
-		damage = maxi(1, int(round(float(damage) * 0.75)))
-	var segments: Array[int] = [maxi(1, damage)]
-	if traits.has("swarm"):
-		segments.append(maxi(1, int(round(float(enemy["attack"]) * 0.35))))
-	if traits.has("summon") and round_index % 4 == 0:
-		segments.append(maxi(1, int(round(float(enemy["attack"]) * 0.50))))
-	return segments
+	return enemy_rules.attack_segments(enemy, round_index, first_strike)
 
 
 func _incoming_damage(enemies: Array[Dictionary], round_index: int) -> int:
@@ -286,16 +276,7 @@ func _enemy_defend(enemy: Dictionary, scale: float) -> void:
 
 
 func _enemy_intent(enemy: Dictionary, round_index: int) -> String:
-	var traits: Array = enemy["traits"]
-	if traits.has("taunt") and int(enemy.get("taunt", 0)) <= 0 and round_index % 3 == 1:
-		return "taunt"
-	if traits.has("tank") or traits.has("guard"):
-		return "defend" if round_index % 2 == 0 else "attack"
-	if traits.has("evade") and round_index % 3 == 0:
-		return "dodge"
-	if traits.has("fortify") and round_index % 2 == 0:
-		return "defend"
-	return "attack"
+	return enemy_rules.intent(enemy, round_index)
 
 
 func _clear_enemy_taunts(enemies: Array[Dictionary]) -> void:
@@ -470,11 +451,7 @@ func _attachment_multiplier_value(value: float) -> float:
 
 
 func _has_first_strike(enemies: Array[Dictionary]) -> bool:
-	for enemy in enemies:
-		var traits: Array = enemy["traits"]
-		if traits.has("first_strike"):
-			return true
-	return false
+	return enemy_rules.has_first_strike(enemies)
 
 
 func _alive_count(enemies: Array[Dictionary]) -> int:

@@ -12,6 +12,7 @@ const ChargeService = preload("res://scripts/core/charge_service.gd")
 const StateBuffService = preload("res://scripts/core/state_buff_service.gd")
 const RunProgressService = preload("res://scripts/core/run_progress_service.gd")
 const RewardApplyService = preload("res://scripts/core/reward_apply_service.gd")
+const EnemyActionRules = preload("res://scripts/core/enemy_action_rules.gd")
 
 const MAX_CHARGES := 5
 
@@ -24,6 +25,7 @@ var charge_service := ChargeService.new()
 var state_buffs := StateBuffService.new()
 var run_progress := RunProgressService.new()
 var reward_apply := RewardApplyService.new()
+var enemy_rules := EnemyActionRules.new()
 var rng := RandomNumberGenerator.new()
 
 var player: Dictionary = {}
@@ -322,7 +324,7 @@ func _enemy_attack(enemy: Dictionary, enemy_index: int, first_strike: bool) -> v
 
 
 func _enemy_attack_segments(enemy: Dictionary, first_strike: bool) -> Array[int]:
-	return battle_service.enemy_attack_segments(self, enemy, first_strike)
+	return enemy_rules.attack_segments(enemy, round_index, first_strike)
 
 
 func _trigger_counter_attack(enemy_index: int) -> void:
@@ -559,33 +561,13 @@ func _active_taunt_target() -> int:
 
 
 func _enemy_intent(enemy: Dictionary) -> String:
-	var traits: Array = enemy["traits"]
-	if traits.has("taunt") and int(enemy.get("taunt", 0)) <= 0 and round_index % 3 == 1:
-		return "taunt"
-	if traits.has("tank") or traits.has("guard"):
-		return "defend" if round_index % 2 == 0 else "attack"
-	if traits.has("evade") and round_index % 3 == 0:
-		return "dodge"
-	if traits.has("fortify") and round_index % 2 == 0:
-		return "defend"
-	return "attack"
+	return enemy_rules.intent(enemy, round_index)
 
 
 func enemy_intent_text(index: int) -> String:
 	if index < 0 or index >= enemies.size():
 		return "未知"
-	var traits: Array = enemies[index].get("traits", [])
-	if traits.has("cunning"):
-		return "狡诈"
-	var intent := _enemy_intent(enemies[index])
-	match intent:
-		"taunt":
-			return "嘲讽/防守"
-		"defend":
-			return "防守"
-		"dodge":
-			return "闪避"
-	return "攻击"
+	return enemy_rules.intent_text(enemies[index], round_index)
 
 
 func _alive_enemy_count() -> int:
@@ -597,11 +579,7 @@ func _alive_enemy_count() -> int:
 
 
 func _has_first_strike() -> bool:
-	for enemy in enemies:
-		var traits: Array = enemy["traits"]
-		if traits.has("first_strike"):
-			return true
-	return false
+	return enemy_rules.has_first_strike(enemies)
 
 
 func _state_name(card_id: String) -> String:

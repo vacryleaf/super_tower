@@ -8,6 +8,10 @@ const EquipmentOverlay = preload("res://scripts/ui/equipment_overlay.gd")
 const CampView = preload("res://scripts/ui/camp_view.gd")
 const ActionBarView = preload("res://scripts/ui/action_bar_view.gd")
 const CombatLogView = preload("res://scripts/ui/combat_log_view.gd")
+const EquipmentView = preload("res://scripts/ui/equipment_view.gd")
+const RunHudView = preload("res://scripts/ui/run_hud_view.gd")
+const EndScreenView = preload("res://scripts/ui/end_screen_view.gd")
+const TraitCatalog = preload("res://scripts/core/trait_catalog.gd")
 
 @onready var root: VBoxContainer = $Root
 
@@ -18,6 +22,10 @@ var equipment_overlay: EquipmentOverlay = EquipmentOverlay.new()
 var camp_view: CampView = CampView.new()
 var action_bar_view: ActionBarView = ActionBarView.new()
 var combat_log_view: CombatLogView = CombatLogView.new()
+var equipment_view: EquipmentView = EquipmentView.new()
+var run_hud_view: RunHudView = RunHudView.new()
+var end_screen_view: EndScreenView = EndScreenView.new()
+var trait_catalog: TraitCatalog = TraitCatalog.new()
 var selected_target := 0
 var render_queued := false
 var input_locked := false
@@ -72,19 +80,7 @@ func _render_menu() -> void:
 func _render_game() -> void:
 	render_queued = false
 	_clear_root()
-	var top := HBoxContainer.new()
-	top.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	top.add_child(_status_badge("第 %d 层" % session.floor_index, 22, Vector2(110, 42)))
-	top.add_child(_status_badge("第 %d 场" % session.battle_index, 22, Vector2(110, 42)))
-	top.add_child(_spacer())
-	if ["battle", "reward", "reward_target"].has(session.phase):
-		var end_run_button := Button.new()
-		end_run_button.text = "结束爬塔"
-		end_run_button.custom_minimum_size = Vector2(120, 42)
-		end_run_button.disabled = input_locked
-		end_run_button.pressed.connect(_on_end_run_to_camp_pressed)
-		top.add_child(end_run_button)
-	root.add_child(top)
+	run_hud_view.render(root, session, input_locked, Callable(self, "_on_end_run_to_camp_pressed"), Callable(self, "_status_badge"), Callable(self, "_spacer"))
 	var message_label := _label(session.message, 16)
 	message_label_node = message_label
 	message_label.custom_minimum_size = Vector2(0, 30)
@@ -158,8 +154,8 @@ func _enemy_card(index: int) -> Control:
 		index,
 		selected_target,
 		Callable(self, "_rank_label"),
-		Callable(self, "_trait_labels"),
-		Callable(self, "_trait_tooltip"),
+		Callable(trait_catalog, "labels"),
+		Callable(trait_catalog, "tooltip"),
 		Callable(self, "_on_enemy_card_pressed")
 	)
 	enemy_card_nodes[index] = button
@@ -167,7 +163,7 @@ func _enemy_card(index: int) -> Control:
 
 
 func _enemy_card_text(index: int, selected: String = "") -> String:
-	return battle_view.enemy_card_text(session, index, selected, Callable(self, "_rank_label"), Callable(self, "_trait_labels"))
+	return battle_view.enemy_card_text(session, index, selected, Callable(self, "_rank_label"), Callable(trait_catalog, "labels"))
 
 
 func _render_player_status(parent: Control) -> void:
@@ -194,65 +190,8 @@ func _render_actions(parent: Control) -> void:
 	charge_buttons = controls["charge_buttons"]
 
 
-func _equipment_panel() -> Control:
-	var panel := PanelContainer.new()
-	panel.custom_minimum_size = Vector2(720, 460)
-	var outer := VBoxContainer.new()
-	panel.add_child(outer)
-	var header := HBoxContainer.new()
-	header.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	outer.add_child(header)
-	header.add_child(_label("装备", 22))
-	header.add_child(_spacer())
-	var close_button := Button.new()
-	close_button.text = "关闭"
-	close_button.custom_minimum_size = Vector2(84, 38)
-	close_button.pressed.connect(_on_equipment_close_pressed)
-	header.add_child(close_button)
-	var columns := HBoxContainer.new()
-	columns.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	outer.add_child(columns)
-
-	var body_slots := VBoxContainer.new()
-	body_slots.custom_minimum_size = Vector2(230, 0)
-	columns.add_child(body_slots)
-	body_slots.add_child(_label("人体装备栏", 16))
-	for slot in ["head", "body", "waist", "legs", "hands", "leggings", "feet", "weapon", "offhand", "necklace", "ring"]:
-		body_slots.add_child(_label("%s：%s" % [_slot_label(slot), _equipped_name(slot)], 13))
-
-	var bag_scroll := ScrollContainer.new()
-	bag_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	bag_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	columns.add_child(bag_scroll)
-	var bag := VBoxContainer.new()
-	bag.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	bag_scroll.add_child(bag)
-	bag.add_child(_label("本局背包", 16))
-	if session.player["equipment_ids"].is_empty():
-		bag.add_child(_label("暂无本局装备。", 13))
-	else:
-		for item_id in session.player["equipment_ids"]:
-			var item: Dictionary = DataCatalog.EQUIPMENT[item_id]
-			bag.add_child(_label("%s\n%s  生命+%d 攻击+%d 护甲+%d 格挡+%d\n%s" % [
-				item["name"],
-				_slot_label(item["slot"]),
-				int(item["hp"]),
-				int(item["attack"]),
-				int(item["armor"]),
-				int(item.get("block", 0)),
-				_attachment_summary("equipment", item_id)
-			], 12))
-	bag.add_child(_label("技能附着", 16))
-	for skill_id in session.player["equipped_skills"]:
-		bag.add_child(_label("%s\n%s" % [
-			DataCatalog.SKILLS[skill_id]["name"],
-			_attachment_summary("skill", skill_id)
-		], 12))
-	return panel
-
-
 func _show_equipment_overlay() -> void:
-	equipment_overlay.show(self, _equipment_panel())
+	equipment_overlay.show(self, equipment_view.panel(session, Callable(self, "_label"), Callable(self, "_on_equipment_close_pressed")))
 
 
 func _on_continue_pressed() -> void:
@@ -330,6 +269,11 @@ func _on_reward_target_pressed(index: int) -> void:
 	_persist_session()
 	selected_target = 0
 	_request_game_render()
+
+
+func _on_return_to_menu_pressed() -> void:
+	session = PlaySession.new()
+	_request_menu_render()
 
 
 func _run_action(action: Callable) -> void:
@@ -428,37 +372,13 @@ func _render_reward_target() -> void:
 		session.reward_targets,
 		Callable(self, "_on_reward_target_pressed"),
 		Callable(self, "_label"),
-		Callable(self, "_target_label"),
+		Callable(equipment_view, "target_label"),
 		Callable(self, "_attachment_summary")
 	)
 
 
 func _render_end_screen(title: String, subtitle: String) -> void:
-	root.add_child(_label(title, 30))
-	root.add_child(_label(subtitle, 18))
-	root.add_child(_action_button("返回主菜单", func() -> void:
-		session = PlaySession.new()
-		_request_menu_render()
-	))
-
-
-func _render_character_panel(parent: Control) -> void:
-	var panel := PanelContainer.new()
-	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var box := VBoxContainer.new()
-	box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	panel.add_child(box)
-	box.add_child(_label("角色", 18))
-	box.add_child(_label("职业：%s" % DataCatalog.CLASSES[session.class_id]["name"], 14))
-	box.add_child(_label("攻击 %d  护甲 %d  格挡值 %d  生命上限 %d" % [int(session.player["attack"]), int(session.player["defense"]), int(session.player["block_power"]), int(session.player["max_hp"])], 14))
-	box.add_child(_label("装备", 16))
-	for item_id in session.player["equipment_ids"]:
-		var item: Dictionary = DataCatalog.EQUIPMENT[item_id]
-		box.add_child(_label("%s：%s  生命+%d 攻击+%d 护甲+%d 格挡+%d" % [_slot_label(item["slot"]), item["name"], int(item["hp"]), int(item["attack"]), int(item["armor"]), int(item.get("block", 0))], 12))
-	box.add_child(_label("已解锁技能", 16))
-	for skill_id in session.player["unlocked_skills"]:
-		box.add_child(_label("- %s" % DataCatalog.SKILLS[skill_id]["name"], 12))
-	parent.add_child(panel)
+	end_screen_view.render(root, title, subtitle, Callable(self, "_on_return_to_menu_pressed"), Callable(self, "_label"))
 
 
 func _render_log(parent: Control) -> void:
@@ -476,7 +396,7 @@ func _refresh_battle_ui() -> void:
 		if is_instance_valid(button) and index < session.enemies.size():
 			var selected := ">" if int(index) == selected_target else ""
 			button.text = _enemy_card_text(int(index), selected)
-			button.tooltip_text = _trait_tooltip(session.enemies[index]["traits"])
+			button.tooltip_text = trait_catalog.tooltip(session.enemies[index]["traits"])
 			button.disabled = int(session.enemies[index]["hp"]) <= 0
 	if player_status_labels.has("action"):
 		player_status_labels["action"].text = "行动力 %d/%d" % [session.action_points, session.max_action_points]
@@ -551,14 +471,6 @@ func _spacer_vertical() -> Control:
 	return spacer
 
 
-func _equipped_name(slot: String) -> String:
-	var equipment: Dictionary = session.player.get("equipment", {})
-	if equipment.has(slot):
-		var item_id: String = equipment[slot]
-		return DataCatalog.EQUIPMENT[item_id]["name"]
-	return "空"
-
-
 func _rank_label(rank: String) -> String:
 	match rank:
 		"normal":
@@ -570,110 +482,5 @@ func _rank_label(rank: String) -> String:
 	return rank
 
 
-func _slot_label(slot: String) -> String:
-	var labels := {
-		"head": "头部",
-		"body": "上身",
-		"waist": "腰部",
-		"legs": "下身",
-		"hands": "手部",
-		"leggings": "护腿",
-		"feet": "脚部",
-		"weapon": "武器",
-		"offhand": "副手",
-		"necklace": "项链",
-		"ring": "戒指"
-	}
-	return labels.get(slot, slot)
-
-
-func _target_label(target: Dictionary) -> String:
-	var target_type := String(target.get("type", ""))
-	var target_id := String(target.get("id", ""))
-	if target_type == "equipment" and DataCatalog.EQUIPMENT.has(target_id):
-		var item: Dictionary = DataCatalog.EQUIPMENT[target_id]
-		return "装备：%s（%s）" % [item["name"], _slot_label(item["slot"])]
-	if target_type == "skill" and DataCatalog.SKILLS.has(target_id):
-		var skill: Dictionary = DataCatalog.SKILLS[target_id]
-		return "技能：%s" % skill["name"]
-	return target_id
-
-
 func _attachment_summary(target_type: String, target_id: String) -> String:
-	var key := "equipment_attachments" if target_type == "equipment" else "skill_attachments"
-	var groups: Dictionary = session.player.get(key, {})
-	var attachments: Array = groups.get(target_id, [])
-	if attachments.is_empty():
-		return "附着：无"
-	var labels: Array[String] = []
-	for attachment in attachments:
-		labels.append(String(attachment.get("label", attachment.get("kind", ""))).replace("状态卡", "状态 Buff"))
-	return "附着：" + "、".join(labels)
-
-
-func _trait_labels(traits: Array) -> String:
-	if traits.is_empty():
-		return "无"
-	var labels := {
-		"swarm": "群袭",
-		"claw": "利爪",
-		"thick_skin": "厚皮",
-		"break_armor": "破甲",
-		"first_strike": "先手",
-		"cunning": "狡诈",
-		"mark": "标记",
-		"curse": "诅咒",
-		"guard": "护卫",
-		"tank": "肉盾",
-		"taunt": "嘲讽",
-		"backline": "后排",
-		"fortify": "固守",
-		"summon": "召唤",
-		"revive": "复苏",
-		"enrage": "狂暴",
-		"evade": "闪身",
-		"spell_shield": "法盾",
-		"charge": "充能",
-		"split": "裂变",
-		"corrode": "腐蚀",
-		"support": "辅助",
-		"phase": "阶段"
-	}
-	var result: Array[String] = []
-	for trait_id in traits:
-		result.append(labels.get(trait_id, trait_id))
-	return "、".join(result)
-
-
-func _trait_tooltip(traits: Array) -> String:
-	if traits.is_empty():
-		return "特性：无\n该敌人没有额外战斗规则。"
-	var descriptions := {
-		"swarm": "群袭：攻击时追加一段小额伤害。",
-		"claw": "利爪：攻击伤害提高。",
-		"thick_skin": "厚皮：入场获得额外护甲。",
-		"break_armor": "破甲：设计定位为削弱护甲的攻击型敌人。",
-		"first_strike": "先手：战斗开始时会先进行一次削弱后的攻击。",
-		"cunning": "狡诈：隐藏真实意图，界面只显示狡诈而不会显示攻击、防守或闪避。",
-		"mark": "标记：设计定位为提高后续输出压力。",
-		"curse": "诅咒：每隔数回合对玩家造成直接伤害。",
-		"guard": "护卫：会交替攻击与防守。",
-		"tank": "肉盾：倾向于防守，保护队伍后排。",
-		"taunt": "嘲讽：部分回合会嘲讽并防守，强制玩家优先攻击它。",
-		"backline": "后排：队伍中的输出手，通常由前排保护。",
-		"fortify": "固守：偶数回合会获得额外格挡。",
-		"summon": "召唤：每隔数回合追加一段伤害压力。",
-		"revive": "复苏：每隔数回合恢复少量生命。",
-		"enrage": "狂暴：低生命时攻击伤害提高。",
-		"evade": "闪身：部分回合准备闪避，抵消下一次命中。",
-		"spell_shield": "法盾：设计定位为抵御技能爆发。",
-		"charge": "充能：设计定位为蓄力后的高压行动。",
-		"split": "裂变：设计定位为多阶段或分裂战斗。",
-		"corrode": "腐蚀：设计定位为持续削弱玩家防御。",
-		"support": "辅助：队伍中的辅助单位。",
-		"phase": "阶段：首领拥有阶段变化。"
-	}
-	var lines: Array[String] = ["特性说明"]
-	for trait_id in traits:
-		lines.append(descriptions.get(trait_id, "%s：暂无说明。" % trait_id))
-	return "\n".join(lines)
+	return equipment_view.attachment_summary(session, target_type, target_id)

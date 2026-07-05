@@ -216,17 +216,4 @@ func enemy_attack(session: RefCounted, enemy: Dictionary, enemy_index: int, firs
 
 
 func enemy_attack_segments(session: RefCounted, enemy: Dictionary, first_strike: bool) -> Array[int]:
-	var base_damage := int(enemy["attack"])
-	var traits: Array = enemy.get("traits", [])
-	if traits.has("claw"):
-		base_damage = int(round(float(base_damage) * 1.15))
-	if traits.has("enrage") and int(enemy["hp"]) <= int(enemy["max_hp"]) * 0.4:
-		base_damage = int(round(float(base_damage) * 1.30))
-	if first_strike:
-		base_damage = maxi(1, int(round(float(base_damage) * 0.75)))
-	var segments: Array[int] = [maxi(1, base_damage)]
-	if traits.has("swarm"):
-		segments.append(maxi(1, int(round(float(enemy["attack"]) * 0.35))))
-	if traits.has("summon") and session.round_index % 4 == 0:
-		segments.append(maxi(1, int(round(float(enemy["attack"]) * 0.50))))
-	return segments
+	return session._enemy_attack_segments(enemy, first_strike)
