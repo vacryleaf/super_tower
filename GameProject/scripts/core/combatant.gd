@@ -50,21 +50,26 @@ static func from_enemy_unit(unit: Dictionary, encounter_type: String, tower_floo
 
 
 static func scaled_enemy(unit: Dictionary, tower_floor: int, rank: String, formation_scale: float = 1.0) -> Dictionary:
-	var growth: float = 1.0 + 0.08 * float(tower_floor - 1) + 0.25 * floor(float(tower_floor - 1) / 10.0)
-	var base_hp := 24.0 + 5.0 * tower_floor
-	var base_attack := 5.0 + 1.2 * tower_floor
-	var base_defense := 2.0 + 0.6 * tower_floor
+	var post_gate := maxi(0, tower_floor - 5)
+	var growth: float = 1.0 \
+		+ 0.08 * float(tower_floor - 1) \
+		+ 0.45 * float(post_gate) \
+		+ 0.15 * float(post_gate * post_gate) \
+		+ 0.25 * floor(float(tower_floor - 1) / 10.0)
+	var base_hp := 22.0 + 4.6 * tower_floor
+	var base_attack := 4.2 + 1.0 * tower_floor
+	var base_defense := 1.6 + 0.5 * tower_floor
 	var rank_hp := 1.0
 	var rank_attack := 1.0
 	var rank_defense := 1.0
 	if rank == "elite":
-		rank_hp = 2.4
-		rank_attack = 1.35
-		rank_defense = 1.5
+		rank_hp = 2.0
+		rank_attack = 1.2
+		rank_defense = 1.3
 	elif rank == "boss":
-		rank_hp = 5.0
-		rank_attack = 1.7
-		rank_defense = 2.2
+		rank_hp = 3.4
+		rank_attack = 1.4
+		rank_defense = 1.8
 
 	var hp := maxi(1, int(round(base_hp * growth * float(unit.get("hp", 1.0)) * rank_hp * formation_scale)))
 	var attack := maxi(1, int(round(base_attack * growth * float(unit.get("attack", 1.0)) * rank_attack * formation_scale)))

@@ -169,6 +169,7 @@ func _render_battle() -> void:
 	combat_area.add_child(_label("敌人", 20))
 	var enemy_row := HBoxContainer.new()
 	enemy_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	enemy_row.alignment = BoxContainer.ALIGNMENT_CENTER
 	combat_area.add_child(enemy_row)
 	for i in range(session.enemies.size()):
 		enemy_row.add_child(_enemy_card(i))
@@ -201,8 +202,8 @@ func _render_battle() -> void:
 func _enemy_card(index: int) -> Control:
 	var enemy: Dictionary = session.enemies[index]
 	var button := Button.new()
-	button.custom_minimum_size = Vector2(220, 184)
-	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	button.custom_minimum_size = Vector2(168, 172)
+	button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	var selected := ">" if index == selected_target else ""
 	button.text = _enemy_card_text(index, selected)
 	button.tooltip_text = _trait_tooltip(enemy["traits"])

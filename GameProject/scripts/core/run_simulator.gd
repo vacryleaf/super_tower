@@ -267,21 +267,33 @@ func _apply_tutorial_unlock(player: Dictionary, battle_zero_index: int) -> void:
 func _apply_formal_reward(player: Dictionary, battle_type: String, tower_floor: int) -> void:
 	var fixed_scale := maxi(0, int(floor(float(tower_floor - 1) / 10.0)))
 	if battle_type == "normal":
-		attach_reward(player, _preferred_attachment_target(player, "attack"), {"kind": "attack", "value": 2 + fixed_scale, "label": "攻击 +%d" % (2 + fixed_scale)})
-		attach_reward(player, _preferred_attachment_target(player, "defense"), {"kind": "defense", "value": 1 + fixed_scale, "label": "护甲 +%d" % (1 + fixed_scale)})
-		attach_reward(player, _preferred_attachment_target(player, "charge"), {"kind": "charge_bonus_damage", "value": 7 + fixed_scale, "label": "充能：下一次攻击附加 %d 点伤害" % (7 + fixed_scale)})
+		var reward_cycle := int(player["normal_rewards"]) % 4
+		if reward_cycle == 0:
+			attach_reward(player, _preferred_attachment_target(player, "attack"), {"kind": "attack", "value": 2 + fixed_scale, "label": "攻击 +%d" % (2 + fixed_scale)})
+		elif reward_cycle == 1:
+			attach_reward(player, _preferred_attachment_target(player, "defense"), {"kind": "defense", "value": 1 + fixed_scale, "label": "护甲 +%d" % (1 + fixed_scale)})
+		elif reward_cycle == 2:
+			attach_reward(player, _preferred_attachment_target(player, "hp"), {"kind": "hp", "value": 6 + fixed_scale, "label": "生命上限 +%d" % (6 + fixed_scale)})
+		else:
+			attach_reward(player, _preferred_attachment_target(player, "charge"), {"kind": "charge_bonus_damage", "value": 7 + fixed_scale, "label": "充能：下一次攻击附加 %d 点伤害" % (7 + fixed_scale)})
 		player["normal_rewards"] += 1
 	elif battle_type == "elite":
-		attach_reward(player, _preferred_attachment_target(player, "attack"), {"kind": "attack", "value": 4 + fixed_scale, "label": "攻击 +%d" % (4 + fixed_scale)})
-		attach_reward(player, _preferred_attachment_target(player, "defense"), {"kind": "defense", "value": 2 + fixed_scale, "label": "护甲 +%d" % (2 + fixed_scale)})
-		attach_reward(player, _preferred_attachment_target(player, "charge"), {"kind": "charge_attack_multiplier", "value": 1.2, "label": "充能：下一次攻击效果 x1.2"})
-		attach_reward(player, _preferred_attachment_target(player, "charge"), {"kind": "charge_repeat_attack", "value": 1, "label": "充能：下一次攻击追加一次结算"})
+		var elite_cycle := int(player["elite_rewards"]) % 3
+		if elite_cycle == 0:
+			attach_reward(player, _preferred_attachment_target(player, "attack"), {"kind": "attack", "value": 4 + fixed_scale, "label": "攻击 +%d" % (4 + fixed_scale)})
+		elif elite_cycle == 1:
+			attach_reward(player, _preferred_attachment_target(player, "hp"), {"kind": "hp", "value": 18 + fixed_scale, "label": "生命上限 +%d" % (18 + fixed_scale)})
+		else:
+			attach_reward(player, _preferred_attachment_target(player, "charge"), {"kind": "charge_attack_multiplier", "value": 1.2, "label": "充能：下一次攻击效果 x1.2"})
 		player["elite_rewards"] += 1
 	else:
-		attach_reward(player, _preferred_attachment_target(player, "attack"), {"kind": "attack", "value": 8 + fixed_scale, "label": "攻击 +%d" % (8 + fixed_scale)})
-		attach_reward(player, _preferred_attachment_target(player, "charge"), {"kind": "charge_defense_multiplier", "value": 1.25, "label": "充能：下一次防御效果 x1.25"})
-		attach_reward(player, _preferred_attachment_target(player, "charge"), {"kind": "charge_repeat_defense", "value": 1, "label": "充能：下一次防御追加一次结算"})
-		attach_reward(player, _preferred_attachment_target(player, "skill"), {"kind": "skill_power", "value": 2, "label": "技能效果 +2"})
+		var boss_cycle := int(player["boss_rewards"]) % 3
+		if boss_cycle == 0:
+			attach_reward(player, _preferred_attachment_target(player, "attack"), {"kind": "attack", "value": 8 + fixed_scale, "label": "攻击 +%d" % (8 + fixed_scale)})
+		elif boss_cycle == 1:
+			attach_reward(player, _preferred_attachment_target(player, "charge"), {"kind": "charge_repeat_defense", "value": 1, "label": "充能：下一次防御追加一次结算"})
+		else:
+			attach_reward(player, _preferred_attachment_target(player, "skill"), {"kind": "skill_power", "value": 2, "label": "技能效果 +2"})
 		_unlock_next_skill(player)
 		player["boss_rewards"] += 1
 	_recalculate_player_stats(player, false)

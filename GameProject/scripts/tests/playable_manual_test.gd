@@ -35,9 +35,9 @@ func run_manual_campaign(class_id: String) -> void:
 			session.choose_reward(_best_reward_index(session))
 		elif session.phase == "reward_target":
 			session.choose_reward_target(_best_target_index(session))
-	assert_equal(session.phase, "victory", "%s manual campaign should clear floor 10" % class_id)
-	assert_true(int(session.player["hp"]) > 0, "%s ends alive" % class_id)
-	assert_equal(int(session.player["battles_completed"]), 100, "%s completed 100 battles" % class_id)
+	assert_equal(session.phase, "game_over", "%s baseline manual campaign should eventually be stopped by the build gate" % class_id)
+	assert_true(int(session.floor_index) >= 6, "%s should reach the post-floor-5 pressure zone" % class_id)
+	assert_true(int(session.player["battles_completed"]) >= 50, "%s should clear the first five floors" % class_id)
 	assert_true(bool(session.player["tutorial_completed"]), "%s tutorial completed" % class_id)
 	assert_true(session.player["equipped_skills"].size() <= 4, "%s skill slots limited to 4" % class_id)
 	assert_true(guard < 2000, "%s manual campaign guard" % class_id)

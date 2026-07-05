@@ -22,6 +22,7 @@ func _init() -> void:
 func run_all() -> void:
 	test_state_card_weights()
 	test_player_armor_baseline_is_low()
+	test_basic_equipment_values()
 	test_block_power_is_separate_from_armor()
 	test_enemy_block_power_is_separate_from_armor()
 	test_player_and_enemy_share_combatant_contract()
@@ -42,8 +43,8 @@ func run_all() -> void:
 	test_tutorial_unlocks("archer")
 	test_encounter_generation()
 	test_late_battles_are_stronger_than_openers()
-	test_campaign_floors_1_to_10("warrior")
-	test_campaign_floors_1_to_10("archer")
+	test_baseline_campaign_difficulty_gate("warrior")
+	test_baseline_campaign_difficulty_gate("archer")
 
 
 func test_state_card_weights() -> void:
@@ -60,6 +61,34 @@ func test_player_armor_baseline_is_low() -> void:
 	for item_id in DataCatalog.EQUIPMENT.keys():
 		assert_true(int(DataCatalog.EQUIPMENT[item_id]["armor"]) <= 2, "%s equipment armor cap" % item_id)
 		assert_true(DataCatalog.EQUIPMENT[item_id].has("block"), "%s equipment has block" % item_id)
+
+
+func test_basic_equipment_values() -> void:
+	var expected := {
+		"warrior_training_helm": {"hp": 3, "attack": 0, "armor": 1, "block": 0},
+		"warrior_old_chest": {"hp": 4, "attack": 0, "armor": 1, "block": 1},
+		"warrior_soldier_belt": {"hp": 2, "attack": 0, "armor": 0, "block": 0},
+		"warrior_practice_greaves": {"hp": 3, "attack": 0, "armor": 1, "block": 1},
+		"warrior_cloth_gloves": {"hp": 1, "attack": 0, "armor": 0, "block": 0},
+		"warrior_old_leggings": {"hp": 2, "attack": 0, "armor": 1, "block": 0},
+		"warrior_march_boots": {"hp": 1, "attack": 0, "armor": 0, "block": 0},
+		"warrior_training_sword": {"hp": 0, "attack": 3, "armor": 0, "block": 0},
+		"warrior_wooden_shield": {"hp": 0, "attack": 0, "armor": 2, "block": 2},
+		"archer_practice_hood": {"hp": 3, "attack": 1, "armor": 0, "block": 0},
+		"archer_old_leather": {"hp": 4, "attack": 0, "armor": 1, "block": 1},
+		"archer_hunter_belt": {"hp": 2, "attack": 0, "armor": 0, "block": 0},
+		"archer_light_pants": {"hp": 3, "attack": 0, "armor": 1, "block": 1},
+		"archer_bracers": {"hp": 1, "attack": 0, "armor": 0, "block": 0},
+		"archer_soft_leggings": {"hp": 2, "attack": 0, "armor": 1, "block": 0},
+		"archer_light_boots": {"hp": 1, "attack": 0, "armor": 0, "block": 0},
+		"archer_practice_bow": {"hp": 0, "attack": 3, "armor": 0, "block": 0},
+		"archer_simple_quiver": {"hp": 0, "attack": 2, "armor": 0, "block": 2}
+	}
+	for item_id in expected.keys():
+		var item: Dictionary = DataCatalog.EQUIPMENT[item_id]
+		var values: Dictionary = expected[item_id]
+		for key in values.keys():
+			assert_equal(int(item[key]), int(values[key]), "%s %s value" % [item_id, key])
 
 
 func test_block_power_is_separate_from_armor() -> void:
@@ -509,24 +538,37 @@ func test_late_battles_are_stronger_than_openers() -> void:
 		assert_true((late_total / 6.0) > (opener_total / 3.0), "floor %d battles 4-9 average threat should exceed battles 1-3" % tower_floor)
 
 
-func test_campaign_floors_1_to_10(class_id: String) -> void:
+func test_baseline_campaign_difficulty_gate(class_id: String) -> void:
 	var simulator := RunSimulator.new()
-	var result := simulator.run_campaign(class_id, 10)
-	assert_true(result["success"], "%s floors 1-10 campaign must complete" % class_id)
-	assert_equal(int(result["floors_completed"]), 10, "%s completed floor count" % class_id)
-	assert_equal(int(result["battles_completed"]), 100, "%s completed battle count" % class_id)
-	assert_equal(int(result["normal_rewards"]), 63, "%s normal reward count for floors 2-10" % class_id)
-	assert_equal(int(result["elite_rewards"]), 18, "%s elite reward count for floors 2-10" % class_id)
-	assert_equal(int(result["boss_rewards"]), 9, "%s boss reward count for floors 2-10" % class_id)
-	assert_true(int(result["hp"]) > 0, "%s final hp above zero" % class_id)
+	var floor_five := simulator.run_campaign(class_id, 5)
+	assert_true(floor_five["success"], "%s baseline campaign should clear floor 5, failed at floor %d battle %d" % [
+		class_id,
+		int(floor_five.get("failed_floor", 0)),
+		_failed_battle(floor_five)
+	])
+	if bool(floor_five["success"]):
+		assert_equal(int(floor_five["floors_completed"]), 5, "%s completed floor count before build gate" % class_id)
+		assert_equal(int(floor_five["battles_completed"]), 50, "%s completed battle count through floor 5" % class_id)
+		assert_equal(int(floor_five["normal_rewards"]), 28, "%s normal reward count for floors 2-5" % class_id)
+		assert_equal(int(floor_five["elite_rewards"]), 8, "%s elite reward count for floors 2-5" % class_id)
+		assert_equal(int(floor_five["boss_rewards"]), 4, "%s boss reward count for floors 2-5" % class_id)
+		assert_true(int(floor_five["hp"]) > 0, "%s floor 5 final hp above zero" % class_id)
 
-	var player: Dictionary = result["player"]
-	assert_true(player["tutorial_completed"], "%s campaign tutorial flag" % class_id)
-	assert_true(player["equipped_skills"].size() <= 4, "%s max four skill slots" % class_id)
-	assert_true(_has_no_duplicates(player["unlocked_skills"]), "%s skill unlocks must not duplicate" % class_id)
+		var player: Dictionary = floor_five["player"]
+		assert_true(player["tutorial_completed"], "%s campaign tutorial flag" % class_id)
+		assert_true(player["equipped_skills"].size() <= 4, "%s max four skill slots" % class_id)
+		assert_true(_has_no_duplicates(player["unlocked_skills"]), "%s skill unlocks must not duplicate" % class_id)
 
-	for floor_summary in result["floor_summaries"]:
-		assert_equal(int(floor_summary["battles"]), 10, "%s floor %d has ten battles" % [class_id, int(floor_summary["floor"])])
+		for floor_summary in floor_five["floor_summaries"]:
+			assert_equal(int(floor_summary["battles"]), 10, "%s floor %d has ten battles" % [class_id, int(floor_summary["floor"])])
+
+	var deep_attempt := simulator.run_campaign(class_id, 10)
+	assert_true(not bool(deep_attempt["success"]), "%s baseline campaign should not clear floor 10 without stronger set synergies" % class_id)
+	assert_true(int(deep_attempt["failed_floor"]) >= 6, "%s baseline failure should happen after floor 5, got floor %d battle %d" % [
+		class_id,
+		int(deep_attempt.get("failed_floor", 0)),
+		_failed_battle(deep_attempt)
+	])
 
 
 func _force_win(session) -> void:
@@ -540,6 +582,14 @@ func _encounter_threat(combat: CombatEngine, encounter: Dictionary, tower_floor:
 	for enemy in combat._build_enemies(encounter, tower_floor):
 		total += float(enemy["max_hp"]) + float(enemy["attack"]) * 5.0 + float(enemy["defense"]) * 2.5 + float(enemy["armor"]) + float(enemy.get("block_power", 0))
 	return total
+
+
+func _failed_battle(result: Dictionary) -> int:
+	var summaries: Array = result.get("floor_summaries", [])
+	if summaries.is_empty():
+		return 0
+	var last: Dictionary = summaries[summaries.size() - 1]
+	return int(last.get("battle", 0))
 
 
 func _has_no_duplicates(values: Array) -> bool:
