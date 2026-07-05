@@ -498,28 +498,112 @@ func _build_reward_options() -> void:
 		return
 	var encounter_type := String(current_encounter["type"])
 	if encounter_type == "normal":
-		reward_options = [
-			{"kind": "attack", "label": "攻击 +%d" % _floor_value(3), "value": _floor_value(3)},
-			{"kind": "hp", "label": "生命上限 +%d" % _floor_value(6), "value": _floor_value(6)},
-			{"kind": "charge_bonus_damage", "label": "充能：下一次攻击附加 %d 点伤害" % _floor_value(8), "value": _floor_value(8)}
-		]
+		reward_options = _random_reward_options("normal", 3)
 		player["normal_rewards"] += 1
 	elif encounter_type == "elite":
-		reward_options = [
-			{"kind": "attack", "label": "精英奖励：攻击 +%d" % _floor_value(5), "value": _floor_value(5)},
-			{"kind": "defense", "label": "精英奖励：护甲 +%d" % _floor_value(2), "value": _floor_value(2)},
-			{"kind": "charge_attack_multiplier", "label": "充能：下一次攻击效果 x1.2", "value": 1.2},
-			{"kind": "charge_repeat_attack", "label": "充能：下一次攻击追加一次结算", "value": 1}
-		]
+		reward_options = _random_reward_options("elite", 4)
 		player["elite_rewards"] += 1
 	else:
-		reward_options = [
-			{"kind": "attack", "label": "Boss 五选一卡牌：攻击 +%d" % _floor_value(8), "value": _floor_value(8)},
-			{"kind": "charge_defense_multiplier", "label": "Boss 五选一卡牌：充能：下一次防御效果 x1.25", "value": 1.25},
-			{"kind": "skill", "label": "技能分支：解锁一个不重复技能", "value": 0}
-		]
+		reward_options = _random_reward_options("boss", 4)
+		reward_options.append({"kind": "skill", "label": "技能分支：解锁一个不重复技能", "value": 0})
+		reward_options = _sample_rewards(reward_options, reward_options.size())
 		player["boss_rewards"] += 1
 	message = "选择一个奖励。"
+
+
+func _random_reward_options(reward_rank: String, count: int) -> Array[Dictionary]:
+	var pool := _reward_pool(reward_rank)
+	if available_charges().size() >= MAX_CHARGES:
+		var filtered: Array[Dictionary] = []
+		for reward in pool:
+			if not _is_charge_reward(reward):
+				filtered.append(reward)
+		pool = filtered
+	return _sample_rewards_with_core(pool, count)
+
+
+func _reward_pool(reward_rank: String) -> Array[Dictionary]:
+	var prefix := ""
+	if reward_rank == "elite":
+		prefix = "精英奖励："
+	elif reward_rank == "boss":
+		prefix = "Boss 五选一卡牌："
+	var attack_value := _floor_value(3)
+	var defense_value := _floor_value(1)
+	var hp_value := _floor_value(6)
+	var charge_damage := _floor_value(8)
+	var attack_multiplier := 1.15
+	var defense_multiplier := 1.15
+	if reward_rank == "elite":
+		attack_value = _floor_value(5)
+		defense_value = _floor_value(2)
+		hp_value = _floor_value(10)
+		charge_damage = _floor_value(12)
+		attack_multiplier = 1.2
+		defense_multiplier = 1.25
+	elif reward_rank == "boss":
+		attack_value = _floor_value(8)
+		defense_value = _floor_value(3)
+		hp_value = _floor_value(18)
+		charge_damage = _floor_value(18)
+		attack_multiplier = 1.3
+		defense_multiplier = 1.35
+	return [
+		{"kind": "attack", "label": "%s攻击 +%d" % [prefix, attack_value], "value": attack_value},
+		{"kind": "defense", "label": "%s护甲 +%d" % [prefix, defense_value], "value": defense_value},
+		{"kind": "hp", "label": "%s生命上限 +%d" % [prefix, hp_value], "value": hp_value},
+		{"kind": "charge_bonus_damage", "label": "%s充能：下一次攻击附加 %d 点伤害" % [prefix, charge_damage], "value": charge_damage},
+		{"kind": "charge_attack_multiplier", "label": "%s充能：下一次攻击效果 x%.2f" % [prefix, attack_multiplier], "value": attack_multiplier},
+		{"kind": "charge_defense_multiplier", "label": "%s充能：下一次防御效果 x%.2f" % [prefix, defense_multiplier], "value": defense_multiplier},
+		{"kind": "charge_repeat_attack", "label": "%s充能：下一次攻击追加一次结算" % prefix, "value": 1},
+		{"kind": "charge_repeat_defense", "label": "%s充能：下一次防御追加一次结算" % prefix, "value": 1}
+	]
+
+
+func _sample_rewards(pool: Array[Dictionary], count: int) -> Array[Dictionary]:
+	var available := pool.duplicate(true)
+	var result: Array[Dictionary] = []
+	if available.is_empty():
+		return result
+	rng.randomize()
+	while result.size() < count and not available.is_empty():
+		var index := rng.randi_range(0, available.size() - 1)
+		result.append(available[index])
+		available.remove_at(index)
+	return result
+
+
+func _sample_rewards_with_core(pool: Array[Dictionary], count: int) -> Array[Dictionary]:
+	var available := pool.duplicate(true)
+	var result: Array[Dictionary] = []
+	var core: Array[Dictionary] = []
+	for reward in available:
+		if _is_core_growth_reward(reward):
+			core.append(reward)
+	rng.randomize()
+	if count > 0 and not core.is_empty():
+		var core_reward: Dictionary = core[rng.randi_range(0, core.size() - 1)]
+		result.append(core_reward)
+		_remove_matching_reward(available, core_reward)
+	while result.size() < count and not available.is_empty():
+		var index := rng.randi_range(0, available.size() - 1)
+		result.append(available[index])
+		available.remove_at(index)
+	return _sample_rewards(result, result.size())
+
+
+func _is_core_growth_reward(reward: Dictionary) -> bool:
+	return ["attack", "defense", "hp"].has(String(reward.get("kind", "")))
+
+
+func _remove_matching_reward(rewards: Array[Dictionary], target: Dictionary) -> void:
+	var target_kind := String(target.get("kind", ""))
+	var target_label := String(target.get("label", ""))
+	for i in range(rewards.size()):
+		var reward: Dictionary = rewards[i]
+		if String(reward.get("kind", "")) == target_kind and String(reward.get("label", "")) == target_label:
+			rewards.remove_at(i)
+			return
 
 
 func _advance_after_reward() -> void:

@@ -28,6 +28,7 @@ func run_all() -> void:
 	test_cunning_masks_enemy_intent()
 	test_skill_costs_minimum_two()
 	test_reward_attachment_flow()
+	test_random_reward_pool_counts()
 	test_charge_reward_flow()
 	test_skill_bound_charge_only_triggers_on_that_skill()
 	test_charge_limit()
@@ -195,7 +196,7 @@ func test_reward_attachment_flow() -> void:
 	assert_true(target_count > 0, "reward should attach to equipment or skill")
 
 
-func test_charge_reward_flow() -> void:
+func test_random_reward_pool_counts() -> void:
 	var session_script = load("res://scripts/core/play_session.gd")
 	var session = session_script.new()
 	session.start_new_game("warrior")
@@ -207,20 +208,52 @@ func test_charge_reward_flow() -> void:
 	session.phase = "reward"
 	session.current_encounter = {"type": "normal"}
 	session._build_reward_options()
-	var charge_index := -1
-	for i in range(session.reward_options.size()):
-		if String(session.reward_options[i].get("kind", "")).begins_with("charge_"):
-			charge_index = i
-			break
-	assert_true(charge_index >= 0, "normal rewards should include a charge option")
-	session.choose_reward(charge_index)
+	assert_equal(session.reward_options.size(), 3, "normal rewards should be three random options")
+	assert_true(session._reward_pool("normal").size() > session.reward_options.size(), "normal reward pool should be larger than shown options")
+	assert_true(_has_core_growth_reward(session.reward_options), "normal rewards should include at least one core growth option")
+
+	session.current_encounter = {"type": "elite"}
+	session._build_reward_options()
+	assert_equal(session.reward_options.size(), 4, "elite rewards should be four random options")
+	assert_true(_has_core_growth_reward(session.reward_options), "elite rewards should include at least one core growth option")
+
+	session.current_encounter = {"type": "boss"}
+	session._build_reward_options()
+	assert_equal(session.reward_options.size(), 5, "boss rewards should show five options")
+	assert_true(_has_core_growth_reward(session.reward_options), "boss rewards should include at least one core growth option")
+	var has_skill := false
+	for reward in session.reward_options:
+		has_skill = has_skill or String(reward.get("kind", "")) == "skill"
+	assert_true(has_skill, "boss rewards should keep a skill branch while randomizing the other options")
+
+
+func _has_core_growth_reward(rewards: Array[Dictionary]) -> bool:
+	for reward in rewards:
+		if ["attack", "defense", "hp"].has(String(reward.get("kind", ""))):
+			return true
+	return false
+
+
+func test_charge_reward_flow() -> void:
+	var session_script = load("res://scripts/core/play_session.gd")
+	var session = session_script.new()
+	session.start_new_game("warrior")
+	while session.is_tutorial():
+		if session.phase == "battle":
+			_force_win(session)
+		elif session.phase == "reward":
+			session.choose_reward(0)
+	session.phase = "reward"
+	var bonus := 8
+	var forced_rewards: Array[Dictionary] = [{"kind": "charge_bonus_damage", "label": "充能测试：下一次攻击附加 8 点伤害", "value": bonus}]
+	session.reward_options = forced_rewards
+	session.choose_reward(0)
 	assert_equal(session.phase, "reward_target", "charge reward should request attachment target")
 	session.choose_reward_target(0)
 	var charges: Array[Dictionary] = session.available_charges()
 	assert_true(charges.size() > 0, "attached charge should be available in next battle")
 	var charge_id := String(charges[0].get("charge_id", ""))
 	assert_true(bool(charges[0].get("ready", false)), "one charge should become ready at player turn start")
-	var bonus := int(charges[0].get("value", 0))
 	var test_enemies: Array[Dictionary] = [{
 		"name": "充能测试敌人",
 		"rank": "normal",
