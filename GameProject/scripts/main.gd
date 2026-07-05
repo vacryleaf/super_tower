@@ -211,7 +211,7 @@ func _enemy_card_text(index: int, selected: String = "") -> String:
 
 func _render_player_status(parent: Control) -> void:
 	var panel := PanelContainer.new()
-	panel.custom_minimum_size = Vector2(180, 132)
+	panel.custom_minimum_size = Vector2(180, 154)
 	panel.size_flags_vertical = Control.SIZE_SHRINK_END
 	var box := VBoxContainer.new()
 	panel.add_child(box)
@@ -220,6 +220,7 @@ func _render_player_status(parent: Control) -> void:
 	player_status_labels["hp"] = _label("hp %d/%d" % [int(session.player["hp"]), int(session.player["max_hp"])], 15)
 	player_status_labels["attack"] = _label("攻击 %d" % int(session.player["attack"]), 15)
 	player_status_labels["armor"] = _label("护甲 %d" % int(session.player["defense"]), 15)
+	player_status_labels["block"] = _label("格挡 %d" % session.player_block, 15)
 	for label in player_status_labels.values():
 		box.add_child(label)
 	player_status_node = panel
@@ -533,6 +534,8 @@ func _refresh_battle_ui() -> void:
 		player_status_labels["attack"].text = "攻击 %d" % int(session.player["attack"])
 	if player_status_labels.has("armor"):
 		player_status_labels["armor"].text = "护甲 %d" % int(session.player["defense"])
+	if player_status_labels.has("block"):
+		player_status_labels["block"].text = "格挡 %d" % session.player_block
 	if pending_state_label_node != null and is_instance_valid(pending_state_label_node):
 		pending_state_label_node.text = _pending_state_text()
 	_refresh_hand_row()

@@ -83,13 +83,13 @@ const TUTORIAL_ENCOUNTERS := [
 	{"id": "tutorial_01", "type": "normal", "name": "训练腐鼠", "units": [{"name": "训练腐鼠", "rank": "normal", "hp": 28, "attack": 8, "defense": 0, "traits": []}]},
 	{"id": "tutorial_02", "type": "normal", "name": "迟缓守卫", "units": [{"name": "迟缓守卫", "rank": "normal", "hp": 44, "attack": 15, "defense": 2, "traits": []}]},
 	{"id": "tutorial_03", "type": "normal", "name": "投石哥布林", "units": [{"name": "投石哥布林", "rank": "normal", "hp": 48, "attack": 13, "defense": 1, "traits": []}]},
-	{"id": "tutorial_04", "type": "elite", "name": "盾卫学徒", "units": [{"name": "盾卫学徒", "rank": "elite", "hp": 26, "attack": 5, "defense": 3, "traits": ["guard"]}]},
-	{"id": "tutorial_05", "type": "normal", "name": "哥布林二人队", "units": [{"name": "哥布林矛手", "rank": "normal", "hp": 12, "attack": 3, "defense": 0, "traits": []}, {"name": "哥布林投石手", "rank": "normal", "hp": 12, "attack": 3, "defense": 0, "traits": []}]},
-	{"id": "tutorial_06", "type": "normal", "name": "毒尾幼鼠", "units": [{"name": "毒尾幼鼠", "rank": "normal", "hp": 20, "attack": 4, "defense": 1, "traits": ["corrode"]}]},
-	{"id": "tutorial_07", "type": "normal", "name": "影贼学徒", "units": [{"name": "影贼学徒", "rank": "normal", "hp": 18, "attack": 4, "defense": 1, "traits": ["first_strike"]}]},
-	{"id": "tutorial_08", "type": "elite", "name": "铁甲训练官", "units": [{"name": "铁甲训练官", "rank": "elite", "hp": 34, "attack": 6, "defense": 4, "traits": ["thick_skin"]}]},
-	{"id": "tutorial_09", "type": "normal", "name": "术士残影", "units": [{"name": "术士残影", "rank": "normal", "hp": 20, "attack": 4, "defense": 2, "traits": ["summon"]}, {"name": "残影仆从", "rank": "normal", "hp": 10, "attack": 2, "defense": 0, "traits": ["support"]}]},
-	{"id": "tutorial_10", "type": "boss", "name": "试炼守门人", "units": [{"name": "试炼守门人", "rank": "boss", "hp": 58, "attack": 7, "defense": 4, "traits": ["phase"]}]}
+	{"id": "tutorial_04", "type": "elite", "name": "盾卫学徒", "units": [{"name": "盾卫学徒", "rank": "elite", "hp": 42, "attack": 14, "defense": 4, "traits": ["guard"]}]},
+	{"id": "tutorial_05", "type": "normal", "name": "哥布林二人队", "units": [{"name": "哥布林矛手", "rank": "normal", "hp": 22, "attack": 10, "defense": 0, "traits": []}, {"name": "哥布林投石手", "rank": "normal", "hp": 22, "attack": 10, "defense": 0, "traits": []}]},
+	{"id": "tutorial_06", "type": "normal", "name": "毒尾幼鼠", "units": [{"name": "毒尾幼鼠", "rank": "normal", "hp": 42, "attack": 16, "defense": 2, "traits": ["corrode"]}]},
+	{"id": "tutorial_07", "type": "normal", "name": "影贼学徒", "units": [{"name": "影贼学徒", "rank": "normal", "hp": 40, "attack": 15, "defense": 2, "traits": ["first_strike"]}]},
+	{"id": "tutorial_08", "type": "elite", "name": "铁甲训练官", "units": [{"name": "铁甲训练官", "rank": "elite", "hp": 62, "attack": 18, "defense": 5, "traits": ["thick_skin"]}]},
+	{"id": "tutorial_09", "type": "normal", "name": "术士残影", "units": [{"name": "术士残影", "rank": "normal", "hp": 42, "attack": 15, "defense": 3, "traits": ["summon"]}, {"name": "残影仆从", "rank": "normal", "hp": 22, "attack": 10, "defense": 0, "traits": ["support"]}]},
+	{"id": "tutorial_10", "type": "boss", "name": "试炼守门人", "units": [{"name": "试炼守门人", "rank": "boss", "hp": 95, "attack": 22, "defense": 6, "traits": ["phase"]}]}
 ]
 
 const NORMAL_UNITS := [

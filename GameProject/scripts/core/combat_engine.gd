@@ -10,22 +10,21 @@ func run_battle(player: Dictionary, encounter: Dictionary, tower_floor: int, bat
 	var enemies := _build_enemies(encounter, tower_floor)
 	var log: Array[String] = []
 	var rounds := 0
-	var player_armor := 0
+	var player_block := 0
 	var used_first_skill := false
 	var first_strike_done := false
 
 	if _has_first_strike(enemies):
 		first_strike_done = true
-		_apply_enemy_attack(player, enemies[0], 0, log)
+		player_block = _apply_enemy_attack(player, enemies[0], player_block, log)
 
 	while player["hp"] > 0 and _alive_count(enemies) > 0 and rounds < MAX_ROUNDS:
 		rounds += 1
-		player_armor = 0
 		var action_points: int = mini(rounds, 3)
 		var incoming := _incoming_damage(enemies, rounds)
 
 		if incoming >= int(player["defense"]) and action_points > 0:
-			player_armor += int(player["defense"]) + _state_bonus(player, "defense")
+			player_block += int(player["defense"]) + _state_bonus(player, "defense")
 			action_points -= 1
 			log.append("round_%d:defend" % rounds)
 
@@ -52,7 +51,7 @@ func run_battle(player: Dictionary, encounter: Dictionary, tower_floor: int, bat
 					enemy["armor"] += int(enemy["defense"])
 				continue
 			var damage := _enemy_round_damage(enemy, rounds)
-			player_armor = _apply_damage_to_player(player, player_armor, damage)
+			player_block = _apply_damage_to_player(player, player_block, damage)
 			attackers += 1
 
 		_apply_end_round_traits(player, enemies, rounds)
@@ -162,20 +161,29 @@ func _damage_lowest_enemy(enemies: Array[Dictionary], amount: int, log: Array[St
 	log.append("%s:%s:%d" % [source, target["name"], amount])
 
 
-func _apply_damage_to_player(player: Dictionary, armor: int, damage: int) -> int:
-	if armor > 0:
-		var absorbed: int = mini(armor, damage)
-		armor -= absorbed
+func _apply_damage_to_player(player: Dictionary, block: int, damage: int) -> int:
+	damage = _damage_after_armor(player, damage)
+	if block > 0:
+		var absorbed: int = mini(block, damage)
+		block -= absorbed
 		damage -= absorbed
 	if damage > 0:
 		player["hp"] = maxi(0, int(player["hp"]) - damage)
-	return armor
+	return block
 
 
-func _apply_enemy_attack(player: Dictionary, enemy: Dictionary, armor: int, log: Array[String]) -> void:
+func _damage_after_armor(player: Dictionary, raw_damage: int) -> int:
+	if raw_damage <= 0:
+		return 0
+	var armor := maxi(0, int(player["defense"]))
+	return maxi(1, int(ceil(float(raw_damage) * 30.0 / float(30 + armor))))
+
+
+func _apply_enemy_attack(player: Dictionary, enemy: Dictionary, block: int, log: Array[String]) -> int:
 	var damage := int(round(float(enemy["attack"]) * 0.75))
-	_apply_damage_to_player(player, armor, damage)
+	block = _apply_damage_to_player(player, block, damage)
 	log.append("first_strike:%s:%d" % [enemy["name"], damage])
+	return block
 
 
 func _enemy_round_damage(enemy: Dictionary, round_index: int) -> int:

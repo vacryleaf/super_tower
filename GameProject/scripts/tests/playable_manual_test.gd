@@ -48,7 +48,7 @@ func _play_one_action(session: PlaySession) -> void:
 	if String(session.player["class_id"]) == "archer" and _incoming_damage(session) >= int(session.player["defense"]) and session.action_points >= 1 and session.dodge_layers <= 0:
 		session.player_dodge()
 		return
-	if _incoming_damage(session) >= int(session.player["defense"]) and session.action_points >= 1 and session.player_armor < int(session.player["defense"]):
+	if _incoming_damage(session) >= int(session.player["defense"]) and session.action_points >= 1 and session.player_block < int(session.player["defense"]):
 		session.player_defend()
 		return
 	if session.player["equipped_skills"].size() > 0 and session.action_points >= 1:

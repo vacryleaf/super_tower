@@ -18,7 +18,7 @@ var enemies: Array[Dictionary] = []
 var current_encounter: Dictionary = {}
 var action_points := 1
 var max_action_points := 1
-var player_armor := 0
+var player_block := 0
 var dodge_layers := 0
 var round_index := 0
 var pending_state_card := ""
@@ -52,7 +52,7 @@ func _start_current_battle() -> void:
 	enemies = _build_enemies(current_encounter)
 	action_points = 1
 	max_action_points = 1
-	player_armor = 0
+	player_block = 0
 	dodge_layers = 0
 	round_index = 0
 	pending_state_card = ""
@@ -96,7 +96,6 @@ func _begin_player_turn() -> void:
 	round_index += 1
 	max_action_points = mini(round_index, 3)
 	action_points = max_action_points
-	player_armor = 0
 	used_state_cards_this_turn = 0
 	_draw_state_cards(1)
 
@@ -138,7 +137,7 @@ func player_attack(target_index: int) -> void:
 	var damage := _modified_value(int(player["attack"]), "attack")
 	_apply_damage_to_enemy(target, damage)
 	if pending_state_card == "fallback":
-		player_armor += maxi(1, int(round(float(player["defense"]) * 0.5)))
+		player_block += maxi(1, int(round(float(player["defense"]) * 0.5)))
 	action_points -= 1
 	_consume_pending_state()
 	_after_player_action()
@@ -149,9 +148,9 @@ func player_defend() -> void:
 	if not _can_act(1):
 		return
 	var gained := _modified_value(int(player["defense"]), "defense")
-	player_armor += gained
+	player_block += gained
 	action_points -= 1
-	battle_log.append("防御：获得 %d 点护甲。" % gained)
+	battle_log.append("防御：获得 %d 点格挡值。" % gained)
 	last_events.append({"kind": "defense", "target": "player", "amount": gained})
 	_consume_pending_state()
 	_after_player_action()
@@ -193,12 +192,12 @@ func use_skill(slot_index: int, target_index: int) -> void:
 		_apply_damage_to_enemy(target, damage)
 	elif skill_type == "defense" or skill_type == "stance":
 		var gained := _modified_value(int(skill.get("power", 0)) + int(player["defense"]), "defense")
-		player_armor += gained
-		battle_log.append("%s：获得 %d 点护甲。" % [skill["name"], gained])
+		player_block += gained
+		battle_log.append("%s：获得 %d 点格挡值。" % [skill["name"], gained])
 		last_events.append({"kind": "defense", "target": "player", "amount": gained})
 	elif skill_type == "dodge":
 		dodge_layers += 1
-		player_armor += int(skill.get("power", 0))
+		player_block += int(skill.get("power", 0))
 		battle_log.append("%s：获得躲避。" % skill["name"])
 		last_events.append({"kind": "dodge", "target": "player", "amount": 1})
 	elif skill_type == "heal":
@@ -281,14 +280,24 @@ func _enemy_attack(enemy: Dictionary, first_strike: bool) -> void:
 		battle_log.append("躲避了 %s 的攻击。" % enemy["name"])
 		last_events.append({"kind": "dodge_enemy_attack", "target": "player", "source": enemy["name"], "amount": 0})
 		return
-	if player_armor > 0:
-		var absorbed: int = mini(player_armor, damage)
-		player_armor -= absorbed
+	var raw_damage := damage
+	damage = _damage_after_armor(raw_damage)
+	var armor_reduced: int = maxi(0, raw_damage - damage)
+	if player_block > 0:
+		var absorbed: int = mini(player_block, damage)
+		player_block -= absorbed
 		damage -= absorbed
 	if damage > 0:
 		player["hp"] = maxi(0, int(player["hp"]) - damage)
-	battle_log.append("%s 造成 %d 点伤害。" % [enemy["name"], damage])
+	battle_log.append("%s 攻击：护甲减免 %d，造成 %d 点伤害。" % [enemy["name"], armor_reduced, damage])
 	last_events.append({"kind": "damage", "target": "player", "source": enemy["name"], "amount": damage})
+
+
+func _damage_after_armor(raw_damage: int) -> int:
+	if raw_damage <= 0:
+		return 0
+	var armor := maxi(0, int(player["defense"]))
+	return maxi(1, int(ceil(float(raw_damage) * 30.0 / float(30 + armor))))
 
 
 func _apply_damage_to_enemy(target_index: int, damage: int) -> void:
