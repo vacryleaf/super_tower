@@ -218,11 +218,11 @@ func _render_player_status(parent: Control) -> void:
 	player_status_labels["class"] = _label(DataCatalog.CLASSES[session.class_id]["name"], 18)
 	player_status_labels["action"] = _label("行动力 %d/%d" % [session.action_points, session.max_action_points], 15)
 	player_status_labels["hp"] = _label("hp %d/%d" % [int(session.player["hp"]), int(session.player["max_hp"])], 15)
+	player_status_labels["block"] = _label("格挡 %d" % session.player_block, 15)
 	player_status_labels["attack"] = _label("攻击 %d" % int(session.player["attack"]), 15)
 	player_status_labels["armor"] = _label("护甲 %d" % int(session.player["defense"]), 15)
-	player_status_labels["block"] = _label("格挡 %d" % session.player_block, 15)
-	for label in player_status_labels.values():
-		box.add_child(label)
+	for key in ["class", "action", "hp", "block", "attack", "armor"]:
+		box.add_child(player_status_labels[key])
 	player_status_node = panel
 	parent.add_child(panel)
 
