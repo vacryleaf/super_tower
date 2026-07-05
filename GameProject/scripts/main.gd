@@ -54,7 +54,7 @@ func _clear_overlay_layers() -> void:
 func _render_menu() -> void:
 	render_queued = false
 	_clear_root()
-	var title := _label("无限高塔", 30)
+	var title := _label("塔下营地", 30)
 	root.add_child(title)
 	root.add_child(_label("可玩版本：新手引导、手动战斗、奖励选择、装备、技能和 1-10 层流程。", 16))
 	if session.has_active_run():
@@ -113,6 +113,21 @@ func _render_game() -> void:
 	top.add_child(_status_badge("第 %d 层" % session.floor_index, 22, Vector2(110, 42)))
 	top.add_child(_status_badge("第 %d 场" % session.battle_index, 22, Vector2(110, 42)))
 	top.add_child(_spacer())
+	if ["battle", "reward", "reward_target"].has(session.phase):
+		var end_run_button := Button.new()
+		end_run_button.text = "结束爬塔"
+		end_run_button.custom_minimum_size = Vector2(120, 42)
+		end_run_button.disabled = input_locked
+		end_run_button.pressed.connect(func() -> void:
+			if input_locked:
+				return
+			session.end_run_to_camp()
+			selected_target = 0
+			equipment_open = false
+			input_locked = false
+			_request_menu_render()
+		)
+		top.add_child(end_run_button)
 	root.add_child(top)
 	var message_label := _label(session.message, 16)
 	message_label_node = message_label

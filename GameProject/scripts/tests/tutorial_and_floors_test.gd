@@ -33,6 +33,7 @@ func run_all() -> void:
 	test_skill_bound_charge_only_triggers_on_that_skill()
 	test_charge_limit()
 	test_save_round_trip()
+	test_end_run_to_camp_clears_active_run()
 	test_profile_keeps_multiple_classes()
 	test_block_expires_each_round()
 	test_tutorial_unlocks("warrior")
@@ -362,6 +363,42 @@ func test_save_round_trip() -> void:
 	assert_equal(loaded.enemies.size(), session.enemies.size(), "loaded enemy count")
 	assert_true(loaded.battle_log.has("save_marker"), "loaded battle log")
 	loaded.delete_save()
+
+
+func test_end_run_to_camp_clears_active_run() -> void:
+	var session_script = load("res://scripts/core/play_session.gd")
+	var session = session_script.new()
+	session.delete_save()
+	session.start_new_game("warrior")
+	while session.is_tutorial():
+		if session.phase == "battle":
+			_force_win(session)
+		elif session.phase == "reward":
+			session.choose_reward(0)
+	var target := {"type": "equipment", "id": String(session.player["equipment_ids"][0])}
+	session.simulator.attach_reward(session.player, target, {
+		"kind": "attack",
+		"label": "塔内测试攻击 +99",
+		"value": 99
+	})
+	assert_true(session.save_game(), "active run should save before ending")
+	assert_true(session.has_active_run(), "active run exists before ending")
+	assert_true(session.end_run_to_camp(), "ending run should save profile")
+	assert_equal(session.phase, "menu", "ending run should return to camp menu")
+	assert_true(not session.has_active_run(), "ending run should clear active run")
+	var loaded = session_script.new()
+	assert_true(not loaded.load_game(), "no active run should be loadable after ending")
+	var roster_player: Dictionary = session.get_roster_player("warrior")
+	assert_true(not roster_player.is_empty(), "roster player should remain after ending run")
+	assert_true(_dictionary_total(roster_player.get("equipment_attachments", {})) == 0, "tower equipment attachments should not persist")
+	session.delete_save()
+
+
+func _dictionary_total(groups: Dictionary) -> int:
+	var total := 0
+	for values in groups.values():
+		total += values.size()
+	return total
 
 
 func test_profile_keeps_multiple_classes() -> void:

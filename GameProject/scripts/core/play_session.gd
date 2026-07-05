@@ -81,6 +81,25 @@ func save_game() -> bool:
 	return true
 
 
+func end_run_to_camp() -> bool:
+	if player.is_empty() or class_id == "":
+		phase = "menu"
+		message = "已返回塔下营地。"
+		return false
+	var profile := _read_profile()
+	var roster := _dictionary(profile.get("roster", {}))
+	roster[class_id] = _persistent_player_snapshot(player)
+	profile["version"] = 2
+	profile["roster"] = roster
+	profile["active_run"] = {}
+	var file := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
+	if file == null:
+		return false
+	file.store_string(JSON.stringify(profile))
+	_reset_to_camp_state()
+	return true
+
+
 func load_game() -> bool:
 	var profile := _read_profile()
 	var active_run := _dictionary(profile.get("active_run", {}))
@@ -92,6 +111,32 @@ func load_game() -> bool:
 func delete_save() -> void:
 	if has_save():
 		DirAccess.remove_absolute(ProjectSettings.globalize_path(SAVE_PATH))
+
+
+func _reset_to_camp_state() -> void:
+	player = {}
+	class_id = ""
+	floor_index = 1
+	battle_index = 1
+	phase = "menu"
+	message = "已返回塔下营地。"
+	enemies.clear()
+	current_encounter = {}
+	action_points = 1
+	max_action_points = 1
+	player_block = 0
+	dodge_layers = 0
+	round_index = 0
+	pending_state_card = ""
+	state_draw_cursor = 0
+	reward_options.clear()
+	pending_reward = {}
+	reward_targets.clear()
+	battle_log.clear()
+	last_events.clear()
+	charge_used = {}
+	charge_ready = {}
+	pending_charge_effects = {}
 
 
 func is_tutorial() -> bool:
