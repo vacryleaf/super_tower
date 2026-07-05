@@ -307,12 +307,21 @@ func _equipment_panel() -> Control:
 
 
 func _render_deck(parent: Control) -> void:
+	var deck_holder := CenterContainer.new()
+	deck_holder.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	deck_holder.custom_minimum_size = Vector2(0, 190)
 	deck_node = PanelContainer.new()
-	deck_node.custom_minimum_size = Vector2(320, 96)
+	deck_node.custom_minimum_size = Vector2(112, 170)
 	var box := VBoxContainer.new()
+	box.alignment = BoxContainer.ALIGNMENT_CENTER
 	deck_node.add_child(box)
-	box.add_child(_label("卡堆", 18))
-	parent.add_child(deck_node)
+	var title := _label("卡堆", 18)
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	title.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	box.add_child(title)
+	deck_holder.add_child(deck_node)
+	parent.add_child(deck_holder)
 	parent.add_child(_spacer_vertical())
 
 
