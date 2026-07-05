@@ -137,7 +137,9 @@ func _build_enemies(encounter: Dictionary) -> Array[Dictionary]:
 				"hp": int(unit["hp"]),
 				"attack": int(unit["attack"]),
 				"defense": int(unit["defense"]),
-				"armor": int(unit["defense"]) * 2 if traits.has("thick_skin") else 0,
+				"armor": int(unit.get("armor", 0)) + (int(unit["defense"]) if traits.has("thick_skin") else 0),
+				"block_power": maxi(1, int(unit["defense"])),
+				"block": 0,
 				"dodge_layers": 0,
 				"taunt": 0,
 				"traits": traits
@@ -346,6 +348,7 @@ func _after_player_action() -> void:
 
 
 func _enemy_turn() -> void:
+	_clear_enemy_blocks()
 	_clear_enemy_taunts()
 	var actions := 0
 	for i in range(enemies.size()):
@@ -366,18 +369,23 @@ func _clear_enemy_taunts() -> void:
 		enemy["taunt"] = 0
 
 
+func _clear_enemy_blocks() -> void:
+	for enemy in enemies:
+		enemy["block"] = 0
+
+
 func _resolve_enemy_action(enemy: Dictionary, enemy_index: int) -> void:
 	var intent := _enemy_intent(enemy)
 	match intent:
 		"taunt":
 			enemy["taunt"] = 1
-			_enemy_defend(enemy, 1.0)
+			var gained := _enemy_defend(enemy, 1.0)
 			battle_log.append("%s 嘲讽并防守。" % enemy["name"])
-			last_events.append({"kind": "defense", "target": "enemy", "target_index": enemy_index, "source": enemy["name"], "amount": maxi(1, int(enemy["defense"]))})
+			last_events.append({"kind": "defense", "target": "enemy", "target_index": enemy_index, "source": enemy["name"], "amount": gained})
 		"defend":
-			_enemy_defend(enemy, 1.0)
-			battle_log.append("%s 进入防守。" % enemy["name"])
-			last_events.append({"kind": "defense", "target": "enemy", "target_index": enemy_index, "source": enemy["name"], "amount": maxi(1, int(enemy["defense"]))})
+			var gained := _enemy_defend(enemy, 1.0)
+			battle_log.append("%s 进入防守，获得 %d 点格挡。" % [enemy["name"], gained])
+			last_events.append({"kind": "defense", "target": "enemy", "target_index": enemy_index, "source": enemy["name"], "amount": gained})
 		"dodge":
 			enemy["dodge_layers"] = int(enemy.get("dodge_layers", 0)) + 1
 			battle_log.append("%s 准备闪避下一次命中。" % enemy["name"])
@@ -386,8 +394,10 @@ func _resolve_enemy_action(enemy: Dictionary, enemy_index: int) -> void:
 			_enemy_attack(enemy, false)
 
 
-func _enemy_defend(enemy: Dictionary, scale: float) -> void:
-	enemy["armor"] = int(enemy.get("armor", 0)) + maxi(1, int(round(float(enemy["defense"]) * scale)))
+func _enemy_defend(enemy: Dictionary, scale: float) -> int:
+	var gained := maxi(1, int(round(float(enemy.get("block_power", enemy.get("defense", 1))) * scale)))
+	enemy["block"] = int(enemy.get("block", 0)) + gained
+	return gained
 
 
 func _enemy_attack(enemy: Dictionary, first_strike: bool) -> void:
@@ -430,14 +440,24 @@ func _apply_damage_to_enemy(target_index: int, damage: int) -> void:
 		last_events.append({"kind": "dodge_enemy_attack", "target": "enemy", "target_index": target_index, "amount": 0})
 		return
 	var remaining := damage
-	if int(enemy["armor"]) > 0:
-		var absorbed: int = mini(int(enemy["armor"]), remaining)
-		enemy["armor"] -= absorbed
-		remaining -= absorbed
+	remaining = _damage_after_enemy_armor(enemy, remaining)
+	var armor_reduced: int = maxi(0, damage - remaining)
+	var block_absorbed := 0
+	if int(enemy.get("block", 0)) > 0:
+		block_absorbed = mini(int(enemy.get("block", 0)), remaining)
+		enemy["block"] = int(enemy.get("block", 0)) - block_absorbed
+		remaining -= block_absorbed
 	if remaining > 0:
 		enemy["hp"] = maxi(0, int(enemy["hp"]) - remaining)
-	battle_log.append("命中 %s，造成 %d 点伤害。" % [enemy["name"], damage])
-	last_events.append({"kind": "damage", "target": "enemy", "target_index": target_index, "amount": damage})
+	battle_log.append("命中 %s：护甲减免 %d，格挡吸收 %d，造成 %d 点伤害。" % [enemy["name"], armor_reduced, block_absorbed, remaining])
+	last_events.append({"kind": "damage", "target": "enemy", "target_index": target_index, "amount": remaining})
+
+
+func _damage_after_enemy_armor(enemy: Dictionary, raw_damage: int) -> int:
+	if raw_damage <= 0:
+		return 0
+	var armor := maxi(0, int(enemy.get("armor", 0)))
+	return maxi(1, int(ceil(float(raw_damage) * 30.0 / float(30 + armor))))
 
 
 func _on_victory() -> void:

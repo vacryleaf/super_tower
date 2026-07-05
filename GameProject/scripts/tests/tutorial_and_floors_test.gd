@@ -22,6 +22,7 @@ func run_all() -> void:
 	test_state_card_weights()
 	test_player_armor_baseline_is_low()
 	test_block_power_is_separate_from_armor()
+	test_enemy_block_power_is_separate_from_armor()
 	test_enemy_roles_include_tank_taunt_and_backline()
 	test_cunning_masks_enemy_intent()
 	test_skill_costs_minimum_two()
@@ -65,6 +66,35 @@ func test_block_power_is_separate_from_armor() -> void:
 	session.player["block_power"] = 7
 	session.player_defend()
 	assert_equal(int(session.player_block), 7, "defend should use block power even when armor is zero")
+
+
+func test_enemy_block_power_is_separate_from_armor() -> void:
+	var session_script = load("res://scripts/core/play_session.gd")
+	var session = session_script.new()
+	session.start_new_game("warrior")
+	var enemy := {
+		"name": "格挡测试敌人",
+		"rank": "normal",
+		"max_hp": 100,
+		"hp": 100,
+		"attack": 1,
+		"defense": 3,
+		"armor": 3,
+		"block_power": 9,
+		"block": 0,
+		"dodge_layers": 0,
+		"taunt": 0,
+		"traits": []
+	}
+	var gained: int = session._enemy_defend(enemy, 1.0)
+	assert_equal(gained, 9, "enemy defend should use block power")
+	assert_equal(int(enemy["armor"]), 3, "enemy defend should not increase armor")
+	assert_equal(int(enemy["block"]), 9, "enemy defend should increase current block")
+	var test_enemies: Array[Dictionary] = [enemy]
+	session.enemies = test_enemies
+	session._apply_damage_to_enemy(0, 30)
+	assert_true(int(session.enemies[0]["hp"]) < 100, "damage should pass after armor and block")
+	assert_true(int(session.enemies[0]["block"]) < 9, "enemy block should absorb part of incoming damage")
 
 
 func test_enemy_roles_include_tank_taunt_and_backline() -> void:
@@ -333,7 +363,7 @@ func _force_win(session) -> void:
 func _encounter_threat(combat: CombatEngine, encounter: Dictionary, tower_floor: int) -> float:
 	var total := 0.0
 	for enemy in combat._build_enemies(encounter, tower_floor):
-		total += float(enemy["max_hp"]) + float(enemy["attack"]) * 5.0 + float(enemy["defense"]) * 2.5 + float(enemy["armor"])
+		total += float(enemy["max_hp"]) + float(enemy["attack"]) * 5.0 + float(enemy["defense"]) * 2.5 + float(enemy["armor"]) + float(enemy.get("block_power", 0))
 	return total
 
 

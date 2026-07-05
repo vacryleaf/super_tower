@@ -186,7 +186,7 @@ func _render_battle() -> void:
 func _enemy_card(index: int) -> Control:
 	var enemy: Dictionary = session.enemies[index]
 	var button := Button.new()
-	button.custom_minimum_size = Vector2(220, 160)
+	button.custom_minimum_size = Vector2(220, 184)
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var selected := ">" if index == selected_target else ""
 	button.text = _enemy_card_text(index, selected)
@@ -202,14 +202,16 @@ func _enemy_card(index: int) -> Control:
 
 func _enemy_card_text(index: int, selected: String = "") -> String:
 	var enemy: Dictionary = session.enemies[index]
-	return "%s %s\n%s\n生命 %d/%d\n攻击 %d  护甲 %d\n意图：%s\n特性：%s" % [
+	return "%s %s\n%s\n生命 %d/%d\n攻击 %d  护甲 %d\n格挡 %d  格挡值 %d\n意图：%s\n特性：%s" % [
 		selected,
 		enemy["name"],
 		_rank_label(enemy["rank"]),
 		int(enemy["hp"]),
 		int(enemy["max_hp"]),
 		int(enemy["attack"]),
-		int(enemy["armor"]),
+		int(enemy.get("armor", enemy.get("defense", 0))),
+		int(enemy.get("block", 0)),
+		int(enemy.get("block_power", enemy.get("defense", 0))),
 		session.enemy_intent_text(index),
 		_trait_labels(enemy["traits"])
 	]
@@ -813,7 +815,7 @@ func _trait_tooltip(traits: Array) -> String:
 		"tank": "肉盾：倾向于防守，保护队伍后排。",
 		"taunt": "嘲讽：部分回合会嘲讽并防守，强制玩家优先攻击它。",
 		"backline": "后排：队伍中的输出手，通常由前排保护。",
-		"fortify": "固守：偶数回合会增加护甲。",
+		"fortify": "固守：偶数回合会获得额外格挡。",
 		"summon": "召唤：每隔数回合追加一段伤害压力。",
 		"revive": "复苏：每隔数回合恢复少量生命。",
 		"enrage": "狂暴：低生命时攻击伤害提高。",
