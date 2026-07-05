@@ -2,6 +2,7 @@ extends SceneTree
 
 const DataCatalog = preload("res://scripts/core/data_catalog.gd")
 const RunSimulator = preload("res://scripts/core/run_simulator.gd")
+const CombatEngine = preload("res://scripts/core/combat_engine.gd")
 
 var failures: Array[String] = []
 
@@ -21,9 +22,11 @@ func run_all() -> void:
 	test_state_card_weights()
 	test_skill_costs_minimum_two()
 	test_reward_attachment_flow()
+	test_block_expires_each_round()
 	test_tutorial_unlocks("warrior")
 	test_tutorial_unlocks("archer")
 	test_encounter_generation()
+	test_late_battles_are_stronger_than_openers()
 	test_campaign_floors_1_to_10("warrior")
 	test_campaign_floors_1_to_10("archer")
 
@@ -65,6 +68,15 @@ func test_reward_attachment_flow() -> void:
 	assert_true(target_count > 0, "reward should attach to equipment or skill")
 
 
+func test_block_expires_each_round() -> void:
+	var session_script = load("res://scripts/core/play_session.gd")
+	var session = session_script.new()
+	session.start_new_game("warrior")
+	session.player_block = 999
+	session.end_turn()
+	assert_equal(int(session.player_block), 0, "block should expire when next player turn begins")
+
+
 func test_tutorial_unlocks(class_id: String) -> void:
 	var simulator := RunSimulator.new()
 	var result := simulator.run_tutorial(class_id)
@@ -103,6 +115,19 @@ func test_encounter_generation() -> void:
 			assert_true(has_multi_enemy, "floor %d should include at least one multi-enemy formation" % tower_floor)
 
 
+func test_late_battles_are_stronger_than_openers() -> void:
+	var simulator := RunSimulator.new()
+	var combat := CombatEngine.new()
+	for tower_floor in range(2, 11):
+		var opener_total := 0.0
+		for battle_index in range(1, 4):
+			opener_total += _encounter_threat(combat, simulator.generate_encounter(tower_floor, battle_index), tower_floor)
+		var late_total := 0.0
+		for battle_index in range(4, 10):
+			late_total += _encounter_threat(combat, simulator.generate_encounter(tower_floor, battle_index), tower_floor)
+		assert_true((late_total / 6.0) > (opener_total / 3.0), "floor %d battles 4-9 average threat should exceed battles 1-3" % tower_floor)
+
+
 func test_campaign_floors_1_to_10(class_id: String) -> void:
 	var simulator := RunSimulator.new()
 	var result := simulator.run_campaign(class_id, 10)
@@ -127,6 +152,13 @@ func _force_win(session) -> void:
 	for enemy in session.enemies:
 		enemy["hp"] = 0
 	session._on_victory()
+
+
+func _encounter_threat(combat: CombatEngine, encounter: Dictionary, tower_floor: int) -> float:
+	var total := 0.0
+	for enemy in combat._build_enemies(encounter, tower_floor):
+		total += float(enemy["max_hp"]) + float(enemy["attack"]) * 5.0 + float(enemy["defense"]) * 2.5 + float(enemy["armor"])
+	return total
 
 
 func _has_no_duplicates(values: Array) -> bool:

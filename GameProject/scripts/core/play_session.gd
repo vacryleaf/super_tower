@@ -92,6 +92,7 @@ func _begin_player_turn() -> void:
 	round_index += 1
 	max_action_points = mini(round_index, 3)
 	action_points = max_action_points
+	player_block = 0
 	pending_state_card = _draw_state_buff()
 	message = "你的回合。状态 Buff：%s" % _state_name(pending_state_card)
 

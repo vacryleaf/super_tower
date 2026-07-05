@@ -139,11 +139,14 @@ func run_formal_floor(player: Dictionary, tower_floor: int) -> Dictionary:
 
 func generate_encounter(tower_floor: int, battle_index: int) -> Dictionary:
 	var battle_type := DataCatalog.get_floor_battle_type(battle_index)
+	var encounter: Dictionary
 	if battle_type == "normal":
-		return _normal_encounter(tower_floor, battle_index)
-	if battle_type == "elite":
-		return _elite_encounter(tower_floor, battle_index)
-	return _boss_encounter(tower_floor)
+		encounter = _normal_encounter(tower_floor, battle_index)
+	elif battle_type == "elite":
+		encounter = _elite_encounter(tower_floor, battle_index)
+	else:
+		encounter = _boss_encounter(tower_floor)
+	return _apply_battle_pressure(encounter, battle_index)
 
 
 func _normal_encounter(tower_floor: int, battle_index: int) -> Dictionary:
@@ -229,6 +232,22 @@ func _low_unit(unit_name: String, scale: float, traits: Array) -> Dictionary:
 		"formation_scale": scale,
 		"traits": traits.filter(func(value): return value != "")
 	}
+
+
+func _apply_battle_pressure(encounter: Dictionary, battle_index: int) -> Dictionary:
+	var pressure := _battle_pressure_scale(battle_index)
+	if pressure <= 1.0:
+		return encounter
+	for unit in encounter["units"]:
+		unit["formation_scale"] = float(unit.get("formation_scale", 1.0)) * pressure
+	encounter["pressure"] = pressure
+	return encounter
+
+
+func _battle_pressure_scale(battle_index: int) -> float:
+	if battle_index <= 3:
+		return 1.0
+	return 1.0 + 0.08 * float(battle_index - 3)
 
 
 func _apply_tutorial_unlock(player: Dictionary, battle_zero_index: int) -> void:
