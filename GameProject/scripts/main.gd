@@ -12,8 +12,14 @@ var input_locked := false
 var equipment_open := false
 var enemy_card_nodes: Dictionary = {}
 var player_status_node: Control = null
+var player_status_labels: Dictionary = {}
+var message_label_node: Label = null
+var pending_state_label_node: Label = null
 var deck_node: Control = null
 var hand_row_node: Control = null
+var action_buttons: Array[Button] = []
+var skill_buttons: Array[Button] = []
+var log_text_node: RichTextLabel = null
 
 
 func _ready() -> void:
@@ -83,6 +89,7 @@ func _render_game() -> void:
 	top.add_child(_spacer())
 	root.add_child(top)
 	var message_label := _label(session.message, 16)
+	message_label_node = message_label
 	message_label.custom_minimum_size = Vector2(0, 30)
 	root.add_child(message_label)
 
@@ -100,8 +107,13 @@ func _render_game() -> void:
 func _render_battle() -> void:
 	enemy_card_nodes.clear()
 	player_status_node = null
+	player_status_labels.clear()
+	pending_state_label_node = null
 	deck_node = null
 	hand_row_node = null
+	action_buttons.clear()
+	skill_buttons.clear()
+	log_text_node = null
 	var body := HBoxContainer.new()
 	body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	body.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -133,11 +145,12 @@ func _render_battle() -> void:
 		button.disabled = input_locked
 		button.pressed.connect(func(index := i) -> void:
 			session.use_state_card(index)
-			_request_game_render()
+			call_deferred("_refresh_battle_ui")
 		)
 		state_row.add_child(button)
-	if session.pending_state_card != "":
-		combat_area.add_child(_label("已准备：%s" % DataCatalog.STATE_CARDS[session.pending_state_card]["name"], 16))
+	pending_state_label_node = _label(_pending_state_text(), 16)
+	pending_state_label_node.custom_minimum_size = Vector2(0, 24)
+	combat_area.add_child(pending_state_label_node)
 
 	var bottom_bar := HBoxContainer.new()
 	bottom_bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -172,7 +185,19 @@ func _enemy_card(index: int) -> Control:
 	button.custom_minimum_size = Vector2(220, 160)
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var selected := ">" if index == selected_target else ""
-	button.text = "%s %s\n%s\n生命 %d/%d\n攻击 %d  护甲 %d\n意图：攻击\n特性：%s" % [
+	button.text = _enemy_card_text(index, selected)
+	button.disabled = int(enemy["hp"]) <= 0
+	button.pressed.connect(func() -> void:
+		selected_target = index
+		call_deferred("_refresh_battle_ui")
+	)
+	enemy_card_nodes[index] = button
+	return button
+
+
+func _enemy_card_text(index: int, selected: String = "") -> String:
+	var enemy: Dictionary = session.enemies[index]
+	return "%s %s\n%s\n生命 %d/%d\n攻击 %d  护甲 %d\n意图：攻击\n特性：%s" % [
 		selected,
 		enemy["name"],
 		_rank_label(enemy["rank"]),
@@ -182,13 +207,6 @@ func _enemy_card(index: int) -> Control:
 		int(enemy["armor"]),
 		_trait_labels(enemy["traits"])
 	]
-	button.disabled = int(enemy["hp"]) <= 0
-	button.pressed.connect(func() -> void:
-		selected_target = index
-		_request_game_render()
-	)
-	enemy_card_nodes[index] = button
-	return button
 
 
 func _render_player_status(parent: Control) -> void:
@@ -197,11 +215,13 @@ func _render_player_status(parent: Control) -> void:
 	panel.size_flags_vertical = Control.SIZE_SHRINK_END
 	var box := VBoxContainer.new()
 	panel.add_child(box)
-	box.add_child(_label(DataCatalog.CLASSES[session.class_id]["name"], 18))
-	box.add_child(_label("行动力 %d" % session.action_points, 15))
-	box.add_child(_label("hp %d/%d" % [int(session.player["hp"]), int(session.player["max_hp"])], 15))
-	box.add_child(_label("攻击 %d" % int(session.player["attack"]), 15))
-	box.add_child(_label("护甲 %d" % int(session.player["defense"]), 15))
+	player_status_labels["class"] = _label(DataCatalog.CLASSES[session.class_id]["name"], 18)
+	player_status_labels["action"] = _label("行动力 %d" % session.action_points, 15)
+	player_status_labels["hp"] = _label("hp %d/%d" % [int(session.player["hp"]), int(session.player["max_hp"])], 15)
+	player_status_labels["attack"] = _label("攻击 %d" % int(session.player["attack"]), 15)
+	player_status_labels["armor"] = _label("护甲 %d" % int(session.player["defense"]), 15)
+	for label in player_status_labels.values():
+		box.add_child(label)
 	player_status_node = panel
 	parent.add_child(panel)
 
@@ -217,9 +237,9 @@ func _render_actions(parent: Control) -> void:
 	basic_row.add_child(_action_button("防御", Callable(self, "_on_defend_pressed")))
 	basic_row.add_child(_action_button("躲避", Callable(self, "_on_dodge_pressed")))
 	basic_row.add_child(_action_button("结束回合", Callable(self, "_on_end_turn_pressed")))
-	for i in range(3):
-		var button := basic_row.get_child(i) as Button
-		button.disabled = input_locked or session.action_points < 1
+	for child in basic_row.get_children():
+		action_buttons.append(child as Button)
+	_refresh_action_buttons()
 
 	var skill_row := HBoxContainer.new()
 	skill_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -240,6 +260,8 @@ func _render_actions(parent: Control) -> void:
 		else:
 			button.text = "未解锁"
 		skill_row.add_child(button)
+		skill_buttons.append(button)
+	_refresh_action_buttons()
 
 
 func _equipment_panel() -> Control:
@@ -331,7 +353,10 @@ func _run_action(action: Callable) -> void:
 	action.call()
 	await _play_action_feedback()
 	input_locked = false
-	_request_game_render()
+	if session.phase == "battle":
+		_refresh_battle_ui()
+	else:
+		_request_game_render()
 
 
 func _play_action_feedback() -> void:
@@ -463,14 +488,96 @@ func _render_character_panel(parent: Control) -> void:
 func _render_log(parent: Control) -> void:
 	parent.add_child(_label("战斗日志", 18))
 	var log_text := RichTextLabel.new()
+	log_text_node = log_text
 	log_text.custom_minimum_size = Vector2(320, 180)
 	log_text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	log_text.text = _battle_log_text()
+	parent.add_child(log_text)
+
+
+func _battle_log_text() -> String:
 	var start: int = maxi(0, session.battle_log.size() - 8)
 	var lines: Array[String] = []
 	for i in range(start, session.battle_log.size()):
 		lines.append(session.battle_log[i])
-	log_text.text = "\n".join(lines)
-	parent.add_child(log_text)
+	return "\n".join(lines)
+
+
+func _refresh_battle_ui() -> void:
+	if session.phase != "battle":
+		_request_game_render()
+		return
+	if message_label_node != null and is_instance_valid(message_label_node):
+		message_label_node.text = session.message
+	for index in enemy_card_nodes.keys():
+		var button: Button = enemy_card_nodes[index]
+		if is_instance_valid(button) and index < session.enemies.size():
+			var selected := ">" if int(index) == selected_target else ""
+			button.text = _enemy_card_text(int(index), selected)
+			button.disabled = int(session.enemies[index]["hp"]) <= 0
+	if player_status_labels.has("action"):
+		player_status_labels["action"].text = "行动力 %d" % session.action_points
+	if player_status_labels.has("hp"):
+		player_status_labels["hp"].text = "hp %d/%d" % [int(session.player["hp"]), int(session.player["max_hp"])]
+	if player_status_labels.has("attack"):
+		player_status_labels["attack"].text = "攻击 %d" % int(session.player["attack"])
+	if player_status_labels.has("armor"):
+		player_status_labels["armor"].text = "护甲 %d" % int(session.player["defense"])
+	if pending_state_label_node != null and is_instance_valid(pending_state_label_node):
+		pending_state_label_node.text = _pending_state_text()
+	_refresh_hand_row()
+	_refresh_action_buttons()
+	if log_text_node != null and is_instance_valid(log_text_node):
+		log_text_node.text = _battle_log_text()
+	if not session.last_drawn_cards.is_empty():
+		var cards := session.last_drawn_cards.duplicate()
+		session.last_drawn_cards.clear()
+		call_deferred("_animate_draw_cards", cards)
+
+
+func _refresh_hand_row() -> void:
+	if hand_row_node == null or not is_instance_valid(hand_row_node):
+		return
+	for child in hand_row_node.get_children():
+		child.queue_free()
+	for i in range(session.state_cards.size()):
+		var card_id: String = session.state_cards[i]
+		var button := Button.new()
+		button.text = DataCatalog.STATE_CARDS[card_id]["name"]
+		button.custom_minimum_size = Vector2(136, 56)
+		button.disabled = input_locked
+		button.pressed.connect(func(index := i) -> void:
+			session.use_state_card(index)
+			call_deferred("_refresh_battle_ui")
+		)
+		hand_row_node.add_child(button)
+
+
+func _refresh_action_buttons() -> void:
+	for i in range(action_buttons.size()):
+		var button := action_buttons[i]
+		if button == null or not is_instance_valid(button):
+			continue
+		if i < 3:
+			button.disabled = input_locked or session.action_points < 1
+		else:
+			button.disabled = input_locked
+	for i in range(skill_buttons.size()):
+		var button := skill_buttons[i]
+		if button == null or not is_instance_valid(button):
+			continue
+		if i >= session.player["equipped_skills"].size():
+			button.disabled = true
+			continue
+		var skill_id: String = session.player["equipped_skills"][i]
+		var skill: Dictionary = DataCatalog.SKILLS[skill_id]
+		button.disabled = input_locked or session.action_points < int(skill.get("cost", 0))
+
+
+func _pending_state_text() -> String:
+	if session.pending_state_card == "":
+		return ""
+	return "已准备：%s" % DataCatalog.STATE_CARDS[session.pending_state_card]["name"]
 
 
 func _action_button(text_value: String, callback: Callable) -> Button:
