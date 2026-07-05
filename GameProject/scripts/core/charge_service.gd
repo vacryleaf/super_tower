@@ -1,0 +1,205 @@
+extends RefCounted
+class_name ChargeService
+
+const MAX_CHARGES := 5
+
+var rng := RandomNumberGenerator.new()
+
+
+func available_charges(session: Variant) -> Array[Dictionary]:
+	var charges: Array[Dictionary] = []
+	collect_charges_from_group(session, charges, "equipment", session.player.get("equipment_attachments", {}))
+	collect_charges_from_group(session, charges, "skill", session.player.get("skill_attachments", {}))
+	return charges
+
+
+func use_charge(session: Variant, charge_id: String) -> void:
+	session.last_events.clear()
+	if session.phase != "battle":
+		return
+	if bool(session.charge_used.get(charge_id, false)):
+		session.message = "该充能本场战斗已经使用。"
+		return
+	if not bool(session.charge_ready.get(charge_id, false)):
+		session.message = "该充能尚未就绪。"
+		return
+	var charge := charge_by_id(session, charge_id)
+	if charge.is_empty():
+		session.message = "没有找到可用充能。"
+		return
+	session.charge_used[charge_id] = true
+	session.charge_ready[charge_id] = false
+	apply_charge_effect(session, charge)
+	var label: String = session._reward_short_label(charge)
+	session.battle_log.append("发动充能：%s。" % label)
+	session.message = "已发动充能：%s。" % label
+	session.last_events.append({"kind": "charge", "target": "player", "amount": 0})
+
+
+func collect_charges_from_group(session: Variant, result: Array[Dictionary], target_type: String, groups: Dictionary) -> void:
+	for target_id in groups.keys():
+		var attachments: Array = groups.get(target_id, [])
+		for i in range(attachments.size()):
+			if result.size() >= MAX_CHARGES:
+				return
+			var attachment: Dictionary = attachments[i]
+			var kind := String(attachment.get("kind", ""))
+			if not kind.begins_with("charge_"):
+				continue
+			var charge := attachment.duplicate(true)
+			charge["charge_id"] = "%s:%s:%d" % [target_type, String(target_id), i]
+			charge["source_label"] = session._target_label({"type": target_type, "id": String(target_id)})
+			charge["used"] = bool(session.charge_used.get(charge["charge_id"], false))
+			charge["ready"] = bool(session.charge_ready.get(charge["charge_id"], false))
+			result.append(charge)
+
+
+func charge_by_id(session: Variant, charge_id: String) -> Dictionary:
+	for charge in available_charges(session):
+		if String(charge.get("charge_id", "")) == charge_id:
+			return charge
+	return {}
+
+
+func random_ready_charge(session: Variant) -> String:
+	var charges := available_charges(session)
+	var candidates: Array[Dictionary] = []
+	for charge in charges:
+		var charge_id := String(charge.get("charge_id", ""))
+		if bool(charge.get("used", false)):
+			continue
+		if bool(charge.get("ready", false)):
+			continue
+		candidates.append(charge)
+	if candidates.is_empty():
+		return ""
+	rng.randomize()
+	var selected: Dictionary = candidates[rng.randi_range(0, candidates.size() - 1)]
+	var selected_id := String(selected.get("charge_id", ""))
+	session.charge_ready[selected_id] = true
+	return session._reward_short_label(selected)
+
+
+func apply_charge_effect(session: Variant, charge: Dictionary) -> void:
+	ensure_charge_effects(session)
+	var effects := charge_effect_bucket(session, charge)
+	var kind := String(charge.get("kind", ""))
+	match kind:
+		"charge_attack_multiplier":
+			effects["attack_multiplier"] = float(effects.get("attack_multiplier", 1.0)) * float(charge.get("value", 1.0))
+		"charge_defense_multiplier":
+			effects["defense_multiplier"] = float(effects.get("defense_multiplier", 1.0)) * float(charge.get("value", 1.0))
+		"charge_repeat_attack":
+			effects["repeat_attack"] = int(effects.get("repeat_attack", 0)) + maxi(1, int(charge.get("value", 1)))
+		"charge_repeat_defense":
+			effects["repeat_defense"] = int(effects.get("repeat_defense", 0)) + maxi(1, int(charge.get("value", 1)))
+		"charge_bonus_damage":
+			effects["bonus_damage"] = int(effects.get("bonus_damage", 0)) + int(charge.get("value", 0))
+
+
+func charge_effect_bucket(session: Variant, charge: Dictionary) -> Dictionary:
+	var target_type := String(charge.get("target_type", ""))
+	var target_id := String(charge.get("target_id", ""))
+	if target_type == "skill" and target_id != "":
+		var skills: Dictionary = session.pending_charge_effects.get("skills", {})
+		if not skills.has(target_id):
+			skills[target_id] = empty_charge_values()
+		session.pending_charge_effects["skills"] = skills
+		return skills[target_id]
+	return session.pending_charge_effects["global"]
+
+
+func apply_charge_attack_modifiers(session: Variant, base: int, skill_id: String = "") -> int:
+	ensure_charge_effects(session)
+	var effects := merged_charge_effects(session, skill_id)
+	var multiplier := float(effects.get("attack_multiplier", 1.0))
+	var bonus := int(effects.get("bonus_damage", 0))
+	clear_charge_attack_effects(session, skill_id)
+	return maxi(1, int(round(float(base) * multiplier)) + bonus)
+
+
+func apply_charge_defense_modifiers(session: Variant, base: int, skill_id: String = "") -> int:
+	ensure_charge_effects(session)
+	var effects := merged_charge_effects(session, skill_id)
+	var multiplier := float(effects.get("defense_multiplier", 1.0))
+	clear_charge_defense_effects(session, skill_id)
+	return maxi(1, int(round(float(base) * multiplier)))
+
+
+func consume_charge_repeat(session: Variant, action_tag: String, skill_id: String = "") -> int:
+	ensure_charge_effects(session)
+	var key := "repeat_attack" if action_tag == "attack" else "repeat_defense"
+	var repeats := int(session.pending_charge_effects["global"].get(key, 0))
+	session.pending_charge_effects["global"][key] = 0
+	if skill_id != "":
+		var skills: Dictionary = session.pending_charge_effects.get("skills", {})
+		if skills.has(skill_id):
+			repeats += int(skills[skill_id].get(key, 0))
+			skills[skill_id][key] = 0
+	return repeats
+
+
+func merged_charge_effects(session: Variant, skill_id: String) -> Dictionary:
+	var global_effects: Dictionary = session.pending_charge_effects["global"]
+	var result := global_effects.duplicate(true)
+	if skill_id != "":
+		var skills: Dictionary = session.pending_charge_effects.get("skills", {})
+		if skills.has(skill_id):
+			var skill_effects: Dictionary = skills[skill_id]
+			result["attack_multiplier"] = float(result.get("attack_multiplier", 1.0)) * float(skill_effects.get("attack_multiplier", 1.0))
+			result["defense_multiplier"] = float(result.get("defense_multiplier", 1.0)) * float(skill_effects.get("defense_multiplier", 1.0))
+			result["bonus_damage"] = int(result.get("bonus_damage", 0)) + int(skill_effects.get("bonus_damage", 0))
+			result["repeat_attack"] = int(result.get("repeat_attack", 0)) + int(skill_effects.get("repeat_attack", 0))
+			result["repeat_defense"] = int(result.get("repeat_defense", 0)) + int(skill_effects.get("repeat_defense", 0))
+	return result
+
+
+func clear_charge_attack_effects(session: Variant, skill_id: String) -> void:
+	session.pending_charge_effects["global"]["attack_multiplier"] = 1.0
+	session.pending_charge_effects["global"]["bonus_damage"] = 0
+	if skill_id != "":
+		var skills: Dictionary = session.pending_charge_effects.get("skills", {})
+		if skills.has(skill_id):
+			skills[skill_id]["attack_multiplier"] = 1.0
+			skills[skill_id]["bonus_damage"] = 0
+
+
+func clear_charge_defense_effects(session: Variant, skill_id: String) -> void:
+	session.pending_charge_effects["global"]["defense_multiplier"] = 1.0
+	if skill_id != "":
+		var skills: Dictionary = session.pending_charge_effects.get("skills", {})
+		if skills.has(skill_id):
+			skills[skill_id]["defense_multiplier"] = 1.0
+
+
+func ensure_charge_effects(session: Variant) -> void:
+	if session.pending_charge_effects.is_empty():
+		session.pending_charge_effects = empty_charge_effects()
+	if not session.pending_charge_effects.has("global"):
+		var legacy: Dictionary = session.pending_charge_effects.duplicate(true)
+		session.pending_charge_effects = empty_charge_effects()
+		for key in empty_charge_values().keys():
+			if legacy.has(key):
+				session.pending_charge_effects["global"][key] = legacy[key]
+	if not session.pending_charge_effects.has("skills"):
+		session.pending_charge_effects["skills"] = {}
+	for key in empty_charge_values().keys():
+		if not session.pending_charge_effects["global"].has(key):
+			session.pending_charge_effects["global"][key] = empty_charge_values()[key]
+
+
+func empty_charge_effects() -> Dictionary:
+	return {
+		"global": empty_charge_values(),
+		"skills": {}
+	}
+
+
+func empty_charge_values() -> Dictionary:
+	return {
+		"attack_multiplier": 1.0,
+		"defense_multiplier": 1.0,
+		"bonus_damage": 0,
+		"repeat_attack": 0,
+		"repeat_defense": 0
+	}

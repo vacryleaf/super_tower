@@ -1,6 +1,12 @@
 {
   "version": 1,
   "description": "Prototype external data catalog. Runtime still reads DataCatalog constants while migration proceeds table by table.",
+  "migration_notes": {
+    "runtime_source": "DataCatalog constants remain authoritative until a table is fully migrated and tested.",
+    "migrated_tables": ["state_cards", "classes", "skills"],
+    "next_tables": ["equipment", "tutorial_unlocks", "tutorial_encounters", "enemy_units", "reward_pools"],
+    "rule": "Content data belongs here or in split JSON resources; runtime services should consume catalog accessors instead of embedding content lists."
+  },
   "tables": {
     "state_cards": {
       "steady": {"name": "平稳", "weight": 50, "multiplier": 1.0, "tag": "numeric"},

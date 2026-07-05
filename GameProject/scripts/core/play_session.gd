@@ -8,6 +8,10 @@ const RunSimulator = preload("res://scripts/core/run_simulator.gd")
 const RewardService = preload("res://scripts/core/reward_service.gd")
 const SaveProfile = preload("res://scripts/core/save_profile.gd")
 const BattleService = preload("res://scripts/core/battle_service.gd")
+const ChargeService = preload("res://scripts/core/charge_service.gd")
+const StateBuffService = preload("res://scripts/core/state_buff_service.gd")
+const RunProgressService = preload("res://scripts/core/run_progress_service.gd")
+const RewardApplyService = preload("res://scripts/core/reward_apply_service.gd")
 
 const MAX_CHARGES := 5
 
@@ -16,6 +20,10 @@ var combat := CombatEngine.new()
 var rewards := RewardService.new()
 var save_profile := SaveProfile.new()
 var battle_service := BattleService.new()
+var charge_service := ChargeService.new()
+var state_buffs := StateBuffService.new()
+var run_progress := RunProgressService.new()
+var reward_apply := RewardApplyService.new()
 var rng := RandomNumberGenerator.new()
 
 var player: Dictionary = {}
@@ -197,10 +205,7 @@ func _begin_player_turn() -> void:
 
 
 func _draw_state_buff() -> String:
-	var cycle := ["steady", "good", "steady", "great", "steady", "critical", "steady", "read", "good", "perfect_guard", "steady", "fallback"]
-	var card_id: String = cycle[state_draw_cursor % cycle.size()]
-	state_draw_cursor += 1
-	return card_id
+	return state_buffs.draw_state_buff(self)
 
 
 func player_attack(target_index: int) -> void:
@@ -224,52 +229,11 @@ func end_turn() -> void:
 
 
 func choose_reward(index: int) -> void:
-	last_events.clear()
-	if phase != "reward":
-		return
-	if index < 0 or index >= reward_options.size():
-		return
-	var reward := reward_options[index]
-	if _reward_needs_attachment(reward):
-		pending_reward = reward.duplicate(true)
-		reward_targets = _build_reward_targets()
-		if reward_targets.is_empty():
-			message = "没有可附着目标，奖励已跳过。"
-			_advance_after_reward()
-			return
-		phase = "reward_target"
-		message = "选择「%s」要附着到的装备或技能。" % _reward_short_label(pending_reward)
-		return
-	match String(reward["kind"]):
-		"tutorial_unlock":
-			_apply_tutorial_unlock()
-		"heal":
-			player["hp"] = mini(int(player["max_hp"]), int(player["hp"]) + int(reward["value"]))
-		"skill":
-			_unlock_next_skill()
-	simulator._recalculate_player_stats(player, false)
-	_advance_after_reward()
+	reward_apply.choose_reward(self, index)
 
 
 func choose_reward_target(index: int) -> void:
-	last_events.clear()
-	if phase != "reward_target":
-		return
-	if index < 0 or index >= reward_targets.size():
-		return
-	var target := reward_targets[index]
-	if _is_charge_reward(pending_reward) and available_charges().size() >= MAX_CHARGES:
-		message = "最多只能持有 %d 个充能，本次充能奖励已跳过。" % MAX_CHARGES
-		pending_reward = {}
-		reward_targets.clear()
-		_advance_after_reward()
-		return
-	simulator.attach_reward(player, target, pending_reward)
-	simulator._recalculate_player_stats(player, false)
-	message = "%s 已附着到 %s。" % [_reward_short_label(pending_reward), _target_label(target)]
-	pending_reward = {}
-	reward_targets.clear()
-	_advance_after_reward()
+	reward_apply.choose_reward_target(self, index)
 
 
 func _after_player_action() -> void:
@@ -397,41 +361,15 @@ func _apply_damage_to_enemy(target_index: int, damage: int, ignore_taunt: bool =
 
 
 func _on_victory() -> void:
-	player["battles_completed"] += 1
-	phase = "reward"
-	_build_reward_options()
+	run_progress.on_victory(self)
 
 
 func _on_defeat() -> void:
-	if is_tutorial():
-		player["tutorial_restarts"] += 1
-		player["hp"] = player["max_hp"]
-		message = "新手引导失败保护：当前战斗已重开。"
-		_start_current_battle()
-	else:
-		phase = "game_over"
-		message = "你在第 %d 层第 %d 场战斗中失败。" % [floor_index, battle_index]
+	run_progress.on_defeat(self)
 
 
 func _build_reward_options() -> void:
-	reward_options.clear()
-	if is_tutorial():
-		reward_options.append(rewards.tutorial_reward(class_id, battle_index))
-		message = "获得新手引导固定奖励。"
-		return
-	var encounter_type := String(current_encounter["type"])
-	if encounter_type == "normal":
-		reward_options = rewards.random_options("normal", 3, floor_index, available_charges().size())
-		player["normal_rewards"] += 1
-	elif encounter_type == "elite":
-		reward_options = rewards.random_options("elite", 4, floor_index, available_charges().size())
-		player["elite_rewards"] += 1
-	else:
-		reward_options = rewards.random_options("boss", 4, floor_index, available_charges().size())
-		reward_options.append({"kind": "skill", "label": "技能分支：解锁一个不重复技能", "value": 0})
-		reward_options = rewards.sample_rewards(reward_options, reward_options.size())
-		player["boss_rewards"] += 1
-	message = "选择一个奖励。"
+	reward_apply.build_reward_options(self)
 
 
 func _random_reward_options(reward_rank: String, count: int) -> Array[Dictionary]:
@@ -459,37 +397,15 @@ func _remove_matching_reward(rewards: Array[Dictionary], target: Dictionary) -> 
 
 
 func _advance_after_reward() -> void:
-	if is_tutorial() and battle_index == 10:
-		player["tutorial_completed"] = true
-		floor_index = 2
-		battle_index = 1
-		message = "新手引导完成，正式高塔开始。"
-		_apply_limited_post_battle_recovery()
-		_start_current_battle()
-		return
-	if battle_index >= 10:
-		if floor_index >= 10:
-			phase = "victory"
-			message = "你已通关第 10 层，当前版本目标完成。"
-			return
-		floor_index += 1
-		battle_index = 1
-	else:
-		battle_index += 1
-	_apply_limited_post_battle_recovery()
-	_start_current_battle()
+	run_progress.advance_after_reward(self)
 
 
 func _apply_tutorial_unlock() -> void:
-	var unlock_id: String = DataCatalog.TUTORIAL_UNLOCKS[class_id][battle_index - 1]
-	if DataCatalog.EQUIPMENT.has(unlock_id):
-		simulator.equip_item(player, unlock_id)
-	else:
-		simulator.unlock_skill(player, unlock_id, true)
+	reward_apply.apply_tutorial_unlock(self)
 
 
 func _unlock_next_skill() -> void:
-	simulator._unlock_next_skill(player)
+	reward_apply.unlock_next_skill(self)
 
 
 func _reward_needs_attachment(reward: Dictionary) -> bool:
@@ -501,12 +417,7 @@ func _is_charge_reward(reward: Dictionary) -> bool:
 
 
 func _build_reward_targets() -> Array[Dictionary]:
-	var targets: Array[Dictionary] = []
-	for item_id in player.get("equipment_ids", []):
-		targets.append({"type": "equipment", "id": String(item_id)})
-	for skill_id in player.get("equipped_skills", []):
-		targets.append({"type": "skill", "id": String(skill_id)})
-	return targets
+	return reward_apply.build_reward_targets(self)
 
 
 func _reward_short_label(reward: Dictionary) -> String:
@@ -534,202 +445,67 @@ func _skill_multiplier_bonus(skill_id: String, kind: String = "") -> float:
 
 
 func available_charges() -> Array[Dictionary]:
-	var charges: Array[Dictionary] = []
-	_collect_charges_from_group(charges, "equipment", player.get("equipment_attachments", {}))
-	_collect_charges_from_group(charges, "skill", player.get("skill_attachments", {}))
-	return charges
+	return charge_service.available_charges(self)
 
 
 func use_charge(charge_id: String) -> void:
-	last_events.clear()
-	if phase != "battle":
-		return
-	if bool(charge_used.get(charge_id, false)):
-		message = "该充能本场战斗已经使用。"
-		return
-	if not bool(charge_ready.get(charge_id, false)):
-		message = "该充能尚未就绪。"
-		return
-	var charge := _charge_by_id(charge_id)
-	if charge.is_empty():
-		message = "没有找到可用充能。"
-		return
-	charge_used[charge_id] = true
-	charge_ready[charge_id] = false
-	_apply_charge_effect(charge)
-	var label := _reward_short_label(charge)
-	battle_log.append("发动充能：%s。" % label)
-	message = "已发动充能：%s。" % label
-	last_events.append({"kind": "charge", "target": "player", "amount": 0})
+	charge_service.use_charge(self, charge_id)
 
 
 func _collect_charges_from_group(result: Array[Dictionary], target_type: String, groups: Dictionary) -> void:
-	for target_id in groups.keys():
-		var attachments: Array = groups.get(target_id, [])
-		for i in range(attachments.size()):
-			if result.size() >= MAX_CHARGES:
-				return
-			var attachment: Dictionary = attachments[i]
-			var kind := String(attachment.get("kind", ""))
-			if not kind.begins_with("charge_"):
-				continue
-			var charge := attachment.duplicate(true)
-			charge["charge_id"] = "%s:%s:%d" % [target_type, String(target_id), i]
-			charge["source_label"] = _target_label({"type": target_type, "id": String(target_id)})
-			charge["used"] = bool(charge_used.get(charge["charge_id"], false))
-			charge["ready"] = bool(charge_ready.get(charge["charge_id"], false))
-			result.append(charge)
+	charge_service.collect_charges_from_group(self, result, target_type, groups)
 
 
 func _charge_by_id(charge_id: String) -> Dictionary:
-	for charge in available_charges():
-		if String(charge.get("charge_id", "")) == charge_id:
-			return charge
-	return {}
+	return charge_service.charge_by_id(self, charge_id)
 
 
 func _random_ready_charge() -> String:
-	var charges := available_charges()
-	var candidates: Array[Dictionary] = []
-	for charge in charges:
-		var charge_id := String(charge.get("charge_id", ""))
-		if bool(charge.get("used", false)):
-			continue
-		if bool(charge.get("ready", false)):
-			continue
-		candidates.append(charge)
-	if candidates.is_empty():
-		return ""
-	rng.randomize()
-	var selected: Dictionary = candidates[rng.randi_range(0, candidates.size() - 1)]
-	var selected_id := String(selected.get("charge_id", ""))
-	charge_ready[selected_id] = true
-	return _reward_short_label(selected)
+	return charge_service.random_ready_charge(self)
 
 
 func _apply_charge_effect(charge: Dictionary) -> void:
-	_ensure_charge_effects()
-	var effects := _charge_effect_bucket(charge)
-	var kind := String(charge.get("kind", ""))
-	match kind:
-		"charge_attack_multiplier":
-			effects["attack_multiplier"] = float(effects.get("attack_multiplier", 1.0)) * float(charge.get("value", 1.0))
-		"charge_defense_multiplier":
-			effects["defense_multiplier"] = float(effects.get("defense_multiplier", 1.0)) * float(charge.get("value", 1.0))
-		"charge_repeat_attack":
-			effects["repeat_attack"] = int(effects.get("repeat_attack", 0)) + maxi(1, int(charge.get("value", 1)))
-		"charge_repeat_defense":
-			effects["repeat_defense"] = int(effects.get("repeat_defense", 0)) + maxi(1, int(charge.get("value", 1)))
-		"charge_bonus_damage":
-			effects["bonus_damage"] = int(effects.get("bonus_damage", 0)) + int(charge.get("value", 0))
+	charge_service.apply_charge_effect(self, charge)
 
 
 func _charge_effect_bucket(charge: Dictionary) -> Dictionary:
-	var target_type := String(charge.get("target_type", ""))
-	var target_id := String(charge.get("target_id", ""))
-	if target_type == "skill" and target_id != "":
-		var skills: Dictionary = pending_charge_effects.get("skills", {})
-		if not skills.has(target_id):
-			skills[target_id] = _empty_charge_values()
-		pending_charge_effects["skills"] = skills
-		return skills[target_id]
-	return pending_charge_effects["global"]
+	return charge_service.charge_effect_bucket(self, charge)
 
 
 func _apply_charge_attack_modifiers(base: int, skill_id: String = "") -> int:
-	_ensure_charge_effects()
-	var effects := _merged_charge_effects(skill_id)
-	var multiplier := float(effects.get("attack_multiplier", 1.0))
-	var bonus := int(effects.get("bonus_damage", 0))
-	_clear_charge_attack_effects(skill_id)
-	return maxi(1, int(round(float(base) * multiplier)) + bonus)
+	return charge_service.apply_charge_attack_modifiers(self, base, skill_id)
 
 
 func _apply_charge_defense_modifiers(base: int, skill_id: String = "") -> int:
-	_ensure_charge_effects()
-	var effects := _merged_charge_effects(skill_id)
-	var multiplier := float(effects.get("defense_multiplier", 1.0))
-	_clear_charge_defense_effects(skill_id)
-	return maxi(1, int(round(float(base) * multiplier)))
+	return charge_service.apply_charge_defense_modifiers(self, base, skill_id)
 
 
 func _consume_charge_repeat(action_tag: String, skill_id: String = "") -> int:
-	_ensure_charge_effects()
-	var key := "repeat_attack" if action_tag == "attack" else "repeat_defense"
-	var repeats := int(pending_charge_effects["global"].get(key, 0))
-	pending_charge_effects["global"][key] = 0
-	if skill_id != "":
-		var skills: Dictionary = pending_charge_effects.get("skills", {})
-		if skills.has(skill_id):
-			repeats += int(skills[skill_id].get(key, 0))
-			skills[skill_id][key] = 0
-	return repeats
+	return charge_service.consume_charge_repeat(self, action_tag, skill_id)
 
 
 func _merged_charge_effects(skill_id: String) -> Dictionary:
-	var global_effects: Dictionary = pending_charge_effects["global"]
-	var result := global_effects.duplicate(true)
-	if skill_id != "":
-		var skills: Dictionary = pending_charge_effects.get("skills", {})
-		if skills.has(skill_id):
-			var skill_effects: Dictionary = skills[skill_id]
-			result["attack_multiplier"] = float(result.get("attack_multiplier", 1.0)) * float(skill_effects.get("attack_multiplier", 1.0))
-			result["defense_multiplier"] = float(result.get("defense_multiplier", 1.0)) * float(skill_effects.get("defense_multiplier", 1.0))
-			result["bonus_damage"] = int(result.get("bonus_damage", 0)) + int(skill_effects.get("bonus_damage", 0))
-			result["repeat_attack"] = int(result.get("repeat_attack", 0)) + int(skill_effects.get("repeat_attack", 0))
-			result["repeat_defense"] = int(result.get("repeat_defense", 0)) + int(skill_effects.get("repeat_defense", 0))
-	return result
+	return charge_service.merged_charge_effects(self, skill_id)
 
 
 func _clear_charge_attack_effects(skill_id: String) -> void:
-	pending_charge_effects["global"]["attack_multiplier"] = 1.0
-	pending_charge_effects["global"]["bonus_damage"] = 0
-	if skill_id != "":
-		var skills: Dictionary = pending_charge_effects.get("skills", {})
-		if skills.has(skill_id):
-			skills[skill_id]["attack_multiplier"] = 1.0
-			skills[skill_id]["bonus_damage"] = 0
+	charge_service.clear_charge_attack_effects(self, skill_id)
 
 
 func _clear_charge_defense_effects(skill_id: String) -> void:
-	pending_charge_effects["global"]["defense_multiplier"] = 1.0
-	if skill_id != "":
-		var skills: Dictionary = pending_charge_effects.get("skills", {})
-		if skills.has(skill_id):
-			skills[skill_id]["defense_multiplier"] = 1.0
+	charge_service.clear_charge_defense_effects(self, skill_id)
 
 
 func _ensure_charge_effects() -> void:
-	if pending_charge_effects.is_empty():
-		pending_charge_effects = _empty_charge_effects()
-	if not pending_charge_effects.has("global"):
-		var legacy := pending_charge_effects.duplicate(true)
-		pending_charge_effects = _empty_charge_effects()
-		for key in _empty_charge_values().keys():
-			if legacy.has(key):
-				pending_charge_effects["global"][key] = legacy[key]
-	if not pending_charge_effects.has("skills"):
-		pending_charge_effects["skills"] = {}
-	for key in _empty_charge_values().keys():
-		if not pending_charge_effects["global"].has(key):
-			pending_charge_effects["global"][key] = _empty_charge_values()[key]
+	charge_service.ensure_charge_effects(self)
 
 
 func _empty_charge_effects() -> Dictionary:
-	return {
-		"global": _empty_charge_values(),
-		"skills": {}
-	}
+	return charge_service.empty_charge_effects()
 
 
 func _empty_charge_values() -> Dictionary:
-	return {
-		"attack_multiplier": 1.0,
-		"defense_multiplier": 1.0,
-		"bonus_damage": 0,
-		"repeat_attack": 0,
-		"repeat_defense": 0
-	}
+	return charge_service.empty_charge_values()
 
 
 func _floor_value(base: int) -> int:
@@ -737,46 +513,19 @@ func _floor_value(base: int) -> int:
 
 
 func _apply_limited_post_battle_recovery() -> void:
-	var cap := int(floor(float(player["max_hp"]) * 0.80))
-	if int(player["hp"]) >= cap:
-		return
-	player["hp"] = mini(cap, int(player["hp"]) + _post_reward_heal_amount())
+	run_progress.apply_limited_post_battle_recovery(self)
 
 
 func _post_reward_heal_amount() -> int:
-	var ratio := 0.08
-	var encounter_type := String(current_encounter.get("type", "normal"))
-	if encounter_type == "boss":
-		ratio = 0.35
-	elif encounter_type == "elite":
-		ratio = 0.18
-	return maxi(4, int(round(float(player["max_hp"]) * ratio)))
+	return run_progress.post_reward_heal_amount(self)
 
 
 func _modified_value(base: int, tag: String) -> int:
-	var multiplier := 1.0
-	if pending_state_card != "":
-		var card: Dictionary = DataCatalog.STATE_CARDS[pending_state_card]
-		if card["tag"] == "numeric" or card["tag"] == tag:
-			multiplier = float(card["multiplier"])
-		if pending_state_card == "fallback" and tag == "attack":
-			multiplier = 1.0
-	return maxi(1, int(round(float(base) * multiplier)))
+	return state_buffs.modified_value(self, base, tag)
 
 
 func _consume_state_after_action(action_tag: String) -> void:
-	if pending_state_card == "":
-		return
-	var card: Dictionary = DataCatalog.STATE_CARDS[pending_state_card]
-	var card_tag := String(card.get("tag", ""))
-	if card_tag == "attack" and action_tag == "attack":
-		pending_state_card = ""
-	elif card_tag == "defense" and (action_tag == "defense" or action_tag == "stance"):
-		pending_state_card = ""
-	elif card_tag == "dodge" and action_tag == "dodge":
-		pending_state_card = ""
-	elif pending_state_card == "fallback" and action_tag == "attack":
-		pending_state_card = ""
+	state_buffs.consume_state_after_action(self, action_tag)
 
 
 func _can_act(cost: int) -> bool:
@@ -856,7 +605,7 @@ func _has_first_strike() -> bool:
 
 
 func _state_name(card_id: String) -> String:
-	return DataCatalog.STATE_CARDS[card_id]["name"]
+	return state_buffs.state_name(card_id)
 
 
 func _save_data() -> Dictionary:

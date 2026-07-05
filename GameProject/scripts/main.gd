@@ -5,6 +5,9 @@ const PlaySession = preload("res://scripts/core/play_session.gd")
 const BattleView = preload("res://scripts/ui/battle_view.gd")
 const RewardView = preload("res://scripts/ui/reward_view.gd")
 const EquipmentOverlay = preload("res://scripts/ui/equipment_overlay.gd")
+const CampView = preload("res://scripts/ui/camp_view.gd")
+const ActionBarView = preload("res://scripts/ui/action_bar_view.gd")
+const CombatLogView = preload("res://scripts/ui/combat_log_view.gd")
 
 @onready var root: VBoxContainer = $Root
 
@@ -12,6 +15,9 @@ var session := PlaySession.new()
 var battle_view: BattleView = BattleView.new()
 var reward_view: RewardView = RewardView.new()
 var equipment_overlay: EquipmentOverlay = EquipmentOverlay.new()
+var camp_view: CampView = CampView.new()
+var action_bar_view: ActionBarView = ActionBarView.new()
+var combat_log_view: CombatLogView = CombatLogView.new()
 var selected_target := 0
 var render_queued := false
 var input_locked := false
@@ -60,45 +66,7 @@ func _clear_overlay_layers() -> void:
 func _render_menu() -> void:
 	render_queued = false
 	_clear_root()
-	var title := _label("塔下营地", 30)
-	root.add_child(title)
-	root.add_child(_label("可玩版本：新手引导、手动战斗、奖励选择、装备、技能和 1-10 层流程。", 16))
-	if session.has_active_run():
-		var continue_button := Button.new()
-		continue_button.text = "继续当前派遣"
-		continue_button.custom_minimum_size = Vector2(220, 56)
-		continue_button.pressed.connect(_on_continue_pressed)
-		root.add_child(continue_button)
-	var class_row := HBoxContainer.new()
-	class_row.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	root.add_child(class_row)
-	class_row.add_child(_class_panel("warrior"))
-	class_row.add_child(_class_panel("archer"))
-
-
-func _class_panel(class_key: String) -> Control:
-	var data: Dictionary = DataCatalog.CLASSES[class_key]
-	var panel := PanelContainer.new()
-	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var box := VBoxContainer.new()
-	box.add_child(_label(String(data["name"]), 24))
-	box.add_child(_label("生命 %d  攻击 %d  护甲 %d  格挡 %d" % [int(data["max_hp"]), int(data["base_attack"]), int(data["base_defense"]), int(data.get("base_block", 1))], 16))
-	box.add_child(_label("第一个技能：%s" % DataCatalog.SKILLS[data["first_skill"]]["name"], 16))
-	var roster_player := session.get_roster_player(class_key)
-	if roster_player.is_empty():
-		box.add_child(_label("队伍状态：未招募", 14))
-	else:
-		box.add_child(_label("队伍状态：装备 %d  技能 %d" % [
-			roster_player.get("equipment_ids", []).size(),
-			roster_player.get("unlocked_skills", []).size()
-		], 14))
-	var button := Button.new()
-	button.text = "派遣：%s" % data["name"]
-	button.custom_minimum_size = Vector2(180, 56)
-	button.pressed.connect(_on_class_dispatch_pressed.bind(class_key))
-	box.add_child(button)
-	panel.add_child(box)
-	return panel
+	camp_view.render(root, session, Callable(self, "_label"), Callable(self, "_on_continue_pressed"), Callable(self, "_on_class_dispatch_pressed"))
 
 
 func _render_game() -> void:
@@ -210,56 +178,20 @@ func _render_player_status(parent: Control) -> void:
 
 
 func _render_actions(parent: Control) -> void:
-	var actions := VBoxContainer.new()
-	actions.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	parent.add_child(actions)
-	var basic_row := HBoxContainer.new()
-	basic_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	actions.add_child(basic_row)
-	basic_row.add_child(_action_button("普通攻击", Callable(self, "_on_attack_pressed")))
-	basic_row.add_child(_action_button("防御", Callable(self, "_on_defend_pressed")))
-	basic_row.add_child(_action_button("躲避", Callable(self, "_on_dodge_pressed")))
-	basic_row.add_child(_action_button("结束回合", Callable(self, "_on_end_turn_pressed")))
-	for child in basic_row.get_children():
-		action_buttons.append(child as Button)
-	_refresh_action_buttons()
-
-	var skill_row := HBoxContainer.new()
-	skill_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	actions.add_child(skill_row)
-	for i in range(4):
-		var button := Button.new()
-		button.custom_minimum_size = Vector2(140, 48)
-		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		button.disabled = input_locked or i >= session.player["equipped_skills"].size()
-		if i < session.player["equipped_skills"].size():
-			var skill_id: String = session.player["equipped_skills"][i]
-			var skill: Dictionary = DataCatalog.SKILLS[skill_id]
-			button.text = "%s（%d）" % [skill["name"], int(skill.get("cost", 0))]
-			button.disabled = input_locked or session.action_points < int(skill.get("cost", 0))
-			button.pressed.connect(_on_skill_pressed.bind(i))
-		else:
-			button.text = "未解锁"
-		skill_row.add_child(button)
-		skill_buttons.append(button)
-	var charges := session.available_charges()
-	if not charges.is_empty():
-		var charge_grid := GridContainer.new()
-		charge_grid.columns = 4
-		charge_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		actions.add_child(charge_grid)
-		for charge in charges:
-			var button := Button.new()
-			var charge_id := String(charge.get("charge_id", ""))
-			button.set_meta("charge_id", charge_id)
-			button.custom_minimum_size = Vector2(150, 72)
-			button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-			button.text = "%s\n%s" % [_charge_button_label(charge), String(charge.get("source_label", ""))]
-			button.disabled = input_locked or bool(charge.get("used", false)) or not bool(charge.get("ready", false))
-			button.pressed.connect(_on_charge_pressed.bind(charge_id))
-			charge_grid.add_child(button)
-			charge_buttons.append(button)
-	_refresh_action_buttons()
+	var controls: Dictionary = action_bar_view.render(
+		parent,
+		session,
+		input_locked,
+		Callable(self, "_on_attack_pressed"),
+		Callable(self, "_on_defend_pressed"),
+		Callable(self, "_on_dodge_pressed"),
+		Callable(self, "_on_end_turn_pressed"),
+		Callable(self, "_on_skill_pressed"),
+		Callable(self, "_on_charge_pressed")
+	)
+	action_buttons = controls["action_buttons"]
+	skill_buttons = controls["skill_buttons"]
+	charge_buttons = controls["charge_buttons"]
 
 
 func _equipment_panel() -> Control:
@@ -530,21 +462,7 @@ func _render_character_panel(parent: Control) -> void:
 
 
 func _render_log(parent: Control) -> void:
-	parent.add_child(_label("战斗日志", 18))
-	var log_text := RichTextLabel.new()
-	log_text_node = log_text
-	log_text.custom_minimum_size = Vector2(320, 180)
-	log_text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	log_text.text = _battle_log_text()
-	parent.add_child(log_text)
-
-
-func _battle_log_text() -> String:
-	var start: int = maxi(0, session.battle_log.size() - 8)
-	var lines: Array[String] = []
-	for i in range(start, session.battle_log.size()):
-		lines.append(session.battle_log[i])
-	return "\n".join(lines)
+	log_text_node = combat_log_view.render(parent, session.battle_log, Callable(self, "_label"))
 
 
 func _refresh_battle_ui() -> void:
@@ -575,34 +493,11 @@ func _refresh_battle_ui() -> void:
 	if pending_state_label_node != null and is_instance_valid(pending_state_label_node):
 		pending_state_label_node.text = _pending_state_text()
 	_refresh_action_buttons()
-	if log_text_node != null and is_instance_valid(log_text_node):
-		log_text_node.text = _battle_log_text()
+	combat_log_view.refresh(log_text_node, session.battle_log)
 
 
 func _refresh_action_buttons() -> void:
-	for i in range(action_buttons.size()):
-		var button := action_buttons[i]
-		if button == null or not is_instance_valid(button):
-			continue
-		if i < 3:
-			button.disabled = input_locked or session.action_points < 1
-		else:
-			button.disabled = input_locked
-	for i in range(skill_buttons.size()):
-		var button := skill_buttons[i]
-		if button == null or not is_instance_valid(button):
-			continue
-		if i >= session.player["equipped_skills"].size():
-			button.disabled = true
-			continue
-		var skill_id: String = session.player["equipped_skills"][i]
-		var skill: Dictionary = DataCatalog.SKILLS[skill_id]
-		button.disabled = input_locked or session.action_points < int(skill.get("cost", 0))
-	for button in charge_buttons:
-		if button == null or not is_instance_valid(button):
-			continue
-		var charge_id := String(button.get_meta("charge_id", ""))
-		button.disabled = input_locked or bool(session.charge_used.get(charge_id, false)) or not bool(session.charge_ready.get(charge_id, false))
+	action_bar_view.refresh(session, input_locked, action_buttons, skill_buttons, charge_buttons)
 
 
 func _pending_state_text() -> String:
@@ -714,13 +609,6 @@ func _attachment_summary(target_type: String, target_id: String) -> String:
 	for attachment in attachments:
 		labels.append(String(attachment.get("label", attachment.get("kind", ""))).replace("状态卡", "状态 Buff"))
 	return "附着：" + "、".join(labels)
-
-
-func _charge_button_label(charge: Dictionary) -> String:
-	var label := String(charge.get("label", "充能"))
-	label = label.replace("充能：", "")
-	var state := "已使用" if bool(charge.get("used", false)) else ("已充能" if bool(charge.get("ready", false)) else "未充能")
-	return "%s\n%s" % [label, state]
 
 
 func _trait_labels(traits: Array) -> String:
