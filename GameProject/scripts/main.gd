@@ -325,8 +325,6 @@ func _run_action(action: Callable) -> void:
 		return
 	input_locked = true
 	action.call()
-	_request_game_render()
-	await get_tree().process_frame
 	await _play_action_feedback()
 	input_locked = false
 	_request_game_render()
@@ -341,12 +339,12 @@ func _play_action_feedback() -> void:
 		if event.get("target", "") == "enemy":
 			var target_index := int(event.get("target_index", 0))
 			_shake_node(enemy_card_nodes.get(target_index, null))
-			_float_number(enemy_card_nodes.get(target_index, null), "-%d" % int(event.get("amount", 0)))
+			_float_number(enemy_card_nodes.get(target_index, null), "-%d" % int(event.get("amount", 0)), "center_bottom")
 		elif event.get("target", "") == "player":
 			_shake_node(player_status_node)
 			if int(event.get("amount", 0)) > 0:
 				var prefix := "+" if event.get("kind", "") in ["defense", "heal", "dodge"] else "-"
-				_float_number(player_status_node, "%s%d" % [prefix, int(event.get("amount", 0))])
+				_float_number(player_status_node, "%s%d" % [prefix, int(event.get("amount", 0))], "center_top")
 	await get_tree().create_timer(0.9).timeout
 
 
@@ -354,21 +352,26 @@ func _shake_node(node: Variant) -> void:
 	if node == null or not (node is Control):
 		return
 	var control: Control = node
+	var origin := control.position
 	var tween := create_tween()
-	tween.tween_property(control, "scale", Vector2(1.05, 1.05), 0.08)
-	tween.tween_property(control, "scale", Vector2(0.97, 0.97), 0.08)
-	tween.tween_property(control, "scale", Vector2.ONE, 0.08)
+	tween.tween_property(control, "position", origin + Vector2(8, 0), 0.05)
+	tween.tween_property(control, "position", origin + Vector2(-8, 0), 0.05)
+	tween.tween_property(control, "position", origin + Vector2(4, 0), 0.05)
+	tween.tween_property(control, "position", origin, 0.05)
 
 
-func _float_number(node: Variant, text_value: String) -> void:
+func _float_number(node: Variant, text_value: String, placement: String) -> void:
 	if node == null or not (node is Control):
 		return
 	var control: Control = node
 	var label := _label(text_value, 22)
-	label.modulate = Color(1, 0.25, 0.2, 1)
+	label.custom_minimum_size = Vector2(120, 34)
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	label.modulate = Color(1, 0.25, 0.2, 1) if text_value.begins_with("-") else Color(0.35, 1.0, 0.55, 1)
 	label.z_index = 100
 	add_child(label)
-	label.global_position = control.global_position + Vector2(20, 10)
+	label.global_position = _float_number_position(control, label.custom_minimum_size, placement)
 	var tween := create_tween()
 	tween.set_parallel(true)
 	tween.tween_property(label, "global_position", label.global_position + Vector2(0, -36), 0.8)
@@ -377,6 +380,16 @@ func _float_number(node: Variant, text_value: String) -> void:
 		if is_instance_valid(label):
 			label.queue_free()
 	)
+
+
+func _float_number_position(control: Control, popup_size: Vector2, placement: String) -> Vector2:
+	var x := control.global_position.x + (control.size.x - popup_size.x) * 0.5
+	var y := control.global_position.y + (control.size.y - popup_size.y) * 0.5
+	if placement == "center_bottom":
+		y = control.global_position.y + control.size.y * 0.62
+	elif placement == "center_top":
+		y = control.global_position.y + control.size.y * 0.18
+	return Vector2(x, y)
 
 
 func _animate_draw_cards(cards: Array) -> void:
