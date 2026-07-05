@@ -14,9 +14,11 @@ func create_character(class_id: String) -> Dictionary:
 		"base_max_hp": int(class_data["max_hp"]),
 		"base_attack": int(class_data["base_attack"]),
 		"base_defense": int(class_data["base_defense"]),
+		"base_block": int(class_data.get("base_block", 1)),
 		"max_hp_bonus": 0,
 		"attack_bonus": 0,
 		"defense_bonus": 0,
+		"block_bonus": 0,
 		"skill_bonus": 0,
 		"state_attack_bonus": 0,
 		"state_defense_bonus": 0,
@@ -388,9 +390,15 @@ func skill_attachment_bonus(player: Dictionary, skill_id: String, kind: String) 
 
 
 func _recalculate_player_stats(player: Dictionary, reset_hp: bool) -> void:
+	if not player.has("base_block"):
+		var class_data: Dictionary = DataCatalog.CLASSES[String(player.get("class_id", "warrior"))]
+		player["base_block"] = int(class_data.get("base_block", 1))
+	if not player.has("block_bonus"):
+		player["block_bonus"] = 0
 	var hp := int(player["base_max_hp"]) + int(player["max_hp_bonus"])
 	var attack := int(player["base_attack"]) + int(player["attack_bonus"])
 	var defense := int(player["base_defense"]) + int(player["defense_bonus"])
+	var block_power := int(player["base_block"]) + int(player["block_bonus"])
 	player["state_attack_bonus"] = 0
 	player["state_defense_bonus"] = 0
 	var equipment_attachments: Dictionary = player.get("equipment_attachments", {})
@@ -399,6 +407,7 @@ func _recalculate_player_stats(player: Dictionary, reset_hp: bool) -> void:
 		hp += int(item["hp"])
 		attack += int(item["attack"])
 		defense += int(item["armor"])
+		block_power += int(item.get("block", 0))
 		for attachment in equipment_attachments.get(item_id, []):
 			match _attachment_stat_kind(String(attachment.get("kind", ""))):
 				"attack":
@@ -425,6 +434,7 @@ func _recalculate_player_stats(player: Dictionary, reset_hp: bool) -> void:
 	player["max_hp"] = hp
 	player["attack"] = attack
 	player["defense"] = defense
+	player["block_power"] = block_power
 	if reset_hp or not player.has("hp"):
 		player["hp"] = hp
 	else:

@@ -165,7 +165,7 @@ func player_attack(target_index: int) -> void:
 	var damage := _modified_value(int(player["attack"]), "attack")
 	_apply_damage_to_enemy(target, damage)
 	if pending_state_card == "fallback":
-		player_block += maxi(1, int(round(float(player["defense"]) * 0.5)))
+		player_block += maxi(1, int(round(float(player["block_power"]) * 0.5)))
 	action_points -= 1
 	_consume_state_after_action("attack")
 	_after_player_action()
@@ -175,7 +175,7 @@ func player_defend() -> void:
 	last_events.clear()
 	if not _can_act(1):
 		return
-	var gained := _modified_value(int(player["defense"]), "defense")
+	var gained := _modified_value(int(player["block_power"]), "defense")
 	player_block += gained
 	action_points -= 1
 	battle_log.append("防御：获得 %d 点格挡值。" % gained)
@@ -219,9 +219,9 @@ func use_skill(slot_index: int, target_index: int) -> void:
 		var damage := _modified_value(int(player["attack"]) + int(skill.get("power", 0)) + _skill_attachment_bonus(skill_id, "attack"), "attack")
 		_apply_damage_to_enemy(target, damage)
 		if pending_state_card == "fallback":
-			player_block += maxi(1, int(round(float(player["defense"]) * 0.5)))
+			player_block += maxi(1, int(round(float(player["block_power"]) * 0.5)))
 	elif skill_type == "defense" or skill_type == "stance":
-		var gained := _modified_value(int(skill.get("power", 0)) + int(player["defense"]) + _skill_attachment_bonus(skill_id, "defense"), "defense")
+		var gained := _modified_value(int(skill.get("power", 0)) + int(player["block_power"]) + _skill_attachment_bonus(skill_id, "defense"), "defense")
 		player_block += gained
 		battle_log.append("%s：获得 %d 点格挡值。" % [skill["name"], gained])
 		last_events.append({"kind": "defense", "target": "player", "amount": gained})

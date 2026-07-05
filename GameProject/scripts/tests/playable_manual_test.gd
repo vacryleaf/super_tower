@@ -47,10 +47,11 @@ func _play_one_action(session: PlaySession) -> void:
 	var target := _first_living_enemy(session)
 	if target < 0:
 		return
-	if String(session.player["class_id"]) == "archer" and _incoming_damage(session) >= int(session.player["defense"]) and session.action_points >= 1 and session.dodge_layers <= 0:
+	var block_power := int(session.player.get("block_power", session.player.get("defense", 1)))
+	if String(session.player["class_id"]) == "archer" and _incoming_damage(session) >= block_power and session.action_points >= 1 and session.dodge_layers <= 0:
 		session.player_dodge()
 		return
-	if _incoming_damage(session) >= int(session.player["defense"]) and session.action_points >= 1 and session.player_block < int(session.player["defense"]):
+	if _incoming_damage(session) >= block_power and session.action_points >= 1 and session.player_block < block_power:
 		session.player_defend()
 		return
 	if session.player["equipped_skills"].size() > 0:

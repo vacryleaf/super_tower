@@ -24,9 +24,9 @@ func run_battle(player: Dictionary, encounter: Dictionary, tower_floor: int, bat
 		var action_points: int = mini(rounds, 3)
 		var incoming := _incoming_damage(enemies, rounds)
 
-		var defend_value := int(player["defense"]) + _state_bonus(player, "defense")
+		var defend_value := int(player.get("block_power", player.get("defense", 1))) + _state_bonus(player, "defense")
 		if defend_value >= 3 and incoming >= defend_value * 2 and action_points > 1:
-			player_block += int(player["defense"]) + _state_bonus(player, "defense")
+			player_block += defend_value
 			action_points -= 1
 			log.append("round_%d:defend" % rounds)
 

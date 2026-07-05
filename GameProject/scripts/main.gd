@@ -80,7 +80,7 @@ func _class_panel(class_key: String) -> Control:
 	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var box := VBoxContainer.new()
 	box.add_child(_label(String(data["name"]), 24))
-	box.add_child(_label("生命 %d  攻击 %d  护甲 %d" % [int(data["max_hp"]), int(data["base_attack"]), int(data["base_defense"])], 16))
+	box.add_child(_label("生命 %d  攻击 %d  护甲 %d  格挡 %d" % [int(data["max_hp"]), int(data["base_attack"]), int(data["base_defense"]), int(data.get("base_block", 1))], 16))
 	box.add_child(_label("第一个技能：%s" % DataCatalog.SKILLS[data["first_skill"]]["name"], 16))
 	var roster_player := session.get_roster_player(class_key)
 	if roster_player.is_empty():
@@ -215,7 +215,7 @@ func _enemy_card_text(index: int, selected: String = "") -> String:
 
 func _render_player_status(parent: Control) -> void:
 	var panel := PanelContainer.new()
-	panel.custom_minimum_size = Vector2(180, 154)
+	panel.custom_minimum_size = Vector2(190, 178)
 	panel.size_flags_vertical = Control.SIZE_SHRINK_END
 	var box := VBoxContainer.new()
 	panel.add_child(box)
@@ -223,9 +223,10 @@ func _render_player_status(parent: Control) -> void:
 	player_status_labels["action"] = _label("行动力 %d/%d" % [session.action_points, session.max_action_points], 15)
 	player_status_labels["hp"] = _label("hp %d/%d" % [int(session.player["hp"]), int(session.player["max_hp"])], 15)
 	player_status_labels["block"] = _label("格挡 %d" % session.player_block, 15)
+	player_status_labels["block_power"] = _label("格挡值 %d" % int(session.player["block_power"]), 15)
 	player_status_labels["attack"] = _label("攻击 %d" % int(session.player["attack"]), 15)
 	player_status_labels["armor"] = _label("护甲 %d" % int(session.player["defense"]), 15)
-	for key in ["class", "action", "hp", "block", "attack", "armor"]:
+	for key in ["class", "action", "hp", "block", "block_power", "attack", "armor"]:
 		box.add_child(player_status_labels[key])
 	player_status_node = panel
 	parent.add_child(panel)
@@ -311,12 +312,13 @@ func _equipment_panel() -> Control:
 	else:
 		for item_id in session.player["equipment_ids"]:
 			var item: Dictionary = DataCatalog.EQUIPMENT[item_id]
-			bag.add_child(_label("%s\n%s  生命+%d 攻击+%d 护甲+%d\n%s" % [
+			bag.add_child(_label("%s\n%s  生命+%d 攻击+%d 护甲+%d 格挡+%d\n%s" % [
 				item["name"],
 				_slot_label(item["slot"]),
 				int(item["hp"]),
 				int(item["attack"]),
 				int(item["armor"]),
+				int(item.get("block", 0)),
 				_attachment_summary("equipment", item_id)
 			], 12))
 	bag.add_child(_label("技能附着", 16))
@@ -529,11 +531,11 @@ func _render_character_panel(parent: Control) -> void:
 	panel.add_child(box)
 	box.add_child(_label("角色", 18))
 	box.add_child(_label("职业：%s" % DataCatalog.CLASSES[session.class_id]["name"], 14))
-	box.add_child(_label("攻击 %d  护甲 %d  生命上限 %d" % [int(session.player["attack"]), int(session.player["defense"]), int(session.player["max_hp"])], 14))
+	box.add_child(_label("攻击 %d  护甲 %d  格挡值 %d  生命上限 %d" % [int(session.player["attack"]), int(session.player["defense"]), int(session.player["block_power"]), int(session.player["max_hp"])], 14))
 	box.add_child(_label("装备", 16))
 	for item_id in session.player["equipment_ids"]:
 		var item: Dictionary = DataCatalog.EQUIPMENT[item_id]
-		box.add_child(_label("%s：%s  生命+%d 攻击+%d 护甲+%d" % [_slot_label(item["slot"]), item["name"], int(item["hp"]), int(item["attack"]), int(item["armor"])], 12))
+		box.add_child(_label("%s：%s  生命+%d 攻击+%d 护甲+%d 格挡+%d" % [_slot_label(item["slot"]), item["name"], int(item["hp"]), int(item["attack"]), int(item["armor"]), int(item.get("block", 0))], 12))
 	box.add_child(_label("已解锁技能", 16))
 	for skill_id in session.player["unlocked_skills"]:
 		box.add_child(_label("- %s" % DataCatalog.SKILLS[skill_id]["name"], 12))
@@ -581,6 +583,8 @@ func _refresh_battle_ui() -> void:
 		player_status_labels["armor"].text = "护甲 %d" % int(session.player["defense"])
 	if player_status_labels.has("block"):
 		player_status_labels["block"].text = "格挡 %d" % session.player_block
+	if player_status_labels.has("block_power"):
+		player_status_labels["block_power"].text = "格挡值 %d" % int(session.player["block_power"])
 	if pending_state_label_node != null and is_instance_valid(pending_state_label_node):
 		pending_state_label_node.text = _pending_state_text()
 	_refresh_action_buttons()
