@@ -65,24 +65,24 @@ func test_player_armor_baseline_is_low() -> void:
 
 func test_basic_equipment_values() -> void:
 	var expected := {
-		"warrior_training_helm": {"hp": 3, "attack": 0, "armor": 1, "block": 0},
-		"warrior_old_chest": {"hp": 4, "attack": 0, "armor": 1, "block": 1},
-		"warrior_soldier_belt": {"hp": 2, "attack": 0, "armor": 0, "block": 0},
-		"warrior_practice_greaves": {"hp": 3, "attack": 0, "armor": 1, "block": 1},
-		"warrior_cloth_gloves": {"hp": 1, "attack": 0, "armor": 0, "block": 0},
-		"warrior_old_leggings": {"hp": 2, "attack": 0, "armor": 1, "block": 0},
-		"warrior_march_boots": {"hp": 1, "attack": 0, "armor": 0, "block": 0},
-		"warrior_training_sword": {"hp": 0, "attack": 3, "armor": 0, "block": 0},
+		"warrior_training_helm": {"hp": 5, "attack": 0, "armor": 1, "block": 1},
+		"warrior_old_chest": {"hp": 7, "attack": 0, "armor": 1, "block": 2},
+		"warrior_soldier_belt": {"hp": 4, "attack": 0, "armor": 0, "block": 1},
+		"warrior_practice_greaves": {"hp": 5, "attack": 0, "armor": 1, "block": 1},
+		"warrior_cloth_gloves": {"hp": 2, "attack": 0, "armor": 0, "block": 0},
+		"warrior_old_leggings": {"hp": 4, "attack": 0, "armor": 1, "block": 1},
+		"warrior_march_boots": {"hp": 3, "attack": 0, "armor": 0, "block": 0},
+		"warrior_training_sword": {"hp": 0, "attack": 4, "armor": 0, "block": 0},
 		"warrior_wooden_shield": {"hp": 0, "attack": 0, "armor": 2, "block": 2},
-		"archer_practice_hood": {"hp": 3, "attack": 1, "armor": 0, "block": 0},
-		"archer_old_leather": {"hp": 4, "attack": 0, "armor": 1, "block": 1},
-		"archer_hunter_belt": {"hp": 2, "attack": 0, "armor": 0, "block": 0},
-		"archer_light_pants": {"hp": 3, "attack": 0, "armor": 1, "block": 1},
-		"archer_bracers": {"hp": 1, "attack": 0, "armor": 0, "block": 0},
-		"archer_soft_leggings": {"hp": 2, "attack": 0, "armor": 1, "block": 0},
-		"archer_light_boots": {"hp": 1, "attack": 0, "armor": 0, "block": 0},
+		"archer_practice_hood": {"hp": 4, "attack": 1, "armor": 0, "block": 1},
+		"archer_old_leather": {"hp": 6, "attack": 0, "armor": 1, "block": 1},
+		"archer_hunter_belt": {"hp": 4, "attack": 0, "armor": 0, "block": 1},
+		"archer_light_pants": {"hp": 5, "attack": 0, "armor": 1, "block": 1},
+		"archer_bracers": {"hp": 2, "attack": 0, "armor": 0, "block": 0},
+		"archer_soft_leggings": {"hp": 3, "attack": 0, "armor": 1, "block": 1},
+		"archer_light_boots": {"hp": 2, "attack": 0, "armor": 0, "block": 0},
 		"archer_practice_bow": {"hp": 0, "attack": 3, "armor": 0, "block": 0},
-		"archer_simple_quiver": {"hp": 0, "attack": 2, "armor": 0, "block": 2}
+		"archer_simple_quiver": {"hp": 0, "attack": 2, "armor": 1, "block": 2}
 	}
 	for item_id in expected.keys():
 		var item: Dictionary = DataCatalog.EQUIPMENT[item_id]

@@ -48,24 +48,24 @@ const SKILLS := {
 }
 
 const EQUIPMENT := {
-	"warrior_training_helm": {"class": "warrior", "slot": "head", "name": "训练铁盔", "hp": 3, "attack": 0, "armor": 1, "block": 0},
-	"warrior_old_chest": {"class": "warrior", "slot": "body", "name": "旧胸甲", "hp": 4, "attack": 0, "armor": 1, "block": 1},
-	"warrior_soldier_belt": {"class": "warrior", "slot": "waist", "name": "士兵腰带", "hp": 2, "attack": 0, "armor": 0, "block": 0},
-	"warrior_practice_greaves": {"class": "warrior", "slot": "legs", "name": "练习腿裤", "hp": 3, "attack": 0, "armor": 1, "block": 1},
-	"warrior_cloth_gloves": {"class": "warrior", "slot": "hands", "name": "粗布手套", "hp": 1, "attack": 0, "armor": 0, "block": 0},
-	"warrior_old_leggings": {"class": "warrior", "slot": "leggings", "name": "旧护腿", "hp": 2, "attack": 0, "armor": 1, "block": 0},
-	"warrior_march_boots": {"class": "warrior", "slot": "feet", "name": "行军靴", "hp": 1, "attack": 0, "armor": 0, "block": 0},
-	"warrior_training_sword": {"class": "warrior", "slot": "weapon", "name": "训练剑", "hp": 0, "attack": 3, "armor": 0, "block": 0},
+	"warrior_training_helm": {"class": "warrior", "slot": "head", "name": "训练铁盔", "hp": 5, "attack": 0, "armor": 1, "block": 1},
+	"warrior_old_chest": {"class": "warrior", "slot": "body", "name": "旧胸甲", "hp": 7, "attack": 0, "armor": 1, "block": 2},
+	"warrior_soldier_belt": {"class": "warrior", "slot": "waist", "name": "士兵腰带", "hp": 4, "attack": 0, "armor": 0, "block": 1},
+	"warrior_practice_greaves": {"class": "warrior", "slot": "legs", "name": "练习腿裤", "hp": 5, "attack": 0, "armor": 1, "block": 1},
+	"warrior_cloth_gloves": {"class": "warrior", "slot": "hands", "name": "粗布手套", "hp": 2, "attack": 0, "armor": 0, "block": 0},
+	"warrior_old_leggings": {"class": "warrior", "slot": "leggings", "name": "旧护腿", "hp": 4, "attack": 0, "armor": 1, "block": 1},
+	"warrior_march_boots": {"class": "warrior", "slot": "feet", "name": "行军靴", "hp": 3, "attack": 0, "armor": 0, "block": 0},
+	"warrior_training_sword": {"class": "warrior", "slot": "weapon", "name": "训练剑", "hp": 0, "attack": 4, "armor": 0, "block": 0},
 	"warrior_wooden_shield": {"class": "warrior", "slot": "offhand", "name": "木盾", "hp": 0, "attack": 0, "armor": 2, "block": 2},
-	"archer_practice_hood": {"class": "archer", "slot": "head", "name": "练习兜帽", "hp": 3, "attack": 1, "armor": 0, "block": 0},
-	"archer_old_leather": {"class": "archer", "slot": "body", "name": "旧皮甲", "hp": 4, "attack": 0, "armor": 1, "block": 1},
-	"archer_hunter_belt": {"class": "archer", "slot": "waist", "name": "猎人腰带", "hp": 2, "attack": 0, "armor": 0, "block": 0},
-	"archer_light_pants": {"class": "archer", "slot": "legs", "name": "轻便护裤", "hp": 3, "attack": 0, "armor": 1, "block": 1},
-	"archer_bracers": {"class": "archer", "slot": "hands", "name": "射手护腕", "hp": 1, "attack": 0, "armor": 0, "block": 0},
-	"archer_soft_leggings": {"class": "archer", "slot": "leggings", "name": "软皮绑腿", "hp": 2, "attack": 0, "armor": 1, "block": 0},
-	"archer_light_boots": {"class": "archer", "slot": "feet", "name": "轻便靴", "hp": 1, "attack": 0, "armor": 0, "block": 0},
+	"archer_practice_hood": {"class": "archer", "slot": "head", "name": "练习兜帽", "hp": 4, "attack": 1, "armor": 0, "block": 1},
+	"archer_old_leather": {"class": "archer", "slot": "body", "name": "旧皮甲", "hp": 6, "attack": 0, "armor": 1, "block": 1},
+	"archer_hunter_belt": {"class": "archer", "slot": "waist", "name": "猎人腰带", "hp": 4, "attack": 0, "armor": 0, "block": 1},
+	"archer_light_pants": {"class": "archer", "slot": "legs", "name": "轻便护裤", "hp": 5, "attack": 0, "armor": 1, "block": 1},
+	"archer_bracers": {"class": "archer", "slot": "hands", "name": "射手护腕", "hp": 2, "attack": 0, "armor": 0, "block": 0},
+	"archer_soft_leggings": {"class": "archer", "slot": "leggings", "name": "软皮绑腿", "hp": 3, "attack": 0, "armor": 1, "block": 1},
+	"archer_light_boots": {"class": "archer", "slot": "feet", "name": "轻便靴", "hp": 2, "attack": 0, "armor": 0, "block": 0},
 	"archer_practice_bow": {"class": "archer", "slot": "weapon", "name": "练习弓", "hp": 0, "attack": 3, "armor": 0, "block": 0},
-	"archer_simple_quiver": {"class": "archer", "slot": "offhand", "name": "简易箭袋", "hp": 0, "attack": 2, "armor": 0, "block": 2}
+	"archer_simple_quiver": {"class": "archer", "slot": "offhand", "name": "简易箭袋", "hp": 0, "attack": 2, "armor": 1, "block": 2}
 }
 
 const TUTORIAL_UNLOCKS := {
