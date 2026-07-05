@@ -43,8 +43,6 @@ func _play_one_action(session: PlaySession) -> void:
 	var target := _first_living_enemy(session)
 	if target < 0:
 		return
-	if session.state_cards.size() > 0 and session.used_state_cards_this_turn < 2 and session.pending_state_card == "":
-		session.use_state_card(0)
 	if String(session.player["class_id"]) == "archer" and _incoming_damage(session) >= int(session.player["defense"]) and session.action_points >= 1 and session.dodge_layers <= 0:
 		session.player_dodge()
 		return

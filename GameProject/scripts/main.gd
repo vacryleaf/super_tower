@@ -16,7 +16,6 @@ var player_status_labels: Dictionary = {}
 var message_label_node: Label = null
 var pending_state_label_node: Label = null
 var deck_node: Control = null
-var hand_row_node: Control = null
 var action_buttons: Array[Button] = []
 var skill_buttons: Array[Button] = []
 var log_text_node: RichTextLabel = null
@@ -117,7 +116,6 @@ func _render_battle() -> void:
 	player_status_labels.clear()
 	pending_state_label_node = null
 	deck_node = null
-	hand_row_node = null
 	action_buttons.clear()
 	skill_buttons.clear()
 	log_text_node = null
@@ -139,24 +137,7 @@ func _render_battle() -> void:
 		enemy_row.add_child(_enemy_card(i))
 
 	combat_area.add_child(_spacer_vertical())
-	combat_area.add_child(_label("手牌", 18))
-	var state_row := HBoxContainer.new()
-	state_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	hand_row_node = state_row
-	combat_area.add_child(state_row)
-	for i in range(session.state_cards.size()):
-		var card_id: String = session.state_cards[i]
-		var button := Button.new()
-		button.text = DataCatalog.STATE_CARDS[card_id]["name"]
-		button.custom_minimum_size = Vector2(136, 56)
-		button.disabled = input_locked
-		button.pressed.connect(func(index := i) -> void:
-			session.use_state_card(index)
-			call_deferred("_refresh_battle_ui")
-		)
-		state_row.add_child(button)
-	pending_state_label_node = _label(_pending_state_text(), 16)
-	pending_state_label_node.custom_minimum_size = Vector2(0, 24)
+	pending_state_label_node = _status_badge(_pending_state_text(), 16, Vector2(220, 44))
 	combat_area.add_child(pending_state_label_node)
 
 	var bottom_bar := HBoxContainer.new()
@@ -179,10 +160,6 @@ func _render_battle() -> void:
 	_render_log(right)
 	if equipment_open:
 		_show_equipment_overlay()
-	if not session.last_drawn_cards.is_empty():
-		var cards := session.last_drawn_cards.duplicate()
-		session.last_drawn_cards.clear()
-		call_deferred("_animate_draw_cards", cards)
 
 
 func _enemy_card(index: int) -> Control:
@@ -466,26 +443,6 @@ func _float_number_position(control: Control, popup_size: Vector2, placement: St
 	return Vector2(x, y)
 
 
-func _animate_draw_cards(cards: Array) -> void:
-	if deck_node == null or hand_row_node == null:
-		return
-	for i in range(cards.size()):
-		var card_id: String = cards[i]
-		var label := _label(DataCatalog.STATE_CARDS[card_id]["name"], 16)
-		label.modulate = Color(0.8, 0.95, 1.0, 1)
-		label.z_index = 100
-		add_child(label)
-		label.global_position = deck_node.global_position + Vector2(20, 20)
-		var target := hand_row_node.global_position + Vector2(20 + i * 88, 8)
-		var tween := create_tween()
-		tween.tween_property(label, "global_position", target, 0.45)
-		tween.tween_property(label, "modulate:a", 0.0, 0.2)
-		tween.finished.connect(func() -> void:
-			if is_instance_valid(label):
-				label.queue_free()
-		)
-
-
 func _render_reward() -> void:
 	var reward_area := CenterContainer.new()
 	reward_area.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -582,32 +539,9 @@ func _refresh_battle_ui() -> void:
 		player_status_labels["block"].text = "格挡 %d" % session.player_block
 	if pending_state_label_node != null and is_instance_valid(pending_state_label_node):
 		pending_state_label_node.text = _pending_state_text()
-	_refresh_hand_row()
 	_refresh_action_buttons()
 	if log_text_node != null and is_instance_valid(log_text_node):
 		log_text_node.text = _battle_log_text()
-	if not session.last_drawn_cards.is_empty():
-		var cards := session.last_drawn_cards.duplicate()
-		session.last_drawn_cards.clear()
-		call_deferred("_animate_draw_cards", cards)
-
-
-func _refresh_hand_row() -> void:
-	if hand_row_node == null or not is_instance_valid(hand_row_node):
-		return
-	for child in hand_row_node.get_children():
-		child.queue_free()
-	for i in range(session.state_cards.size()):
-		var card_id: String = session.state_cards[i]
-		var button := Button.new()
-		button.text = DataCatalog.STATE_CARDS[card_id]["name"]
-		button.custom_minimum_size = Vector2(136, 56)
-		button.disabled = input_locked
-		button.pressed.connect(func(index := i) -> void:
-			session.use_state_card(index)
-			call_deferred("_refresh_battle_ui")
-		)
-		hand_row_node.add_child(button)
 
 
 func _refresh_action_buttons() -> void:
@@ -633,8 +567,8 @@ func _refresh_action_buttons() -> void:
 
 func _pending_state_text() -> String:
 	if session.pending_state_card == "":
-		return ""
-	return "已准备：%s" % DataCatalog.STATE_CARDS[session.pending_state_card]["name"]
+		return "状态 Buff：无"
+	return "状态 Buff：%s" % DataCatalog.STATE_CARDS[session.pending_state_card]["name"]
 
 
 func _action_button(text_value: String, callback: Callable) -> Button:

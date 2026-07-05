@@ -22,13 +22,10 @@ var player_block := 0
 var dodge_layers := 0
 var round_index := 0
 var pending_state_card := ""
-var state_cards: Array[String] = []
 var state_draw_cursor := 0
-var used_state_cards_this_turn := 0
 var reward_options: Array[Dictionary] = []
 var battle_log: Array[String] = []
 var last_events: Array[Dictionary] = []
-var last_drawn_cards: Array[String] = []
 
 
 func start_new_game(selected_class: String) -> void:
@@ -47,7 +44,6 @@ func is_tutorial() -> bool:
 
 func _start_current_battle() -> void:
 	last_events.clear()
-	last_drawn_cards.clear()
 	current_encounter = _get_current_encounter()
 	enemies = _build_enemies(current_encounter)
 	action_points = 1
@@ -56,8 +52,6 @@ func _start_current_battle() -> void:
 	dodge_layers = 0
 	round_index = 0
 	pending_state_card = ""
-	state_cards.clear()
-	used_state_cards_this_turn = 0
 	battle_log.clear()
 	phase = "battle"
 	message = _battle_title()
@@ -96,35 +90,15 @@ func _begin_player_turn() -> void:
 	round_index += 1
 	max_action_points = mini(round_index, 3)
 	action_points = max_action_points
-	used_state_cards_this_turn = 0
-	_draw_state_cards(1)
+	pending_state_card = _draw_state_buff()
+	message = "你的回合。状态 Buff：%s" % _state_name(pending_state_card)
 
 
-func _draw_state_cards(count: int) -> void:
+func _draw_state_buff() -> String:
 	var cycle := ["steady", "good", "steady", "great", "steady", "critical", "steady", "read", "good", "perfect_guard", "steady", "fallback"]
-	last_drawn_cards.clear()
-	for i in range(count):
-		if state_cards.size() >= 5:
-			return
-		var card_id: String = cycle[state_draw_cursor % cycle.size()]
-		state_cards.append(card_id)
-		last_drawn_cards.append(card_id)
-		state_draw_cursor += 1
-
-
-func use_state_card(index: int) -> void:
-	last_events.clear()
-	if phase != "battle":
-		return
-	if index < 0 or index >= state_cards.size():
-		return
-	if used_state_cards_this_turn >= 2:
-		message = "每回合最多使用 2 张状态卡。"
-		return
-	pending_state_card = state_cards[index]
-	state_cards.remove_at(index)
-	used_state_cards_this_turn += 1
-	message = "已准备状态卡：%s" % _state_name(pending_state_card)
+	var card_id: String = cycle[state_draw_cursor % cycle.size()]
+	state_draw_cursor += 1
+	return card_id
 
 
 func player_attack(target_index: int) -> void:
@@ -139,7 +113,7 @@ func player_attack(target_index: int) -> void:
 	if pending_state_card == "fallback":
 		player_block += maxi(1, int(round(float(player["defense"]) * 0.5)))
 	action_points -= 1
-	_consume_pending_state()
+	_consume_state_after_action("attack")
 	_after_player_action()
 
 
@@ -152,7 +126,7 @@ func player_defend() -> void:
 	action_points -= 1
 	battle_log.append("防御：获得 %d 点格挡值。" % gained)
 	last_events.append({"kind": "defense", "target": "player", "amount": gained})
-	_consume_pending_state()
+	_consume_state_after_action("defense")
 	_after_player_action()
 
 
@@ -167,7 +141,7 @@ func player_dodge() -> void:
 	action_points -= 1
 	battle_log.append("躲避：获得 %d 层躲避。" % gained)
 	last_events.append({"kind": "dodge", "target": "player", "amount": gained})
-	_consume_pending_state()
+	_consume_state_after_action("dodge")
 	_after_player_action()
 
 
@@ -190,16 +164,21 @@ func use_skill(slot_index: int, target_index: int) -> void:
 			return
 		var damage := _modified_value(int(player["attack"]) + int(skill.get("power", 0)) + int(player.get("skill_bonus", 0)), "attack")
 		_apply_damage_to_enemy(target, damage)
+		if pending_state_card == "fallback":
+			player_block += maxi(1, int(round(float(player["defense"]) * 0.5)))
 	elif skill_type == "defense" or skill_type == "stance":
 		var gained := _modified_value(int(skill.get("power", 0)) + int(player["defense"]), "defense")
 		player_block += gained
 		battle_log.append("%s：获得 %d 点格挡值。" % [skill["name"], gained])
 		last_events.append({"kind": "defense", "target": "player", "amount": gained})
 	elif skill_type == "dodge":
-		dodge_layers += 1
+		var gained := 1
+		if pending_state_card == "read":
+			gained = 2
+		dodge_layers += gained
 		player_block += int(skill.get("power", 0))
-		battle_log.append("%s：获得躲避。" % skill["name"])
-		last_events.append({"kind": "dodge", "target": "player", "amount": 1})
+		battle_log.append("%s：获得 %d 层躲避。" % [skill["name"], gained])
+		last_events.append({"kind": "dodge", "target": "player", "amount": gained})
 	elif skill_type == "heal":
 		var healed := int(skill.get("power", 0))
 		player["hp"] = mini(int(player["max_hp"]), int(player["hp"]) + healed)
@@ -210,7 +189,7 @@ func use_skill(slot_index: int, target_index: int) -> void:
 		simulator._recalculate_player_stats(player, false)
 		battle_log.append("%s：攻击提高。" % skill["name"])
 	action_points -= cost
-	_consume_pending_state()
+	_consume_state_after_action(skill_type)
 	_after_player_action()
 
 
@@ -221,7 +200,6 @@ func end_turn() -> void:
 	_enemy_turn()
 	if _alive_enemy_count() > 0 and int(player["hp"]) > 0:
 		_begin_player_turn()
-		message = "你的回合。"
 
 
 func choose_reward(index: int) -> void:
@@ -434,8 +412,19 @@ func _modified_value(base: int, tag: String) -> int:
 	return maxi(1, int(round(float(base) * multiplier)))
 
 
-func _consume_pending_state() -> void:
-	pending_state_card = ""
+func _consume_state_after_action(action_tag: String) -> void:
+	if pending_state_card == "":
+		return
+	var card: Dictionary = DataCatalog.STATE_CARDS[pending_state_card]
+	var card_tag := String(card.get("tag", ""))
+	if card_tag == "attack" and action_tag == "attack":
+		pending_state_card = ""
+	elif card_tag == "defense" and (action_tag == "defense" or action_tag == "stance"):
+		pending_state_card = ""
+	elif card_tag == "dodge" and action_tag == "dodge":
+		pending_state_card = ""
+	elif pending_state_card == "fallback" and action_tag == "attack":
+		pending_state_card = ""
 
 
 func _can_act(cost: int) -> bool:
