@@ -2,6 +2,7 @@ extends RefCounted
 class_name CombatEngine
 
 const DataCatalog = preload("res://scripts/core/data_catalog.gd")
+const Combatant = preload("res://scripts/core/combatant.gd")
 
 const MAX_ROUNDS := 40
 
@@ -86,69 +87,12 @@ func run_battle(player: Dictionary, encounter: Dictionary, tower_floor: int, bat
 func _build_enemies(encounter: Dictionary, tower_floor: int) -> Array[Dictionary]:
 	var enemies: Array[Dictionary] = []
 	for unit in encounter["units"]:
-		if unit.has("hp") and typeof(unit["hp"]) == TYPE_INT:
-			enemies.append({
-				"name": unit["name"],
-				"rank": unit.get("rank", encounter.get("type", "normal")),
-				"max_hp": int(unit["hp"]),
-				"hp": int(unit["hp"]),
-				"attack": int(unit["attack"]),
-				"defense": int(unit["defense"]),
-				"armor": _enemy_base_armor(unit, int(unit["defense"]), unit.get("traits", [])),
-				"block_power": maxi(1, int(unit["defense"])),
-				"block": 0,
-				"dodge_layers": 0,
-				"taunt": 0,
-				"traits": unit.get("traits", [])
-			})
-		else:
-			var stats := scale_enemy(unit, tower_floor, unit.get("rank", encounter.get("type", "normal")), float(unit.get("formation_scale", 1.0)))
-			enemies.append(stats)
+		enemies.append(Combatant.from_enemy_unit(unit, String(encounter.get("type", "normal")), tower_floor))
 	return enemies
 
 
 func scale_enemy(unit: Dictionary, tower_floor: int, rank: String, formation_scale: float = 1.0) -> Dictionary:
-	var growth: float = 1.0 + 0.08 * float(tower_floor - 1) + 0.25 * floor(float(tower_floor - 1) / 10.0)
-	var base_hp := 24.0 + 5.0 * tower_floor
-	var base_attack := 5.0 + 1.2 * tower_floor
-	var base_defense := 2.0 + 0.6 * tower_floor
-	var rank_hp := 1.0
-	var rank_attack := 1.0
-	var rank_defense := 1.0
-	if rank == "elite":
-		rank_hp = 2.4
-		rank_attack = 1.35
-		rank_defense = 1.5
-	elif rank == "boss":
-		rank_hp = 5.0
-		rank_attack = 1.7
-		rank_defense = 2.2
-
-	var hp := maxi(1, int(round(base_hp * growth * float(unit.get("hp", 1.0)) * rank_hp * formation_scale)))
-	var attack := maxi(1, int(round(base_attack * growth * float(unit.get("attack", 1.0)) * rank_attack * formation_scale)))
-	var defense := maxi(0, int(round(base_defense * growth * float(unit.get("defense", 1.0)) * rank_defense * formation_scale)))
-	var traits: Array = unit.get("traits", [])
-	return {
-		"name": unit.get("name", unit.get("id", "enemy")),
-		"rank": rank,
-		"max_hp": hp,
-		"hp": hp,
-		"attack": attack,
-		"defense": defense,
-		"armor": _enemy_base_armor(unit, defense, traits),
-		"block_power": maxi(1, defense),
-		"block": 0,
-		"dodge_layers": 0,
-		"taunt": 0,
-		"traits": traits
-	}
-
-
-func _enemy_base_armor(unit: Dictionary, defense: int, traits: Array) -> int:
-	var armor := int(unit.get("armor", 0))
-	if traits.has("thick_skin"):
-		armor += maxi(1, defense)
-	return armor
+	return Combatant.scaled_enemy(unit, tower_floor, rank, formation_scale)
 
 
 func _should_use_skill(player: Dictionary, used_first_skill: bool) -> bool:
@@ -200,44 +144,18 @@ func _damage_lowest_enemy(enemies: Array[Dictionary], amount: int, log: Array[St
 	if target_index < 0:
 		return
 	var target := enemies[target_index]
-	if int(target.get("dodge_layers", 0)) > 0:
-		target["dodge_layers"] = int(target.get("dodge_layers", 0)) - 1
+	var result := Combatant.apply_damage(target, amount)
+	if bool(result["dodged"]):
 		log.append("%s:%s:dodge" % [source, target["name"]])
 		return
-	var remaining := amount
-	remaining = _damage_after_enemy_armor(target, remaining)
-	if int(target.get("block", 0)) > 0:
-		var absorbed: int = mini(int(target.get("block", 0)), remaining)
-		target["block"] = int(target.get("block", 0)) - absorbed
-		remaining -= absorbed
-	if remaining > 0:
-		target["hp"] = maxi(0, int(target["hp"]) - remaining)
-	log.append("%s:%s:%d" % [source, target["name"], amount])
-
-
-func _damage_after_enemy_armor(enemy: Dictionary, raw_damage: int) -> int:
-	if raw_damage <= 0:
-		return 0
-	var armor := maxi(0, int(enemy.get("armor", 0)))
-	return maxi(1, int(ceil(float(raw_damage) * 30.0 / float(30 + armor))))
+	log.append("%s:%s:%d" % [source, target["name"], int(result["damage"])])
 
 
 func _apply_damage_to_player(player: Dictionary, block: int, damage: int) -> int:
-	damage = _damage_after_armor(player, damage)
-	if block > 0:
-		var absorbed: int = mini(block, damage)
-		block -= absorbed
-		damage -= absorbed
-	if damage > 0:
-		player["hp"] = maxi(0, int(player["hp"]) - damage)
-	return block
-
-
-func _damage_after_armor(player: Dictionary, raw_damage: int) -> int:
-	if raw_damage <= 0:
-		return 0
-	var armor := maxi(0, int(player["defense"]))
-	return maxi(1, int(ceil(float(raw_damage) * 30.0 / float(30 + armor))))
+	var player_unit := Combatant.from_player(player, block, 0)
+	Combatant.apply_damage(player_unit, damage)
+	var synced := Combatant.sync_to_player(player_unit, player)
+	return int(synced["block"])
 
 
 func _apply_enemy_attack(player: Dictionary, enemy: Dictionary, block: int, log: Array[String]) -> int:
@@ -283,7 +201,7 @@ func _apply_end_round_traits(player: Dictionary, enemies: Array[Dictionary], rou
 		if traits.has("revive") and round_index % 3 == 0:
 			enemy["hp"] = mini(int(enemy["max_hp"]), int(enemy["hp"]) + maxi(1, int(round(float(enemy["max_hp"]) * 0.05))))
 		if traits.has("fortify") and round_index % 2 == 0:
-			enemy["block"] = int(enemy.get("block", 0)) + int(enemy.get("block_power", enemy["defense"]))
+			Combatant.add_block(enemy, 1.0)
 		if traits.has("curse") and round_index % 3 == 0:
 			player["hp"] = maxi(0, int(player["hp"]) - 1)
 
@@ -297,7 +215,7 @@ func _resolve_enemy_action(player: Dictionary, enemy: Dictionary, player_block: 
 		"defend":
 			_enemy_defend(enemy, 1.0)
 		"dodge":
-			enemy["dodge_layers"] = int(enemy.get("dodge_layers", 0)) + 1
+			Combatant.add_dodge(enemy, 1)
 		_:
 			var damage := _enemy_round_damage(enemy, round_index)
 			player_block = _apply_damage_to_player(player, player_block, damage)
@@ -305,7 +223,7 @@ func _resolve_enemy_action(player: Dictionary, enemy: Dictionary, player_block: 
 
 
 func _enemy_defend(enemy: Dictionary, scale: float) -> void:
-	enemy["block"] = int(enemy.get("block", 0)) + maxi(1, int(round(float(enemy.get("block_power", enemy.get("defense", 1))) * scale)))
+	Combatant.add_block(enemy, scale)
 
 
 func _enemy_intent(enemy: Dictionary, round_index: int) -> String:
@@ -323,12 +241,12 @@ func _enemy_intent(enemy: Dictionary, round_index: int) -> String:
 
 func _clear_enemy_taunts(enemies: Array[Dictionary]) -> void:
 	for enemy in enemies:
-		enemy["taunt"] = 0
+		Combatant.clear_taunt(enemy)
 
 
 func _clear_enemy_blocks(enemies: Array[Dictionary]) -> void:
 	for enemy in enemies:
-		enemy["block"] = 0
+		Combatant.clear_block(enemy)
 
 
 func _active_taunt_target(enemies: Array[Dictionary]) -> int:

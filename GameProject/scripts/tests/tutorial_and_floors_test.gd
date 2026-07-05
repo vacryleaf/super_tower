@@ -3,6 +3,7 @@ extends SceneTree
 const DataCatalog = preload("res://scripts/core/data_catalog.gd")
 const RunSimulator = preload("res://scripts/core/run_simulator.gd")
 const CombatEngine = preload("res://scripts/core/combat_engine.gd")
+const Combatant = preload("res://scripts/core/combatant.gd")
 
 var failures: Array[String] = []
 
@@ -23,6 +24,7 @@ func run_all() -> void:
 	test_player_armor_baseline_is_low()
 	test_block_power_is_separate_from_armor()
 	test_enemy_block_power_is_separate_from_armor()
+	test_player_and_enemy_share_combatant_contract()
 	test_thick_skin_always_grants_armor()
 	test_enemy_roles_include_tank_taunt_and_backline()
 	test_cunning_masks_enemy_intent()
@@ -99,6 +101,27 @@ func test_enemy_block_power_is_separate_from_armor() -> void:
 	session._apply_damage_to_enemy(0, 30)
 	assert_true(int(session.enemies[0]["hp"]) < 100, "damage should pass after armor and block")
 	assert_true(int(session.enemies[0]["block"]) < 9, "enemy block should absorb part of incoming damage")
+
+
+func test_player_and_enemy_share_combatant_contract() -> void:
+	var simulator := RunSimulator.new()
+	var player := simulator.create_character("warrior")
+	var player_unit := Combatant.from_player(player, 0, 0)
+	var enemy_unit := Combatant.from_enemy_unit({
+		"name": "统一模板测试敌人",
+		"rank": "normal",
+		"hp": 30,
+		"attack": 5,
+		"defense": 2,
+		"traits": []
+	}, "normal", 1)
+	for key in ["side", "rank", "max_hp", "hp", "attack", "defense", "armor", "block_power", "block", "dodge_layers", "taunt", "traits"]:
+		assert_true(player_unit.has(key), "player combatant has %s" % key)
+		assert_true(enemy_unit.has(key), "enemy combatant has %s" % key)
+	var player_damage := Combatant.apply_damage(player_unit, 20)
+	var enemy_damage := Combatant.apply_damage(enemy_unit, 20)
+	assert_true(int(player_damage["damage"]) > 0, "player combatant should take resolved damage")
+	assert_true(int(enemy_damage["damage"]) > 0, "enemy combatant should take resolved damage")
 
 
 func test_thick_skin_always_grants_armor() -> void:

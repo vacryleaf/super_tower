@@ -2,6 +2,7 @@ extends RefCounted
 class_name PlaySession
 
 const DataCatalog = preload("res://scripts/core/data_catalog.gd")
+const Combatant = preload("res://scripts/core/combatant.gd")
 const CombatEngine = preload("res://scripts/core/combat_engine.gd")
 const RunSimulator = preload("res://scripts/core/run_simulator.gd")
 
@@ -173,33 +174,8 @@ func _get_current_encounter() -> Dictionary:
 func _build_enemies(encounter: Dictionary) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	for unit in encounter["units"]:
-		if unit.has("hp") and typeof(unit["hp"]) == TYPE_INT:
-			var traits: Array = unit.get("traits", [])
-			result.append({
-				"name": unit["name"],
-				"rank": unit.get("rank", encounter.get("type", "normal")),
-				"max_hp": int(unit["hp"]),
-				"hp": int(unit["hp"]),
-				"attack": int(unit["attack"]),
-				"defense": int(unit["defense"]),
-				"armor": _enemy_base_armor(unit, int(unit["defense"]), traits),
-				"block_power": maxi(1, int(unit["defense"])),
-				"block": 0,
-				"dodge_layers": 0,
-				"taunt": 0,
-				"traits": traits
-			})
-		else:
-			result.append(combat.scale_enemy(unit, floor_index, unit.get("rank", encounter.get("type", "normal")), float(unit.get("formation_scale", 1.0))))
+		result.append(Combatant.from_enemy_unit(unit, String(encounter.get("type", "normal")), floor_index))
 	return result
-
-
-func _enemy_base_armor(unit: Dictionary, defense: int, traits: Array) -> int:
-	var armor := int(unit.get("armor", 0))
-	if traits.has("thick_skin"):
-		armor += maxi(1, defense)
-	return armor
-
 
 func _begin_player_turn() -> void:
 	round_index += 1
@@ -236,7 +212,7 @@ func player_attack(target_index: int) -> void:
 			break
 		_apply_damage_to_enemy(target, damage)
 	if pending_state_card == "fallback":
-		player_block += maxi(1, int(round(float(player["block_power"]) * 0.5)))
+		_add_player_block(maxi(1, int(round(float(player["block_power"]) * 0.5))))
 	action_points -= 1
 	_consume_state_after_action("attack")
 	_after_player_action()
@@ -252,7 +228,7 @@ func player_defend() -> void:
 	var repeats := _consume_charge_repeat("defense")
 	for _i in range(repeats):
 		total_gained += gained
-	player_block += total_gained
+	_add_player_block(total_gained)
 	action_points -= 1
 	battle_log.append("防御：获得 %d 点格挡值。" % total_gained)
 	last_events.append({"kind": "defense", "target": "player", "amount": total_gained})
@@ -267,7 +243,7 @@ func player_dodge() -> void:
 	var gained := 1
 	if pending_state_card == "read":
 		gained = 2
-	dodge_layers += gained
+	_add_player_dodge(gained)
 	action_points -= 1
 	battle_log.append("躲避：获得 %d 层躲避。" % gained)
 	last_events.append({"kind": "dodge", "target": "player", "amount": gained})
@@ -301,7 +277,7 @@ func use_skill(slot_index: int, target_index: int) -> void:
 				break
 			_apply_damage_to_enemy(target, damage)
 		if pending_state_card == "fallback":
-			player_block += maxi(1, int(round(float(player["block_power"]) * 0.5)))
+			_add_player_block(maxi(1, int(round(float(player["block_power"]) * 0.5))))
 	elif skill_type == "defense" or skill_type == "stance":
 		var gained := _modified_value(int(skill.get("power", 0)) + int(player["block_power"]) + _skill_attachment_bonus(skill_id, "defense"), "defense")
 		gained = _apply_charge_defense_modifiers(gained, skill_id)
@@ -309,15 +285,15 @@ func use_skill(slot_index: int, target_index: int) -> void:
 		var repeats := _consume_charge_repeat("defense", skill_id)
 		for _i in range(repeats):
 			total_gained += gained
-		player_block += total_gained
+		_add_player_block(total_gained)
 		battle_log.append("%s：获得 %d 点格挡值。" % [skill["name"], total_gained])
 		last_events.append({"kind": "defense", "target": "player", "amount": total_gained})
 	elif skill_type == "dodge":
 		var gained := 1
 		if pending_state_card == "read":
 			gained = 2
-		dodge_layers += gained
-		player_block += int(skill.get("power", 0)) + _skill_attachment_bonus(skill_id, "defense")
+		_add_player_dodge(gained)
+		_add_player_block(int(skill.get("power", 0)) + _skill_attachment_bonus(skill_id, "defense"))
 		battle_log.append("%s：获得 %d 层躲避。" % [skill["name"], gained])
 		last_events.append({"kind": "dodge", "target": "player", "amount": gained})
 	elif skill_type == "heal":
@@ -399,6 +375,28 @@ func _after_player_action() -> void:
 		message = "行动力已用完，请点击结束回合。"
 
 
+func _player_combatant() -> Dictionary:
+	return Combatant.from_player(player, player_block, dodge_layers)
+
+
+func _sync_player_combatant(combatant_unit: Dictionary) -> void:
+	var synced := Combatant.sync_to_player(combatant_unit, player)
+	player_block = int(synced["block"])
+	dodge_layers = int(synced["dodge_layers"])
+
+
+func _add_player_block(amount: int) -> void:
+	var combatant_unit := _player_combatant()
+	combatant_unit["block"] = int(combatant_unit.get("block", 0)) + maxi(0, amount)
+	_sync_player_combatant(combatant_unit)
+
+
+func _add_player_dodge(layers: int) -> void:
+	var combatant_unit := _player_combatant()
+	Combatant.add_dodge(combatant_unit, layers)
+	_sync_player_combatant(combatant_unit)
+
+
 func _enemy_turn() -> void:
 	_clear_enemy_blocks()
 	_clear_enemy_taunts()
@@ -418,12 +416,12 @@ func _enemy_turn() -> void:
 
 func _clear_enemy_taunts() -> void:
 	for enemy in enemies:
-		enemy["taunt"] = 0
+		Combatant.clear_taunt(enemy)
 
 
 func _clear_enemy_blocks() -> void:
 	for enemy in enemies:
-		enemy["block"] = 0
+		Combatant.clear_block(enemy)
 
 
 func _resolve_enemy_action(enemy: Dictionary, enemy_index: int) -> void:
@@ -439,7 +437,7 @@ func _resolve_enemy_action(enemy: Dictionary, enemy_index: int) -> void:
 			battle_log.append("%s 进入防守，获得 %d 点格挡。" % [enemy["name"], gained])
 			last_events.append({"kind": "defense", "target": "enemy", "target_index": enemy_index, "source": enemy["name"], "amount": gained})
 		"dodge":
-			enemy["dodge_layers"] = int(enemy.get("dodge_layers", 0)) + 1
+			Combatant.add_dodge(enemy, 1)
 			battle_log.append("%s 准备闪避下一次命中。" % enemy["name"])
 			last_events.append({"kind": "dodge", "target": "enemy", "target_index": enemy_index, "source": enemy["name"], "amount": 1})
 		_:
@@ -447,38 +445,27 @@ func _resolve_enemy_action(enemy: Dictionary, enemy_index: int) -> void:
 
 
 func _enemy_defend(enemy: Dictionary, scale: float) -> int:
-	var gained := maxi(1, int(round(float(enemy.get("block_power", enemy.get("defense", 1))) * scale)))
-	enemy["block"] = int(enemy.get("block", 0)) + gained
-	return gained
+	return Combatant.add_block(enemy, scale)
 
 
 func _enemy_attack(enemy: Dictionary, first_strike: bool) -> void:
 	var damage := int(enemy["attack"])
 	if first_strike:
 		damage = maxi(1, int(round(float(damage) * 0.75)))
-	if dodge_layers > 0:
-		dodge_layers -= 1
+	var player_unit := _player_combatant()
+	var result := Combatant.apply_damage(player_unit, damage)
+	_sync_player_combatant(player_unit)
+	if bool(result["dodged"]):
 		battle_log.append("躲避了 %s 的攻击。" % enemy["name"])
 		last_events.append({"kind": "dodge_enemy_attack", "target": "player", "source": enemy["name"], "amount": 0})
 		return
-	var raw_damage := damage
-	damage = _damage_after_armor(raw_damage)
-	var armor_reduced: int = maxi(0, raw_damage - damage)
-	if player_block > 0:
-		var absorbed: int = mini(player_block, damage)
-		player_block -= absorbed
-		damage -= absorbed
-	if damage > 0:
-		player["hp"] = maxi(0, int(player["hp"]) - damage)
-	battle_log.append("%s 攻击：护甲减免 %d，造成 %d 点伤害。" % [enemy["name"], armor_reduced, damage])
-	last_events.append({"kind": "damage", "target": "player", "source": enemy["name"], "amount": damage})
-
-
-func _damage_after_armor(raw_damage: int) -> int:
-	if raw_damage <= 0:
-		return 0
-	var armor := maxi(0, int(player["defense"]))
-	return maxi(1, int(ceil(float(raw_damage) * 30.0 / float(30 + armor))))
+	battle_log.append("%s 攻击：护甲减免 %d，格挡吸收 %d，造成 %d 点伤害。" % [
+		enemy["name"],
+		int(result["armor_reduced"]),
+		int(result["block_absorbed"]),
+		int(result["damage"])
+	])
+	last_events.append({"kind": "damage", "target": "player", "source": enemy["name"], "amount": int(result["damage"])})
 
 
 func _apply_damage_to_enemy(target_index: int, damage: int) -> void:
@@ -486,30 +473,18 @@ func _apply_damage_to_enemy(target_index: int, damage: int) -> void:
 	if taunt_target >= 0:
 		target_index = taunt_target
 	var enemy := enemies[target_index]
-	if int(enemy.get("dodge_layers", 0)) > 0:
-		enemy["dodge_layers"] = int(enemy.get("dodge_layers", 0)) - 1
+	var result := Combatant.apply_damage(enemy, damage)
+	if bool(result["dodged"]):
 		battle_log.append("%s 闪避了这次命中。" % enemy["name"])
 		last_events.append({"kind": "dodge_enemy_attack", "target": "enemy", "target_index": target_index, "amount": 0})
 		return
-	var remaining := damage
-	remaining = _damage_after_enemy_armor(enemy, remaining)
-	var armor_reduced: int = maxi(0, damage - remaining)
-	var block_absorbed := 0
-	if int(enemy.get("block", 0)) > 0:
-		block_absorbed = mini(int(enemy.get("block", 0)), remaining)
-		enemy["block"] = int(enemy.get("block", 0)) - block_absorbed
-		remaining -= block_absorbed
-	if remaining > 0:
-		enemy["hp"] = maxi(0, int(enemy["hp"]) - remaining)
-	battle_log.append("命中 %s：护甲减免 %d，格挡吸收 %d，造成 %d 点伤害。" % [enemy["name"], armor_reduced, block_absorbed, remaining])
-	last_events.append({"kind": "damage", "target": "enemy", "target_index": target_index, "amount": remaining})
-
-
-func _damage_after_enemy_armor(enemy: Dictionary, raw_damage: int) -> int:
-	if raw_damage <= 0:
-		return 0
-	var armor := maxi(0, int(enemy.get("armor", 0)))
-	return maxi(1, int(ceil(float(raw_damage) * 30.0 / float(30 + armor))))
+	battle_log.append("命中 %s：护甲减免 %d，格挡吸收 %d，造成 %d 点伤害。" % [
+		enemy["name"],
+		int(result["armor_reduced"]),
+		int(result["block_absorbed"]),
+		int(result["damage"])
+	])
+	last_events.append({"kind": "damage", "target": "enemy", "target_index": target_index, "amount": int(result["damage"])})
 
 
 func _on_victory() -> void:
@@ -1189,16 +1164,7 @@ func _load_save_data(data: Dictionary) -> bool:
 
 func _normalize_loaded_enemies() -> void:
 	for enemy in enemies:
-		var traits: Array = enemy.get("traits", [])
-		var defense := int(enemy.get("defense", 0))
-		if not enemy.has("block_power"):
-			enemy["block_power"] = maxi(1, defense)
-		if not enemy.has("block"):
-			enemy["block"] = 0
-		if traits.has("thick_skin") and int(enemy.get("armor", 0)) <= 0:
-			enemy["armor"] = maxi(1, defense)
-		elif not enemy.has("armor"):
-			enemy["armor"] = 0
+		Combatant.normalize_enemy(enemy)
 
 
 func _dictionary(value: Variant) -> Dictionary:
