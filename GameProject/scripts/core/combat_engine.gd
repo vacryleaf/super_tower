@@ -13,6 +13,7 @@ func run_battle(player: Dictionary, encounter: Dictionary, tower_floor: int, bat
 	var player_block := 0
 	var used_first_skill := false
 	var first_strike_done := false
+	var charge_state := _battle_charge_state(player)
 
 	if _has_first_strike(enemies):
 		first_strike_done = true
@@ -26,19 +27,29 @@ func run_battle(player: Dictionary, encounter: Dictionary, tower_floor: int, bat
 
 		var defend_value := int(player.get("block_power", player.get("defense", 1))) + _state_bonus(player, "defense")
 		if defend_value >= 3 and incoming >= defend_value * 2 and action_points > 1:
+			defend_value = _apply_charge_defense_value(defend_value, charge_state)
 			player_block += defend_value
+			for _i in range(_consume_charge_repeats(charge_state, "defense")):
+				player_block += defend_value
 			action_points -= 1
 			log.append("round_%d:defend" % rounds)
 
 		if _should_use_skill(player, used_first_skill) and _can_pay_first_skill(player, action_points):
 			var skill_damage := _skill_damage(player)
-			_damage_lowest_enemy(enemies, skill_damage, log, "skill")
+			if skill_damage > 0:
+				skill_damage = _apply_charge_attack_value(skill_damage, charge_state)
+				_damage_lowest_enemy(enemies, skill_damage, log, "skill")
+				for _i in range(_consume_charge_repeats(charge_state, "attack")):
+					_damage_lowest_enemy(enemies, skill_damage, log, "skill_charge_repeat")
 			used_first_skill = true
 			action_points -= _first_skill_cost(player)
 
 		while action_points > 0 and _alive_count(enemies) > 0:
 			var attack_damage := int(player["attack"]) + _state_bonus(player, "attack")
+			attack_damage = _apply_charge_attack_value(attack_damage, charge_state)
 			_damage_lowest_enemy(enemies, attack_damage, log, "attack")
+			for _i in range(_consume_charge_repeats(charge_state, "attack")):
+				_damage_lowest_enemy(enemies, attack_damage, log, "attack_charge_repeat")
 			action_points -= 1
 
 		if _alive_count(enemies) == 0:
@@ -300,6 +311,56 @@ func _state_bonus(player: Dictionary, tag: String) -> int:
 	if tag == "defense":
 		return int(player.get("state_defense_bonus", 0))
 	return 0
+
+
+func _battle_charge_state(player: Dictionary) -> Dictionary:
+	var state := {
+		"attack_multiplier": 1.0,
+		"defense_multiplier": 1.0,
+		"bonus_damage": 0,
+		"repeat_attack": 0,
+		"repeat_defense": 0
+	}
+	_collect_charge_state(state, player.get("equipment_attachments", {}))
+	_collect_charge_state(state, player.get("skill_attachments", {}))
+	return state
+
+
+func _collect_charge_state(state: Dictionary, groups: Dictionary) -> void:
+	for attachments in groups.values():
+		for attachment in attachments:
+			var charge: Dictionary = attachment
+			match String(charge.get("kind", "")):
+				"charge_attack_multiplier":
+					state["attack_multiplier"] = float(state["attack_multiplier"]) * float(charge.get("value", 1.0))
+				"charge_defense_multiplier":
+					state["defense_multiplier"] = float(state["defense_multiplier"]) * float(charge.get("value", 1.0))
+				"charge_bonus_damage":
+					state["bonus_damage"] = int(state["bonus_damage"]) + int(charge.get("value", 0))
+				"charge_repeat_attack":
+					state["repeat_attack"] = int(state["repeat_attack"]) + maxi(1, int(charge.get("value", 1)))
+				"charge_repeat_defense":
+					state["repeat_defense"] = int(state["repeat_defense"]) + maxi(1, int(charge.get("value", 1)))
+
+
+func _apply_charge_attack_value(base: int, state: Dictionary) -> int:
+	var result := int(round(float(base) * float(state.get("attack_multiplier", 1.0)))) + int(state.get("bonus_damage", 0))
+	state["attack_multiplier"] = 1.0
+	state["bonus_damage"] = 0
+	return maxi(1, result)
+
+
+func _apply_charge_defense_value(base: int, state: Dictionary) -> int:
+	var result := int(round(float(base) * float(state.get("defense_multiplier", 1.0))))
+	state["defense_multiplier"] = 1.0
+	return maxi(1, result)
+
+
+func _consume_charge_repeats(state: Dictionary, action_tag: String) -> int:
+	var key := "repeat_attack" if action_tag == "attack" else "repeat_defense"
+	var repeats := int(state.get(key, 0))
+	state[key] = 0
+	return repeats
 
 
 func _skill_attachment_bonus(player: Dictionary, skill_id: String, kind: String) -> int:

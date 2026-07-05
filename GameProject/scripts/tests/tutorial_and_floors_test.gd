@@ -26,6 +26,7 @@ func run_all() -> void:
 	test_cunning_masks_enemy_intent()
 	test_skill_costs_minimum_two()
 	test_reward_attachment_flow()
+	test_charge_reward_flow()
 	test_save_round_trip()
 	test_profile_keeps_multiple_classes()
 	test_block_expires_each_round()
@@ -129,6 +130,52 @@ func test_reward_attachment_flow() -> void:
 	for attachments in session.player.get("skill_attachments", {}).values():
 		target_count += attachments.size()
 	assert_true(target_count > 0, "reward should attach to equipment or skill")
+
+
+func test_charge_reward_flow() -> void:
+	var session_script = load("res://scripts/core/play_session.gd")
+	var session = session_script.new()
+	session.start_new_game("warrior")
+	while session.is_tutorial():
+		if session.phase == "battle":
+			_force_win(session)
+		elif session.phase == "reward":
+			session.choose_reward(0)
+	session.phase = "reward"
+	session.current_encounter = {"type": "normal"}
+	session._build_reward_options()
+	var charge_index := -1
+	for i in range(session.reward_options.size()):
+		if String(session.reward_options[i].get("kind", "")).begins_with("charge_"):
+			charge_index = i
+			break
+	assert_true(charge_index >= 0, "normal rewards should include a charge option")
+	session.choose_reward(charge_index)
+	assert_equal(session.phase, "reward_target", "charge reward should request attachment target")
+	session.choose_reward_target(0)
+	var charges: Array[Dictionary] = session.available_charges()
+	assert_true(charges.size() > 0, "attached charge should be available in next battle")
+	var charge_id := String(charges[0].get("charge_id", ""))
+	var bonus := int(charges[0].get("value", 0))
+	var test_enemies: Array[Dictionary] = [{
+		"name": "充能测试敌人",
+		"rank": "normal",
+		"max_hp": 999,
+		"hp": 999,
+		"attack": 0,
+		"defense": 0,
+		"armor": 0,
+		"dodge_layers": 0,
+		"taunt": 0,
+		"traits": []
+	}]
+	session.enemies = test_enemies
+	session.action_points = 1
+	session.use_charge(charge_id)
+	assert_true(bool(session.charge_used.get(charge_id, false)), "charge should be marked used after activation")
+	session.player_attack(0)
+	var expected_hp := 999 - int(session.player["attack"]) - bonus
+	assert_equal(int(session.enemies[0]["hp"]), expected_hp, "charge bonus damage should apply to next attack")
 
 
 func test_save_round_trip() -> void:

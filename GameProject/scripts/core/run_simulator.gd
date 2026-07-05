@@ -268,18 +268,18 @@ func _apply_formal_reward(player: Dictionary, battle_type: String, tower_floor: 
 	if battle_type == "normal":
 		attach_reward(player, _preferred_attachment_target(player, "attack"), {"kind": "attack", "value": 2 + fixed_scale, "label": "攻击 +%d" % (2 + fixed_scale)})
 		attach_reward(player, _preferred_attachment_target(player, "defense"), {"kind": "defense", "value": 1 + fixed_scale, "label": "护甲 +%d" % (1 + fixed_scale)})
-		attach_reward(player, _preferred_attachment_target(player, "hp"), {"kind": "hp", "value": 5 + fixed_scale, "label": "生命上限 +%d" % (5 + fixed_scale)})
+		attach_reward(player, _preferred_attachment_target(player, "charge"), {"kind": "charge_bonus_damage", "value": 7 + fixed_scale, "label": "充能：下一次攻击附加 %d 点伤害" % (7 + fixed_scale)})
 		player["normal_rewards"] += 1
 	elif battle_type == "elite":
 		attach_reward(player, _preferred_attachment_target(player, "attack"), {"kind": "attack", "value": 4 + fixed_scale, "label": "攻击 +%d" % (4 + fixed_scale)})
 		attach_reward(player, _preferred_attachment_target(player, "defense"), {"kind": "defense", "value": 2 + fixed_scale, "label": "护甲 +%d" % (2 + fixed_scale)})
-		attach_reward(player, _preferred_attachment_target(player, "hp"), {"kind": "hp", "value": 8 + fixed_scale, "label": "生命上限 +%d" % (8 + fixed_scale)})
-		attach_reward(player, _preferred_attachment_target(player, "state"), {"kind": "state", "value": 1, "label": "状态 Buff强化 +1"})
+		attach_reward(player, _preferred_attachment_target(player, "charge"), {"kind": "charge_attack_multiplier", "value": 1.2, "label": "充能：下一次攻击效果 x1.2"})
+		attach_reward(player, _preferred_attachment_target(player, "charge"), {"kind": "charge_repeat_attack", "value": 1, "label": "充能：下一次攻击追加一次结算"})
 		player["elite_rewards"] += 1
 	else:
 		attach_reward(player, _preferred_attachment_target(player, "attack"), {"kind": "attack", "value": 8 + fixed_scale, "label": "攻击 +%d" % (8 + fixed_scale)})
-		attach_reward(player, _preferred_attachment_target(player, "defense"), {"kind": "defense", "value": 3 + fixed_scale, "label": "护甲 +%d" % (3 + fixed_scale)})
-		attach_reward(player, _preferred_attachment_target(player, "hp"), {"kind": "hp", "value": 20 + fixed_scale, "label": "生命上限 +%d" % (20 + fixed_scale)})
+		attach_reward(player, _preferred_attachment_target(player, "charge"), {"kind": "charge_defense_multiplier", "value": 1.25, "label": "充能：下一次防御效果 x1.25"})
+		attach_reward(player, _preferred_attachment_target(player, "charge"), {"kind": "charge_repeat_defense", "value": 1, "label": "充能：下一次防御追加一次结算"})
 		attach_reward(player, _preferred_attachment_target(player, "skill"), {"kind": "skill_power", "value": 2, "label": "技能效果 +2"})
 		_unlock_next_skill(player)
 		player["boss_rewards"] += 1
@@ -342,13 +342,11 @@ func attach_reward(player: Dictionary, target: Dictionary, reward: Dictionary) -
 		player[key] = {}
 	if not player[key].has(target_id):
 		player[key][target_id] = []
-	var attachment := {
-		"kind": String(reward.get("kind", "")),
-		"value": int(reward.get("value", 0)),
-		"label": String(reward.get("label", "")),
-		"target_type": target_type,
-		"target_id": target_id
-	}
+	var attachment := reward.duplicate(true)
+	attachment["kind"] = String(attachment.get("kind", ""))
+	attachment["label"] = String(attachment.get("label", ""))
+	attachment["target_type"] = target_type
+	attachment["target_id"] = target_id
 	player[key][target_id].append(attachment)
 
 
@@ -365,6 +363,8 @@ func _preferred_attachment_target(player: Dictionary, reward_kind: String) -> Di
 	if reward_kind == "skill" and not player["equipped_skills"].is_empty():
 		return {"type": "skill", "id": String(player["equipped_skills"][0])}
 	if reward_kind == "state" and not player["equipment_ids"].is_empty():
+		return {"type": "equipment", "id": String(player["equipment_ids"][0])}
+	if reward_kind == "charge" and not player["equipment_ids"].is_empty():
 		return {"type": "equipment", "id": String(player["equipment_ids"][0])}
 	if not player["equipment_ids"].is_empty():
 		return {"type": "equipment", "id": String(player["equipment_ids"][0])}

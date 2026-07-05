@@ -17,6 +17,7 @@ var message_label_node: Label = null
 var pending_state_label_node: Label = null
 var action_buttons: Array[Button] = []
 var skill_buttons: Array[Button] = []
+var charge_buttons: Array[Button] = []
 var log_text_node: RichTextLabel = null
 
 
@@ -138,6 +139,7 @@ func _render_battle() -> void:
 	pending_state_label_node = null
 	action_buttons.clear()
 	skill_buttons.clear()
+	charge_buttons.clear()
 	log_text_node = null
 	var body := HBoxContainer.new()
 	body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -267,6 +269,25 @@ func _render_actions(parent: Control) -> void:
 			button.text = "未解锁"
 		skill_row.add_child(button)
 		skill_buttons.append(button)
+	var charges := session.available_charges()
+	if not charges.is_empty():
+		var charge_grid := GridContainer.new()
+		charge_grid.columns = 4
+		charge_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		actions.add_child(charge_grid)
+		for charge in charges:
+			var button := Button.new()
+			var charge_id := String(charge.get("charge_id", ""))
+			button.set_meta("charge_id", charge_id)
+			button.custom_minimum_size = Vector2(150, 54)
+			button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			button.text = "%s\n%s" % [_charge_button_label(charge), String(charge.get("source_label", ""))]
+			button.disabled = input_locked or bool(charge.get("used", false))
+			button.pressed.connect(func(id := charge_id) -> void:
+				_on_charge_pressed(id)
+			)
+			charge_grid.add_child(button)
+			charge_buttons.append(button)
 	_refresh_action_buttons()
 
 
@@ -376,6 +397,12 @@ func _on_end_turn_pressed() -> void:
 func _on_skill_pressed(index: int) -> void:
 	_run_action(func() -> void:
 		session.use_skill(index, selected_target)
+	)
+
+
+func _on_charge_pressed(charge_id: String) -> void:
+	_run_action(func() -> void:
+		session.use_charge(charge_id)
 	)
 
 
@@ -611,6 +638,11 @@ func _refresh_action_buttons() -> void:
 		var skill_id: String = session.player["equipped_skills"][i]
 		var skill: Dictionary = DataCatalog.SKILLS[skill_id]
 		button.disabled = input_locked or session.action_points < int(skill.get("cost", 0))
+	for button in charge_buttons:
+		if button == null or not is_instance_valid(button):
+			continue
+		var charge_id := String(button.get_meta("charge_id", ""))
+		button.disabled = input_locked or bool(session.charge_used.get(charge_id, false))
 
 
 func _pending_state_text() -> String:
@@ -722,6 +754,12 @@ func _attachment_summary(target_type: String, target_id: String) -> String:
 	for attachment in attachments:
 		labels.append(String(attachment.get("label", attachment.get("kind", ""))).replace("状态卡", "状态 Buff"))
 	return "附着：" + "、".join(labels)
+
+
+func _charge_button_label(charge: Dictionary) -> String:
+	var label := String(charge.get("label", "充能"))
+	label = label.replace("充能：", "")
+	return label
 
 
 func _trait_labels(traits: Array) -> String:
