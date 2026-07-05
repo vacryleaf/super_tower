@@ -428,18 +428,23 @@ func _play_action_feedback() -> void:
 		await get_tree().create_timer(0.15).timeout
 		return
 	for event in events:
-		if event.get("target", "") == "enemy":
-			var target_index := int(event.get("target_index", 0))
-			_shake_node(enemy_card_nodes.get(target_index, null))
-			var enemy_prefix := "+" if event.get("kind", "") in ["defense", "dodge"] else "-"
-			if int(event.get("amount", 0)) > 0:
-				_float_number(enemy_card_nodes.get(target_index, null), "%s%d" % [enemy_prefix, int(event.get("amount", 0))], "center_bottom")
-		elif event.get("target", "") == "player":
-			_shake_node(player_status_node)
-			if int(event.get("amount", 0)) > 0:
-				var prefix := "+" if event.get("kind", "") in ["defense", "heal", "dodge"] else "-"
-				_float_number(player_status_node, "%s%d" % [prefix, int(event.get("amount", 0))], "center_top")
-	await get_tree().create_timer(0.9).timeout
+		_play_single_event_feedback(event)
+		await get_tree().create_timer(0.85).timeout
+
+
+func _play_single_event_feedback(event: Dictionary) -> void:
+	if event.get("target", "") == "enemy":
+		var target_index := int(event.get("target_index", 0))
+		var target_node: Variant = enemy_card_nodes.get(target_index, null)
+		_shake_node(target_node)
+		var enemy_prefix := "+" if event.get("kind", "") in ["defense", "dodge"] else "-"
+		if int(event.get("amount", 0)) > 0:
+			_float_number(target_node, "%s%d" % [enemy_prefix, int(event.get("amount", 0))], "center_bottom")
+	elif event.get("target", "") == "player":
+		_shake_node(player_status_node)
+		if int(event.get("amount", 0)) > 0:
+			var prefix := "+" if event.get("kind", "") in ["defense", "heal", "dodge"] else "-"
+			_float_number(player_status_node, "%s%d" % [prefix, int(event.get("amount", 0))], "center_top")
 
 
 func _shake_node(node: Variant) -> void:
