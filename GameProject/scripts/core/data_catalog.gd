@@ -67,7 +67,46 @@ const EQUIPMENT := {
 	"archer_soft_leggings": {"class": "archer", "slot": "leggings", "name": "软皮绑腿", "hp": 3, "attack": 0, "armor": 1, "block": 1},
 	"archer_light_boots": {"class": "archer", "slot": "feet", "name": "轻便靴", "hp": 2, "attack": 0, "armor": 0, "block": 0},
 	"archer_practice_bow": {"class": "archer", "slot": "weapon", "name": "练习弓", "hp": 0, "attack": 3, "armor": 0, "block": 0},
-	"archer_simple_quiver": {"class": "archer", "slot": "offhand", "name": "简易箭袋", "hp": 0, "attack": 2, "armor": 1, "block": 2}
+	"archer_simple_quiver": {"class": "archer", "slot": "offhand", "name": "简易箭袋", "hp": 0, "attack": 2, "armor": 1, "block": 2},
+	"warrior_vanguard_helm": {"class": "warrior", "slot": "head", "name": "先锋铁额", "hp": 4, "attack": 0, "armor": 1, "block": 1, "set_id": "iron_vanguard"},
+	"warrior_vanguard_chest": {"class": "warrior", "slot": "body", "name": "先锋重甲", "hp": 6, "attack": 0, "armor": 1, "block": 2, "set_id": "iron_vanguard"},
+	"warrior_vanguard_shield": {"class": "warrior", "slot": "offhand", "name": "先锋壁盾", "hp": 2, "attack": 0, "armor": 2, "block": 2, "set_id": "iron_vanguard"},
+	"archer_gale_hood": {"class": "archer", "slot": "head", "name": "疾风兜帽", "hp": 3, "attack": 1, "armor": 0, "block": 1, "set_id": "gale_tracker"},
+	"archer_gale_boots": {"class": "archer", "slot": "feet", "name": "疾风短靴", "hp": 2, "attack": 1, "armor": 0, "block": 1, "set_id": "gale_tracker"},
+	"archer_gale_bow": {"class": "archer", "slot": "weapon", "name": "疾风猎弓", "hp": 0, "attack": 3, "armor": 0, "block": 0, "set_id": "gale_tracker"},
+	"common_moon_necklace": {"class": "common", "slot": "necklace", "name": "清辉链坠", "hp": 3, "attack": 0, "armor": 0, "block": 1, "set_id": "moon_pair"},
+	"common_moon_ring": {"class": "common", "slot": "ring", "name": "流霜戒", "hp": 2, "attack": 1, "armor": 0, "block": 1, "set_id": "moon_pair"},
+	"common_ember_gloves": {"class": "common", "slot": "hands", "name": "余烬握手", "hp": 2, "attack": 1, "armor": 0, "block": 0, "set_id": "ember_duelist"},
+	"common_ember_belt": {"class": "common", "slot": "waist", "name": "余烬束带", "hp": 3, "attack": 1, "armor": 0, "block": 1, "set_id": "ember_duelist"}
+}
+
+const EQUIPMENT_SETS := {
+	"iron_vanguard": {
+		"name": "铁卫先锋",
+		"bonuses": {
+			2: {"label": "每场战斗首回合获得 5 格挡。", "opening_block": 5},
+			3: {"label": "生命 +8，格挡值 +2。", "hp": 8, "block": 2}
+		}
+	},
+	"gale_tracker": {
+		"name": "疾风追猎",
+		"bonuses": {
+			2: {"label": "每场战斗首回合获得 1 层躲避。", "first_turn_dodge": 1},
+			3: {"label": "攻击 +2，状态 Buff 攻击效果 +1。", "attack": 2, "state_attack": 1}
+		}
+	},
+	"moon_pair": {
+		"name": "清辉流霜",
+		"bonuses": {
+			2: {"label": "其余 3 件套以上套装要求 -1。", "set_requirement_delta": 1}
+		}
+	},
+	"ember_duelist": {
+		"name": "余烬决斗",
+		"bonuses": {
+			2: {"label": "攻击 +1，首回合攻击倍率 x1.10。", "attack": 1, "opening_attack_multiplier": 1.10}
+		}
+	}
 }
 
 const TUTORIAL_UNLOCKS := {

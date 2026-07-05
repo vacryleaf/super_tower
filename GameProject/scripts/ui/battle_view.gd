@@ -13,7 +13,7 @@ func enemy_card(
 ) -> Button:
 	var enemy: Dictionary = session.enemies[index]
 	var button := Button.new()
-	button.custom_minimum_size = Vector2(168, 172)
+	button.custom_minimum_size = Vector2(150, 160)
 	button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	var selected := ">" if index == selected_target else ""
 	button.text = enemy_card_text(session, index, selected, rank_label, trait_labels)
@@ -42,7 +42,7 @@ func enemy_card_text(session: Variant, index: int, selected: String, rank_label:
 
 func player_status(session: Variant, class_label: String, label_factory: Callable) -> Dictionary:
 	var panel := PanelContainer.new()
-	panel.custom_minimum_size = Vector2(190, 178)
+	panel.custom_minimum_size = Vector2(178, 168)
 	panel.size_flags_vertical = Control.SIZE_SHRINK_END
 	var box := VBoxContainer.new()
 	panel.add_child(box)

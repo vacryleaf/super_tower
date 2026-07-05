@@ -30,6 +30,8 @@ func choose_reward(session: Variant, index: int) -> void:
 			session.player["hp"] = mini(int(session.player["max_hp"]), int(session.player["hp"]) + int(reward["value"]))
 		"skill":
 			unlock_next_skill(session)
+		"permanent_equipment":
+			apply_permanent_equipment(session, reward)
 	session.simulator._recalculate_player_stats(session.player, false)
 	session._advance_after_reward()
 
@@ -72,8 +74,9 @@ func build_reward_options(session: Variant) -> void:
 		session.reward_options = session.rewards.random_options("elite", 4, session.floor_index, session.available_charges().size())
 		session.player["elite_rewards"] += 1
 	else:
-		session.reward_options = session.rewards.random_options("boss", 4, session.floor_index, session.available_charges().size())
-		session.reward_options.append({"kind": "skill", "label": "技能分支：解锁一个不重复技能", "value": 0})
+		session.reward_options = session.rewards.random_options("boss", 3, session.floor_index, session.available_charges().size())
+		session.reward_options.append(session.rewards.permanent_equipment_reward(session.player, session.class_id, session.floor_index))
+		session.reward_options.append(session.rewards.skill_branch_reward(session.player, session.class_id))
 		session.reward_options = session.rewards.sample_rewards(session.reward_options, session.reward_options.size())
 		session.player["boss_rewards"] += 1
 	session.message = "选择一个奖励。"
@@ -89,6 +92,14 @@ func apply_tutorial_unlock(session: Variant) -> void:
 
 func unlock_next_skill(session: Variant) -> void:
 	session.simulator._unlock_next_skill(session.player)
+
+
+func apply_permanent_equipment(session: Variant, reward: Dictionary) -> void:
+	var item_id := String(reward.get("item_id", ""))
+	if item_id == "" or not DataCatalog.EQUIPMENT.has(item_id):
+		return
+	session.simulator.equip_item(session.player, item_id)
+	session.message = "获得永久装备：%s。" % DataCatalog.EQUIPMENT[item_id]["name"]
 
 
 func build_reward_targets(session: Variant) -> Array[Dictionary]:

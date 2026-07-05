@@ -100,7 +100,7 @@ func sample_rewards_with_core(pool: Array[Dictionary], count: int) -> Array[Dict
 
 static func reward_needs_attachment(reward: Dictionary) -> bool:
 	var kind := String(reward.get("kind", ""))
-	return ["attack", "defense", "hp", "state"].has(kind) or is_charge_reward(reward)
+	return ["attack", "defense", "hp", "state", "skill_power"].has(kind) or is_charge_reward(reward)
 
 
 static func is_charge_reward(reward: Dictionary) -> bool:
@@ -132,3 +132,44 @@ static func remove_matching_reward(rewards: Array[Dictionary], target: Dictionar
 		if String(reward.get("kind", "")) == target_kind and String(reward.get("label", "")) == target_label:
 			rewards.remove_at(i)
 			return
+
+
+func permanent_equipment_reward(player: Dictionary, class_id: String, floor_index: int) -> Dictionary:
+	var candidates: Array[String] = []
+	for item_id in DataCatalog.EQUIPMENT.keys():
+		var item: Dictionary = DataCatalog.EQUIPMENT[item_id]
+		var item_class := String(item.get("class", "common"))
+		if item_class != "common" and item_class != class_id:
+			continue
+		if not item.has("set_id"):
+			continue
+		if player.get("equipment_ids", []).has(item_id):
+			continue
+		candidates.append(String(item_id))
+	if candidates.is_empty():
+		return {"kind": "heal", "label": "永久装备分支：装备已收集完，恢复生命", "value": floor_value(12, floor_index)}
+	rng.randomize()
+	var selected_id := candidates[rng.randi_range(0, candidates.size() - 1)]
+	var item: Dictionary = DataCatalog.EQUIPMENT[selected_id]
+	return {
+		"kind": "permanent_equipment",
+		"label": "永久装备：%s" % item["name"],
+		"item_id": selected_id,
+		"value": 0
+	}
+
+
+func skill_branch_reward(player: Dictionary, class_id: String) -> Dictionary:
+	if _has_unlocked_all_permanent_skills(player, class_id):
+		return {"kind": "skill_power", "label": "塔内技能强化：技能倍率 +0.10", "value": 0.10}
+	return {"kind": "skill", "label": "技能分支：解锁一个不重复技能", "value": 0}
+
+
+func _has_unlocked_all_permanent_skills(player: Dictionary, class_id: String) -> bool:
+	for skill_id in DataCatalog.SKILLS.keys():
+		var skill: Dictionary = DataCatalog.SKILLS[skill_id]
+		var skill_class := String(skill.get("class", ""))
+		if skill_class == class_id or skill_class == "common":
+			if not player.get("unlocked_skills", []).has(skill_id):
+				return false
+	return true

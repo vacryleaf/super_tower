@@ -20,6 +20,8 @@ func create_character(class_id: String) -> Dictionary:
 		"skill_bonus": 0,
 		"state_attack_bonus": 0,
 		"state_defense_bonus": 0,
+		"set_counts": {},
+		"active_set_effects": {},
 		"equipment_attachments": {},
 		"skill_attachments": {},
 		"equipment": {},
@@ -148,8 +150,10 @@ func recalculate_player_stats(player: Dictionary, reset_hp: bool) -> void:
 	var block_power := int(player["base_block"]) + int(player["block_bonus"])
 	player["state_attack_bonus"] = 0
 	player["state_defense_bonus"] = 0
+	var set_counts := _equipment_set_counts(player)
 	var equipment_attachments: Dictionary = player.get("equipment_attachments", {})
-	for item_id in player["equipment_ids"]:
+	var equipped_ids := _equipped_item_ids(player)
+	for item_id in equipped_ids:
 		var item: Dictionary = DataCatalog.EQUIPMENT[item_id]
 		hp += int(item["hp"])
 		attack += int(item["attack"])
@@ -167,6 +171,15 @@ func recalculate_player_stats(player: Dictionary, reset_hp: bool) -> void:
 					player["state_attack_bonus"] += int(attachment.get("value", 0))
 				"state_defense":
 					player["state_defense_bonus"] += int(attachment.get("value", 0))
+	var active_set_effects := _active_set_effects(set_counts)
+	player["set_counts"] = set_counts
+	player["active_set_effects"] = active_set_effects
+	hp += int(active_set_effects.get("hp", 0))
+	attack += int(active_set_effects.get("attack", 0))
+	defense += int(active_set_effects.get("armor", active_set_effects.get("defense", 0)))
+	block_power += int(active_set_effects.get("block", 0))
+	player["state_attack_bonus"] += int(active_set_effects.get("state_attack", 0))
+	player["state_defense_bonus"] += int(active_set_effects.get("state_defense", 0))
 	var skill_attachments: Dictionary = player.get("skill_attachments", {})
 	for skill_id in player["equipped_skills"]:
 		for attachment in skill_attachments.get(skill_id, []):
@@ -223,3 +236,59 @@ func attachment_stat_kind(kind: String) -> String:
 		"state_defense":
 			return "state_defense"
 	return kind
+
+
+func _equipment_set_counts(player: Dictionary) -> Dictionary:
+	var counts := {}
+	for item_id in _equipped_item_ids(player):
+		if not DataCatalog.EQUIPMENT.has(item_id):
+			continue
+		var item: Dictionary = DataCatalog.EQUIPMENT[item_id]
+		var set_id := String(item.get("set_id", ""))
+		if set_id == "":
+			continue
+		counts[set_id] = int(counts.get(set_id, 0)) + 1
+	return counts
+
+
+func _equipped_item_ids(player: Dictionary) -> Array[String]:
+	var result: Array[String] = []
+	var equipped: Dictionary = player.get("equipment", {})
+	for item_id in equipped.values():
+		result.append(String(item_id))
+	return result
+
+
+func _active_set_effects(set_counts: Dictionary) -> Dictionary:
+	var effects := {}
+	var requirement_delta := 0
+	for set_id in set_counts.keys():
+		if not DataCatalog.EQUIPMENT_SETS.has(set_id):
+			continue
+		var set_data: Dictionary = DataCatalog.EQUIPMENT_SETS[set_id]
+		var bonuses: Dictionary = set_data.get("bonuses", {})
+		if int(set_counts[set_id]) >= 2 and bonuses.has(2):
+			requirement_delta += int((bonuses[2] as Dictionary).get("set_requirement_delta", 0))
+	for set_id in set_counts.keys():
+		if not DataCatalog.EQUIPMENT_SETS.has(set_id):
+			continue
+		var set_data: Dictionary = DataCatalog.EQUIPMENT_SETS[set_id]
+		var bonuses: Dictionary = set_data.get("bonuses", {})
+		for raw_threshold in bonuses.keys():
+			var threshold := int(raw_threshold)
+			var adjusted_threshold := threshold
+			if threshold >= 3:
+				adjusted_threshold = maxi(2, threshold - requirement_delta)
+			if int(set_counts[set_id]) >= adjusted_threshold:
+				_merge_set_bonus(effects, bonuses[raw_threshold])
+	return effects
+
+
+func _merge_set_bonus(effects: Dictionary, bonus: Dictionary) -> void:
+	for key in bonus.keys():
+		if key == "label":
+			continue
+		if key == "opening_attack_multiplier":
+			effects[key] = float(effects.get(key, 1.0)) * float(bonus[key])
+		else:
+			effects[key] = effects.get(key, 0) + bonus[key]

@@ -200,6 +200,8 @@ func _begin_player_turn() -> void:
 	action_points = max_action_points
 	player_block = 0
 	pending_state_card = _draw_state_buff()
+	if round_index == 1:
+		_apply_opening_set_effects()
 	var charged_label := _random_ready_charge()
 	message = "你的回合。状态 Buff：%s" % _state_name(pending_state_card)
 	if charged_label != "":
@@ -208,6 +210,22 @@ func _begin_player_turn() -> void:
 
 func _draw_state_buff() -> String:
 	return state_buffs.draw_state_buff(self)
+
+
+func _apply_opening_set_effects() -> void:
+	var set_effects: Dictionary = player.get("active_set_effects", {})
+	var opening_block := int(set_effects.get("opening_block", 0))
+	if opening_block > 0:
+		_add_player_block(opening_block)
+		battle_log.append("套装效果：首回合获得 %d 点格挡。" % opening_block)
+	var first_turn_dodge := int(set_effects.get("first_turn_dodge", 0))
+	if first_turn_dodge > 0:
+		_add_player_dodge(first_turn_dodge)
+		battle_log.append("套装效果：首回合获得 %d 层躲避。" % first_turn_dodge)
+	var opening_attack_multiplier := float(set_effects.get("opening_attack_multiplier", 1.0))
+	if opening_attack_multiplier > 1.0:
+		battle_attack_multiplier *= opening_attack_multiplier
+		battle_log.append("套装效果：首回合攻击倍率 x%.2f。" % opening_attack_multiplier)
 
 
 func player_attack(target_index: int) -> void:

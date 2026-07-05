@@ -34,6 +34,9 @@ func run_all() -> void:
 	test_counter_stance_and_multihit_dodge()
 	test_reward_attachment_flow()
 	test_random_reward_pool_counts()
+	test_set_equipment_effects()
+	test_boss_permanent_equipment_reward()
+	test_external_resource_manifests()
 	test_charge_reward_flow()
 	test_skill_bound_charge_only_triggers_on_that_skill()
 	test_charge_limit()
@@ -379,6 +382,55 @@ func _has_core_growth_reward(rewards: Array[Dictionary]) -> bool:
 		if ["attack", "defense", "hp"].has(String(reward.get("kind", ""))):
 			return true
 	return false
+
+
+func test_set_equipment_effects() -> void:
+	var simulator := RunSimulator.new()
+	var player := simulator.create_character("warrior")
+	simulator.equip_item(player, "warrior_vanguard_helm")
+	simulator.equip_item(player, "warrior_vanguard_chest")
+	simulator.equip_item(player, "common_moon_necklace")
+	simulator.equip_item(player, "common_moon_ring")
+	simulator._recalculate_player_stats(player, true)
+	var effects: Dictionary = player.get("active_set_effects", {})
+	assert_equal(int(effects.get("opening_block", 0)), 5, "two-piece set should grant opening block")
+	assert_equal(int(effects.get("block", 0)), 2, "moon pair should reduce three-piece requirement")
+	assert_true(player.get("set_counts", {}).has("iron_vanguard"), "set count should include equipped set")
+
+
+func test_boss_permanent_equipment_reward() -> void:
+	var session_script = load("res://scripts/core/play_session.gd")
+	var session = session_script.new()
+	session.start_new_game("warrior")
+	while session.is_tutorial():
+		if session.phase == "battle":
+			_force_win(session)
+		elif session.phase == "reward":
+			session.choose_reward(0)
+	session.phase = "reward"
+	session.current_encounter = {"type": "boss"}
+	session._build_reward_options()
+	var equipment_index := -1
+	for i in range(session.reward_options.size()):
+		if String(session.reward_options[i].get("kind", "")) == "permanent_equipment":
+			equipment_index = i
+			break
+	assert_true(equipment_index >= 0, "boss rewards should include permanent equipment")
+	var reward: Dictionary = session.reward_options[equipment_index]
+	var item_id := String(reward.get("item_id", ""))
+	session.choose_reward(equipment_index)
+	assert_true(session.player.get("equipment_ids", []).has(item_id), "permanent boss equipment should enter player equipment")
+
+
+func test_external_resource_manifests() -> void:
+	var tables := DataCatalog.external_catalog_tables()
+	assert_true(tables.has("equipment_sets"), "external catalog should list equipment sets")
+	assert_true(tables.has("equipment_manifest"), "external catalog should list equipment manifest")
+	assert_true(tables.has("enemy_unit_manifest"), "external catalog should list enemy unit manifest")
+	var equipment_manifest := DataCatalog.external_table("equipment_manifest")
+	assert_true(equipment_manifest.get("set_equipment", []).size() >= 4, "equipment manifest should include set equipment")
+	var enemy_manifest := DataCatalog.external_table("enemy_unit_manifest")
+	assert_true(enemy_manifest.get("boss", []).size() >= 5, "enemy manifest should include boss ids")
 
 
 func test_charge_reward_flow() -> void:

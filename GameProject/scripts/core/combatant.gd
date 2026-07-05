@@ -52,9 +52,9 @@ static func from_enemy_unit(unit: Dictionary, encounter_type: String, tower_floo
 static func scaled_enemy(unit: Dictionary, tower_floor: int, rank: String, formation_scale: float = 1.0) -> Dictionary:
 	var post_gate := maxi(0, tower_floor - 5)
 	var growth: float = 1.0 \
-		+ 0.08 * float(tower_floor - 1) \
-		+ 0.45 * float(post_gate) \
-		+ 0.15 * float(post_gate * post_gate) \
+		+ 0.10 * float(tower_floor - 1) \
+		+ 0.52 * float(post_gate) \
+		+ 0.18 * float(post_gate * post_gate) \
 		+ 0.25 * floor(float(tower_floor - 1) / 10.0)
 	var base_hp := 22.0 + 4.6 * tower_floor
 	var base_attack := 4.2 + 1.0 * tower_floor
