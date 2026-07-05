@@ -5,12 +5,15 @@ const DataCatalog = preload("res://scripts/core/data_catalog.gd")
 const Combatant = preload("res://scripts/core/combatant.gd")
 const CombatEngine = preload("res://scripts/core/combat_engine.gd")
 const RunSimulator = preload("res://scripts/core/run_simulator.gd")
+const RewardService = preload("res://scripts/core/reward_service.gd")
+const SaveProfile = preload("res://scripts/core/save_profile.gd")
 
-const SAVE_PATH := "user://savegame.json"
 const MAX_CHARGES := 5
 
 var simulator := RunSimulator.new()
 var combat := CombatEngine.new()
+var rewards := RewardService.new()
+var save_profile := SaveProfile.new()
 var rng := RandomNumberGenerator.new()
 
 var player: Dictionary = {}
@@ -52,16 +55,16 @@ func start_new_game(selected_class: String) -> void:
 
 
 func has_save() -> bool:
-	return FileAccess.file_exists(SAVE_PATH)
+	return save_profile.has_save()
 
 
 func has_active_run() -> bool:
-	var profile := _read_profile()
+	var profile := save_profile.read_profile(Callable(self, "_persistent_player_snapshot"))
 	return not _dictionary(profile.get("active_run", {})).is_empty()
 
 
 func get_roster_player(selected_class: String) -> Dictionary:
-	var profile := _read_profile()
+	var profile := save_profile.read_profile(Callable(self, "_persistent_player_snapshot"))
 	var roster := _dictionary(profile.get("roster", {}))
 	return _dictionary(roster.get(selected_class, {}))
 
@@ -69,7 +72,7 @@ func get_roster_player(selected_class: String) -> Dictionary:
 func save_game() -> bool:
 	if phase == "menu" or player.is_empty():
 		return false
-	var profile := _read_profile()
+	var profile := save_profile.read_profile(Callable(self, "_persistent_player_snapshot"))
 	var roster := _dictionary(profile.get("roster", {}))
 	roster[class_id] = _persistent_player_snapshot(player)
 	profile["version"] = 2
@@ -78,11 +81,7 @@ func save_game() -> bool:
 		profile["active_run"] = {}
 	else:
 		profile["active_run"] = _save_data()
-	var file := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
-	if file == null:
-		return false
-	file.store_string(JSON.stringify(profile))
-	return true
+	return save_profile.write_profile(profile)
 
 
 func end_run_to_camp() -> bool:
@@ -90,22 +89,20 @@ func end_run_to_camp() -> bool:
 		phase = "menu"
 		message = "已返回塔下营地。"
 		return false
-	var profile := _read_profile()
+	var profile := save_profile.read_profile(Callable(self, "_persistent_player_snapshot"))
 	var roster := _dictionary(profile.get("roster", {}))
 	roster[class_id] = _persistent_player_snapshot(player)
 	profile["version"] = 2
 	profile["roster"] = roster
 	profile["active_run"] = {}
-	var file := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
-	if file == null:
+	if not save_profile.write_profile(profile):
 		return false
-	file.store_string(JSON.stringify(profile))
 	_reset_to_camp_state()
 	return true
 
 
 func load_game() -> bool:
-	var profile := _read_profile()
+	var profile := save_profile.read_profile(Callable(self, "_persistent_player_snapshot"))
 	var active_run := _dictionary(profile.get("active_run", {}))
 	if active_run.is_empty():
 		return false
@@ -113,8 +110,7 @@ func load_game() -> bool:
 
 
 func delete_save() -> void:
-	if has_save():
-		DirAccess.remove_absolute(ProjectSettings.globalize_path(SAVE_PATH))
+	save_profile.delete_save()
 
 
 func _reset_to_camp_state() -> void:
@@ -605,123 +601,46 @@ func _on_defeat() -> void:
 func _build_reward_options() -> void:
 	reward_options.clear()
 	if is_tutorial():
-		var unlock_id: String = DataCatalog.TUTORIAL_UNLOCKS[class_id][battle_index - 1]
-		var label := ""
-		if DataCatalog.EQUIPMENT.has(unlock_id):
-			label = "解锁装备：%s" % DataCatalog.EQUIPMENT[unlock_id]["name"]
-		else:
-			label = "解锁第一个技能：%s" % DataCatalog.SKILLS[unlock_id]["name"]
-		reward_options.append({"kind": "tutorial_unlock", "label": label, "value": 0})
+		reward_options.append(rewards.tutorial_reward(class_id, battle_index))
 		message = "获得新手引导固定奖励。"
 		return
 	var encounter_type := String(current_encounter["type"])
 	if encounter_type == "normal":
-		reward_options = _random_reward_options("normal", 3)
+		reward_options = rewards.random_options("normal", 3, floor_index, available_charges().size())
 		player["normal_rewards"] += 1
 	elif encounter_type == "elite":
-		reward_options = _random_reward_options("elite", 4)
+		reward_options = rewards.random_options("elite", 4, floor_index, available_charges().size())
 		player["elite_rewards"] += 1
 	else:
-		reward_options = _random_reward_options("boss", 4)
+		reward_options = rewards.random_options("boss", 4, floor_index, available_charges().size())
 		reward_options.append({"kind": "skill", "label": "技能分支：解锁一个不重复技能", "value": 0})
-		reward_options = _sample_rewards(reward_options, reward_options.size())
+		reward_options = rewards.sample_rewards(reward_options, reward_options.size())
 		player["boss_rewards"] += 1
 	message = "选择一个奖励。"
 
 
 func _random_reward_options(reward_rank: String, count: int) -> Array[Dictionary]:
-	var pool := _reward_pool(reward_rank)
-	if available_charges().size() >= MAX_CHARGES:
-		var filtered: Array[Dictionary] = []
-		for reward in pool:
-			if not _is_charge_reward(reward):
-				filtered.append(reward)
-		pool = filtered
-	return _sample_rewards_with_core(pool, count)
+	return rewards.random_options(reward_rank, count, floor_index, available_charges().size())
 
 
 func _reward_pool(reward_rank: String) -> Array[Dictionary]:
-	var prefix := ""
-	if reward_rank == "elite":
-		prefix = "精英奖励："
-	elif reward_rank == "boss":
-		prefix = "Boss 五选一卡牌："
-	var attack_value := _floor_value(3)
-	var defense_value := _floor_value(1)
-	var hp_value := _floor_value(6)
-	var charge_damage := _floor_value(8)
-	var attack_multiplier := 1.15
-	var defense_multiplier := 1.15
-	if reward_rank == "elite":
-		attack_value = _floor_value(5)
-		defense_value = _floor_value(2)
-		hp_value = _floor_value(10)
-		charge_damage = _floor_value(12)
-		attack_multiplier = 1.2
-		defense_multiplier = 1.25
-	elif reward_rank == "boss":
-		attack_value = _floor_value(8)
-		defense_value = _floor_value(3)
-		hp_value = _floor_value(18)
-		charge_damage = _floor_value(18)
-		attack_multiplier = 1.3
-		defense_multiplier = 1.35
-	return [
-		{"kind": "attack", "label": "%s攻击 +%d" % [prefix, attack_value], "value": attack_value},
-		{"kind": "defense", "label": "%s护甲 +%d" % [prefix, defense_value], "value": defense_value},
-		{"kind": "hp", "label": "%s生命上限 +%d" % [prefix, hp_value], "value": hp_value},
-		{"kind": "charge_bonus_damage", "label": "%s充能：下一次攻击附加 %d 点伤害" % [prefix, charge_damage], "value": charge_damage},
-		{"kind": "charge_attack_multiplier", "label": "%s充能：下一次攻击效果 x%.2f" % [prefix, attack_multiplier], "value": attack_multiplier},
-		{"kind": "charge_defense_multiplier", "label": "%s充能：下一次防御效果 x%.2f" % [prefix, defense_multiplier], "value": defense_multiplier},
-		{"kind": "charge_repeat_attack", "label": "%s充能：下一次攻击追加一次结算" % prefix, "value": 1},
-		{"kind": "charge_repeat_defense", "label": "%s充能：下一次防御追加一次结算" % prefix, "value": 1}
-	]
+	return rewards.reward_pool(reward_rank, floor_index)
 
 
 func _sample_rewards(pool: Array[Dictionary], count: int) -> Array[Dictionary]:
-	var available := pool.duplicate(true)
-	var result: Array[Dictionary] = []
-	if available.is_empty():
-		return result
-	rng.randomize()
-	while result.size() < count and not available.is_empty():
-		var index := rng.randi_range(0, available.size() - 1)
-		result.append(available[index])
-		available.remove_at(index)
-	return result
+	return rewards.sample_rewards(pool, count)
 
 
 func _sample_rewards_with_core(pool: Array[Dictionary], count: int) -> Array[Dictionary]:
-	var available := pool.duplicate(true)
-	var result: Array[Dictionary] = []
-	var core: Array[Dictionary] = []
-	for reward in available:
-		if _is_core_growth_reward(reward):
-			core.append(reward)
-	rng.randomize()
-	if count > 0 and not core.is_empty():
-		var core_reward: Dictionary = core[rng.randi_range(0, core.size() - 1)]
-		result.append(core_reward)
-		_remove_matching_reward(available, core_reward)
-	while result.size() < count and not available.is_empty():
-		var index := rng.randi_range(0, available.size() - 1)
-		result.append(available[index])
-		available.remove_at(index)
-	return _sample_rewards(result, result.size())
+	return rewards.sample_rewards_with_core(pool, count)
 
 
 func _is_core_growth_reward(reward: Dictionary) -> bool:
-	return ["attack", "defense", "hp"].has(String(reward.get("kind", "")))
+	return RewardService.is_core_growth_reward(reward)
 
 
 func _remove_matching_reward(rewards: Array[Dictionary], target: Dictionary) -> void:
-	var target_kind := String(target.get("kind", ""))
-	var target_label := String(target.get("label", ""))
-	for i in range(rewards.size()):
-		var reward: Dictionary = rewards[i]
-		if String(reward.get("kind", "")) == target_kind and String(reward.get("label", "")) == target_label:
-			rewards.remove_at(i)
-			return
+	RewardService.remove_matching_reward(rewards, target)
 
 
 func _advance_after_reward() -> void:
@@ -759,12 +678,11 @@ func _unlock_next_skill() -> void:
 
 
 func _reward_needs_attachment(reward: Dictionary) -> bool:
-	var kind := String(reward.get("kind", ""))
-	return ["attack", "defense", "hp", "state"].has(kind) or _is_charge_reward(reward)
+	return RewardService.reward_needs_attachment(reward)
 
 
 func _is_charge_reward(reward: Dictionary) -> bool:
-	return String(reward.get("kind", "")).begins_with("charge_")
+	return RewardService.is_charge_reward(reward)
 
 
 func _build_reward_targets() -> Array[Dictionary]:
@@ -777,12 +695,7 @@ func _build_reward_targets() -> Array[Dictionary]:
 
 
 func _reward_short_label(reward: Dictionary) -> String:
-	var label := String(reward.get("label", "奖励"))
-	label = label.replace("精英奖励：", "")
-	label = label.replace("Boss 五选一卡牌：", "")
-	label = label.replace("永久装备分支：", "")
-	label = label.replace("状态卡强化：", "状态 Buff强化：")
-	return label
+	return RewardService.short_label(reward)
 
 
 func _target_label(target: Dictionary) -> String:
@@ -1005,7 +918,7 @@ func _empty_charge_values() -> Dictionary:
 
 
 func _floor_value(base: int) -> int:
-	return base + maxi(0, int(floor(float(floor_index - 1) / 10.0)))
+	return RewardService.floor_value(base, floor_index)
 
 
 func _apply_limited_post_battle_recovery() -> void:
@@ -1159,49 +1072,6 @@ func _save_data() -> Dictionary:
 		"pending_reward": pending_reward,
 		"reward_targets": reward_targets,
 		"battle_log": battle_log
-	}
-
-
-func _read_profile() -> Dictionary:
-	if not has_save():
-		return _empty_profile()
-	var file := FileAccess.open(SAVE_PATH, FileAccess.READ)
-	if file == null:
-		return _empty_profile()
-	var json := JSON.new()
-	var error := json.parse(file.get_as_text())
-	if error != OK or typeof(json.data) != TYPE_DICTIONARY:
-		return _empty_profile()
-	var data: Dictionary = json.data
-	if int(data.get("version", 0)) == 2:
-		if not data.has("roster"):
-			data["roster"] = {}
-		if not data.has("active_run"):
-			data["active_run"] = {}
-		return data
-	if int(data.get("version", 0)) == 1:
-		return _profile_from_legacy_run(data)
-	return _empty_profile()
-
-
-func _empty_profile() -> Dictionary:
-	return {
-		"version": 2,
-		"roster": {},
-		"active_run": {}
-	}
-
-
-func _profile_from_legacy_run(run_data: Dictionary) -> Dictionary:
-	var roster := {}
-	var saved_player := _dictionary(run_data.get("player", {}))
-	var saved_class := String(run_data.get("class_id", saved_player.get("class_id", "")))
-	if saved_class != "" and DataCatalog.CLASSES.has(saved_class) and not saved_player.is_empty():
-		roster[saved_class] = _persistent_player_snapshot(saved_player)
-	return {
-		"version": 2,
-		"roster": roster,
-		"active_run": run_data
 	}
 
 
