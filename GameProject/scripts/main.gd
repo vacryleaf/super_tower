@@ -61,12 +61,7 @@ func _render_menu() -> void:
 		var continue_button := Button.new()
 		continue_button.text = "继续当前派遣"
 		continue_button.custom_minimum_size = Vector2(220, 56)
-		continue_button.pressed.connect(func() -> void:
-			if session.load_game():
-				selected_target = 0
-				equipment_open = false
-				_request_game_render()
-		)
+		continue_button.pressed.connect(_on_continue_pressed)
 		root.add_child(continue_button)
 	var class_row := HBoxContainer.new()
 	class_row.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -94,12 +89,7 @@ func _class_panel(class_key: String) -> Control:
 	var button := Button.new()
 	button.text = "派遣：%s" % data["name"]
 	button.custom_minimum_size = Vector2(180, 56)
-	button.pressed.connect(func() -> void:
-		session.start_new_game(class_key)
-		_persist_session()
-		selected_target = 0
-		_request_game_render()
-	)
+	button.pressed.connect(_on_class_dispatch_pressed.bind(class_key))
 	box.add_child(button)
 	panel.add_child(box)
 	return panel
@@ -118,15 +108,7 @@ func _render_game() -> void:
 		end_run_button.text = "结束爬塔"
 		end_run_button.custom_minimum_size = Vector2(120, 42)
 		end_run_button.disabled = input_locked
-		end_run_button.pressed.connect(func() -> void:
-			if input_locked:
-				return
-			session.end_run_to_camp()
-			selected_target = 0
-			equipment_open = false
-			input_locked = false
-			_request_menu_render()
-		)
+		end_run_button.pressed.connect(_on_end_run_to_camp_pressed)
 		top.add_child(end_run_button)
 	root.add_child(top)
 	var message_label := _label(session.message, 16)
@@ -182,10 +164,7 @@ func _render_battle() -> void:
 	bottom_bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	combat_area.add_child(bottom_bar)
 	_render_player_status(bottom_bar)
-	var equip_button := _action_button("装备", func() -> void:
-		equipment_open = not equipment_open
-		_request_game_render()
-	)
+	var equip_button := _action_button("装备", Callable(self, "_on_equipment_toggle_pressed"))
 	equip_button.custom_minimum_size = Vector2(96, 92)
 	bottom_bar.add_child(equip_button)
 	_render_actions(bottom_bar)
@@ -208,10 +187,7 @@ func _enemy_card(index: int) -> Control:
 	button.text = _enemy_card_text(index, selected)
 	button.tooltip_text = _trait_tooltip(enemy["traits"])
 	button.disabled = int(enemy["hp"]) <= 0
-	button.pressed.connect(func() -> void:
-		selected_target = index
-		call_deferred("_refresh_battle_ui")
-	)
+	button.pressed.connect(_on_enemy_card_pressed.bind(index))
 	enemy_card_nodes[index] = button
 	return button
 
@@ -280,9 +256,7 @@ func _render_actions(parent: Control) -> void:
 			var skill: Dictionary = DataCatalog.SKILLS[skill_id]
 			button.text = "%s（%d）" % [skill["name"], int(skill.get("cost", 0))]
 			button.disabled = input_locked or session.action_points < int(skill.get("cost", 0))
-			button.pressed.connect(func(index := i) -> void:
-				_on_skill_pressed(index)
-			)
+			button.pressed.connect(_on_skill_pressed.bind(i))
 		else:
 			button.text = "未解锁"
 		skill_row.add_child(button)
@@ -301,9 +275,7 @@ func _render_actions(parent: Control) -> void:
 			button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			button.text = "%s\n%s" % [_charge_button_label(charge), String(charge.get("source_label", ""))]
 			button.disabled = input_locked or bool(charge.get("used", false)) or not bool(charge.get("ready", false))
-			button.pressed.connect(func(id := charge_id) -> void:
-				_on_charge_pressed(id)
-			)
+			button.pressed.connect(_on_charge_pressed.bind(charge_id))
 			charge_grid.add_child(button)
 			charge_buttons.append(button)
 	_refresh_action_buttons()
@@ -322,10 +294,7 @@ func _equipment_panel() -> Control:
 	var close_button := Button.new()
 	close_button.text = "关闭"
 	close_button.custom_minimum_size = Vector2(84, 38)
-	close_button.pressed.connect(func() -> void:
-		equipment_open = false
-		_request_game_render()
-	)
+	close_button.pressed.connect(_on_equipment_close_pressed)
 	header.add_child(close_button)
 	var columns := HBoxContainer.new()
 	columns.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -388,40 +357,81 @@ func _show_equipment_overlay() -> void:
 	overlay.add_child(center)
 
 
+func _on_continue_pressed() -> void:
+	if session.load_game():
+		selected_target = 0
+		equipment_open = false
+		_request_game_render()
+
+
+func _on_class_dispatch_pressed(class_key: String) -> void:
+	session.start_new_game(class_key)
+	_persist_session()
+	selected_target = 0
+	_request_game_render()
+
+
+func _on_end_run_to_camp_pressed() -> void:
+	if input_locked:
+		return
+	session.end_run_to_camp()
+	selected_target = 0
+	equipment_open = false
+	input_locked = false
+	_request_menu_render()
+
+
+func _on_equipment_toggle_pressed() -> void:
+	equipment_open = not equipment_open
+	_request_game_render()
+
+
+func _on_equipment_close_pressed() -> void:
+	equipment_open = false
+	_request_game_render()
+
+
+func _on_enemy_card_pressed(index: int) -> void:
+	selected_target = index
+	call_deferred("_refresh_battle_ui")
+
+
 func _on_attack_pressed() -> void:
-	_run_action(func() -> void:
-		session.player_attack(selected_target)
-	)
+	_run_action(Callable(session, "player_attack").bind(selected_target))
 
 
 func _on_defend_pressed() -> void:
-	_run_action(func() -> void:
-		session.player_defend()
-	)
+	_run_action(Callable(session, "player_defend"))
 
 
 func _on_dodge_pressed() -> void:
-	_run_action(func() -> void:
-		session.player_dodge()
-	)
+	_run_action(Callable(session, "player_dodge"))
 
 
 func _on_end_turn_pressed() -> void:
-	_run_action(func() -> void:
-		session.end_turn()
-	)
+	_run_action(Callable(session, "end_turn"))
 
 
 func _on_skill_pressed(index: int) -> void:
-	_run_action(func() -> void:
-		session.use_skill(index, selected_target)
-	)
+	_run_action(Callable(session, "use_skill").bind(index, selected_target))
 
 
 func _on_charge_pressed(charge_id: String) -> void:
-	_run_action(func() -> void:
-		session.use_charge(charge_id)
-	)
+	_run_action(Callable(session, "use_charge").bind(charge_id))
+
+
+func _on_reward_pressed(index: int) -> void:
+	session.choose_reward(index)
+	_persist_session()
+	selected_target = 0
+	_request_game_render()
+
+
+func _on_reward_target_pressed(index: int) -> void:
+	session.choose_reward_target(index)
+	_persist_session()
+	selected_target = 0
+	_request_game_render()
 
 
 func _run_action(action: Callable) -> void:
@@ -491,10 +501,12 @@ func _float_number(node: Variant, text_value: String, placement: String) -> void
 	tween.set_parallel(true)
 	tween.tween_property(label, "global_position", label.global_position + Vector2(0, -36), 0.8)
 	tween.tween_property(label, "modulate:a", 0.0, 0.8)
-	tween.finished.connect(func() -> void:
-		if is_instance_valid(label):
-			label.queue_free()
-	)
+	tween.finished.connect(_on_float_number_finished.bind(label))
+
+
+func _on_float_number_finished(label: Variant) -> void:
+	if is_instance_valid(label):
+		label.queue_free()
 
 
 func _float_number_position(control: Control, popup_size: Vector2, placement: String) -> Vector2:
@@ -525,12 +537,7 @@ func _render_reward() -> void:
 		var button := Button.new()
 		button.text = String(reward["label"]).replace("塔内附着：", "")
 		button.custom_minimum_size = Vector2(460, 64)
-		button.pressed.connect(func(index := i) -> void:
-			session.choose_reward(index)
-			_persist_session()
-			selected_target = 0
-			_request_game_render()
-		)
+		button.pressed.connect(_on_reward_pressed.bind(i))
 		options.add_child(button)
 
 
@@ -555,12 +562,7 @@ func _render_reward_target() -> void:
 		var button := Button.new()
 		button.text = "%s\n%s" % [_target_label(target), _attachment_summary(String(target["type"]), String(target["id"]))]
 		button.custom_minimum_size = Vector2(500, 72)
-		button.pressed.connect(func(index := i) -> void:
-			session.choose_reward_target(index)
-			_persist_session()
-			selected_target = 0
-			_request_game_render()
-		)
+		button.pressed.connect(_on_reward_target_pressed.bind(i))
 		options.add_child(button)
 
 
