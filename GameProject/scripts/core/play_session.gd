@@ -252,7 +252,7 @@ func _after_player_action() -> void:
 	if _alive_enemy_count() == 0:
 		_on_victory()
 	elif action_points <= 0:
-		end_turn()
+		message = "行动力已用完，请点击结束回合。"
 
 
 func _enemy_turn() -> void:

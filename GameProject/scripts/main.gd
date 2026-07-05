@@ -217,6 +217,9 @@ func _render_actions(parent: Control) -> void:
 	basic_row.add_child(_action_button("防御", Callable(self, "_on_defend_pressed")))
 	basic_row.add_child(_action_button("躲避", Callable(self, "_on_dodge_pressed")))
 	basic_row.add_child(_action_button("结束回合", Callable(self, "_on_end_turn_pressed")))
+	for i in range(3):
+		var button := basic_row.get_child(i) as Button
+		button.disabled = input_locked or session.action_points < 1
 
 	var skill_row := HBoxContainer.new()
 	skill_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -230,6 +233,7 @@ func _render_actions(parent: Control) -> void:
 			var skill_id: String = session.player["equipped_skills"][i]
 			var skill: Dictionary = DataCatalog.SKILLS[skill_id]
 			button.text = "%s（%d）" % [skill["name"], int(skill.get("cost", 0))]
+			button.disabled = input_locked or session.action_points < int(skill.get("cost", 0))
 			button.pressed.connect(func(index := i) -> void:
 				_on_skill_pressed(index)
 			)
