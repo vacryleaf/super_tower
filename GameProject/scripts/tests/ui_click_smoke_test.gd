@@ -12,12 +12,14 @@ func _run() -> void:
 	var main := scene.instantiate()
 	root.add_child(main)
 	await process_frame
+	main.session.delete_save()
 	_press_button(main, "派遣：战士")
 	await process_frame
 	_press_button(main, "普通攻击")
 	await _wait_seconds(1.1)
 	_press_button(main, "普通攻击")
 	await _wait_seconds(1.1)
+	main.session.delete_save()
 	if failures.is_empty():
 		print("UI CLICK SMOKE TEST PASSED")
 		quit(0)

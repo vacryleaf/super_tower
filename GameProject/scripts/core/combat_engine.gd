@@ -24,7 +24,8 @@ func run_battle(player: Dictionary, encounter: Dictionary, tower_floor: int, bat
 		var action_points: int = mini(rounds, 3)
 		var incoming := _incoming_damage(enemies, rounds)
 
-		if incoming >= int(player["defense"]) and action_points > 0:
+		var defend_value := int(player["defense"]) + _state_bonus(player, "defense")
+		if defend_value >= 3 and incoming >= defend_value * 2 and action_points > 1:
 			player_block += int(player["defense"]) + _state_bonus(player, "defense")
 			action_points -= 1
 			log.append("round_%d:defend" % rounds)
@@ -43,17 +44,16 @@ func run_battle(player: Dictionary, encounter: Dictionary, tower_floor: int, bat
 		if _alive_count(enemies) == 0:
 			break
 
-		var attackers := 0
+		_clear_enemy_taunts(enemies)
+		var actions := 0
 		for enemy in enemies:
 			if enemy["hp"] <= 0:
 				continue
-			if attackers >= 2:
-				if rounds % 2 == 0:
-					enemy["armor"] += int(enemy["defense"])
+			if actions >= 2:
+				_enemy_defend(enemy, 0.5)
 				continue
-			var damage := _enemy_round_damage(enemy, rounds)
-			player_block = _apply_damage_to_player(player, player_block, damage)
-			attackers += 1
+			player_block = _resolve_enemy_action(player, enemy, player_block, rounds)
+			actions += 1
 
 		_apply_end_round_traits(player, enemies, rounds)
 
@@ -81,6 +81,8 @@ func _build_enemies(encounter: Dictionary, tower_floor: int) -> Array[Dictionary
 				"attack": int(unit["attack"]),
 				"defense": int(unit["defense"]),
 				"armor": int(unit["defense"]) if unit.get("traits", []).has("thick_skin") else 0,
+				"dodge_layers": 0,
+				"taunt": 0,
 				"traits": unit.get("traits", [])
 			})
 		else:
@@ -118,6 +120,8 @@ func scale_enemy(unit: Dictionary, tower_floor: int, rank: String, formation_sca
 		"attack": attack,
 		"defense": defense,
 		"armor": defense * 2 if traits.has("thick_skin") else 0,
+		"dodge_layers": 0,
+		"taunt": 0,
 		"traits": traits
 	}
 
@@ -154,16 +158,21 @@ func _first_skill_cost(player: Dictionary) -> int:
 func _damage_lowest_enemy(enemies: Array[Dictionary], amount: int, log: Array[String], source: String) -> void:
 	if amount <= 0:
 		return
-	var target_index := -1
+	var target_index := _active_taunt_target(enemies)
 	var target_hp := 999999
-	for i in range(enemies.size()):
-		var enemy := enemies[i]
-		if enemy["hp"] > 0 and enemy["hp"] < target_hp:
-			target_hp = enemy["hp"]
-			target_index = i
+	if target_index < 0:
+		for i in range(enemies.size()):
+			var enemy := enemies[i]
+			if enemy["hp"] > 0 and enemy["hp"] < target_hp:
+				target_hp = enemy["hp"]
+				target_index = i
 	if target_index < 0:
 		return
 	var target := enemies[target_index]
+	if int(target.get("dodge_layers", 0)) > 0:
+		target["dodge_layers"] = int(target.get("dodge_layers", 0)) - 1
+		log.append("%s:%s:dodge" % [source, target["name"]])
+		return
 	var remaining := amount
 	if target["armor"] > 0:
 		var absorbed: int = mini(int(target["armor"]), remaining)
@@ -215,14 +224,15 @@ func _enemy_round_damage(enemy: Dictionary, round_index: int) -> int:
 
 func _incoming_damage(enemies: Array[Dictionary], round_index: int) -> int:
 	var total := 0
-	var attackers := 0
+	var actions := 0
 	for enemy in enemies:
 		if enemy["hp"] <= 0:
 			continue
-		if attackers >= 2:
+		if actions >= 2:
 			break
-		total += _enemy_round_damage(enemy, round_index)
-		attackers += 1
+		if _enemy_intent(enemy, round_index) == "attack":
+			total += _enemy_round_damage(enemy, round_index)
+		actions += 1
 	return total
 
 
@@ -237,6 +247,51 @@ func _apply_end_round_traits(player: Dictionary, enemies: Array[Dictionary], rou
 			enemy["armor"] += int(enemy["defense"])
 		if traits.has("curse") and round_index % 3 == 0:
 			player["hp"] = maxi(0, int(player["hp"]) - 1)
+
+
+func _resolve_enemy_action(player: Dictionary, enemy: Dictionary, player_block: int, round_index: int) -> int:
+	var intent := _enemy_intent(enemy, round_index)
+	match intent:
+		"taunt":
+			enemy["taunt"] = 1
+			_enemy_defend(enemy, 1.0)
+		"defend":
+			_enemy_defend(enemy, 1.0)
+		"dodge":
+			enemy["dodge_layers"] = int(enemy.get("dodge_layers", 0)) + 1
+		_:
+			var damage := _enemy_round_damage(enemy, round_index)
+			player_block = _apply_damage_to_player(player, player_block, damage)
+	return player_block
+
+
+func _enemy_defend(enemy: Dictionary, scale: float) -> void:
+	enemy["armor"] = int(enemy.get("armor", 0)) + maxi(1, int(round(float(enemy["defense"]) * scale)))
+
+
+func _enemy_intent(enemy: Dictionary, round_index: int) -> String:
+	var traits: Array = enemy["traits"]
+	if traits.has("taunt") and int(enemy.get("taunt", 0)) <= 0 and round_index % 3 == 1:
+		return "taunt"
+	if traits.has("tank") or traits.has("guard"):
+		return "defend" if round_index % 2 == 0 else "attack"
+	if traits.has("evade") and round_index % 3 == 0:
+		return "dodge"
+	if traits.has("fortify") and round_index % 2 == 0:
+		return "defend"
+	return "attack"
+
+
+func _clear_enemy_taunts(enemies: Array[Dictionary]) -> void:
+	for enemy in enemies:
+		enemy["taunt"] = 0
+
+
+func _active_taunt_target(enemies: Array[Dictionary]) -> int:
+	for i in range(enemies.size()):
+		if int(enemies[i]["hp"]) > 0 and int(enemies[i].get("taunt", 0)) > 0:
+			return i
+	return -1
 
 
 func _state_bonus(player: Dictionary, tag: String) -> int:

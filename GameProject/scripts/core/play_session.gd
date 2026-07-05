@@ -130,6 +130,8 @@ func _build_enemies(encounter: Dictionary) -> Array[Dictionary]:
 				"attack": int(unit["attack"]),
 				"defense": int(unit["defense"]),
 				"armor": int(unit["defense"]) * 2 if traits.has("thick_skin") else 0,
+				"dodge_layers": 0,
+				"taunt": 0,
 				"traits": traits
 			})
 		else:
@@ -305,17 +307,48 @@ func _after_player_action() -> void:
 
 
 func _enemy_turn() -> void:
-	var attackers := 0
-	for enemy in enemies:
+	_clear_enemy_taunts()
+	var actions := 0
+	for i in range(enemies.size()):
+		var enemy := enemies[i]
 		if int(enemy["hp"]) <= 0:
 			continue
-		if attackers >= 2:
-			enemy["armor"] += int(enemy["defense"])
+		if actions >= 2:
+			_enemy_defend(enemy, 0.5)
 			continue
-		_enemy_attack(enemy, false)
-		attackers += 1
+		_resolve_enemy_action(enemy, i)
+		actions += 1
 	if int(player["hp"]) <= 0:
 		_on_defeat()
+
+
+func _clear_enemy_taunts() -> void:
+	for enemy in enemies:
+		enemy["taunt"] = 0
+
+
+func _resolve_enemy_action(enemy: Dictionary, enemy_index: int) -> void:
+	var intent := _enemy_intent(enemy)
+	match intent:
+		"taunt":
+			enemy["taunt"] = 1
+			_enemy_defend(enemy, 1.0)
+			battle_log.append("%s 嘲讽并防守。" % enemy["name"])
+			last_events.append({"kind": "defense", "target": "enemy", "target_index": enemy_index, "source": enemy["name"], "amount": maxi(1, int(enemy["defense"]))})
+		"defend":
+			_enemy_defend(enemy, 1.0)
+			battle_log.append("%s 进入防守。" % enemy["name"])
+			last_events.append({"kind": "defense", "target": "enemy", "target_index": enemy_index, "source": enemy["name"], "amount": maxi(1, int(enemy["defense"]))})
+		"dodge":
+			enemy["dodge_layers"] = int(enemy.get("dodge_layers", 0)) + 1
+			battle_log.append("%s 准备闪避下一次命中。" % enemy["name"])
+			last_events.append({"kind": "dodge", "target": "enemy", "target_index": enemy_index, "source": enemy["name"], "amount": 1})
+		_:
+			_enemy_attack(enemy, false)
+
+
+func _enemy_defend(enemy: Dictionary, scale: float) -> void:
+	enemy["armor"] = int(enemy.get("armor", 0)) + maxi(1, int(round(float(enemy["defense"]) * scale)))
 
 
 func _enemy_attack(enemy: Dictionary, first_strike: bool) -> void:
@@ -348,7 +381,15 @@ func _damage_after_armor(raw_damage: int) -> int:
 
 
 func _apply_damage_to_enemy(target_index: int, damage: int) -> void:
+	var taunt_target := _active_taunt_target()
+	if taunt_target >= 0:
+		target_index = taunt_target
 	var enemy := enemies[target_index]
+	if int(enemy.get("dodge_layers", 0)) > 0:
+		enemy["dodge_layers"] = int(enemy.get("dodge_layers", 0)) - 1
+		battle_log.append("%s 闪避了这次命中。" % enemy["name"])
+		last_events.append({"kind": "dodge_enemy_attack", "target": "enemy", "target_index": target_index, "amount": 0})
+		return
 	var remaining := damage
 	if int(enemy["armor"]) > 0:
 		var absorbed: int = mini(int(enemy["armor"]), remaining)
@@ -393,14 +434,14 @@ func _build_reward_options() -> void:
 	if encounter_type == "normal":
 		reward_options = [
 			{"kind": "attack", "label": "攻击 +%d" % _floor_value(3), "value": _floor_value(3)},
-			{"kind": "defense", "label": "护甲 +%d" % _floor_value(3), "value": _floor_value(3)},
+			{"kind": "defense", "label": "护甲 +%d" % _floor_value(1), "value": _floor_value(1)},
 			{"kind": "hp", "label": "生命上限 +%d" % _floor_value(6), "value": _floor_value(6)}
 		]
 		player["normal_rewards"] += 1
 	elif encounter_type == "elite":
 		reward_options = [
 			{"kind": "attack", "label": "精英奖励：攻击 +%d" % _floor_value(5), "value": _floor_value(5)},
-			{"kind": "defense", "label": "精英奖励：护甲 +%d" % _floor_value(5), "value": _floor_value(5)},
+			{"kind": "defense", "label": "精英奖励：护甲 +%d" % _floor_value(2), "value": _floor_value(2)},
 			{"kind": "hp", "label": "精英奖励：生命上限 +%d" % _floor_value(10), "value": _floor_value(10)},
 			{"kind": "state", "label": "状态卡强化：暴击抽取权重 +1", "value": 1}
 		]
@@ -544,6 +585,9 @@ func _can_act(cost: int) -> bool:
 
 
 func _valid_target(target_index: int) -> int:
+	var taunt_target := _active_taunt_target()
+	if taunt_target >= 0:
+		return taunt_target
 	if enemies.is_empty():
 		return -1
 	if target_index < 0 or target_index >= enemies.size() or int(enemies[target_index]["hp"]) <= 0:
@@ -552,6 +596,40 @@ func _valid_target(target_index: int) -> int:
 				return i
 		return -1
 	return target_index
+
+
+func _active_taunt_target() -> int:
+	for i in range(enemies.size()):
+		if int(enemies[i]["hp"]) > 0 and int(enemies[i].get("taunt", 0)) > 0:
+			return i
+	return -1
+
+
+func _enemy_intent(enemy: Dictionary) -> String:
+	var traits: Array = enemy["traits"]
+	if traits.has("taunt") and int(enemy.get("taunt", 0)) <= 0 and round_index % 3 == 1:
+		return "taunt"
+	if traits.has("tank") or traits.has("guard"):
+		return "defend" if round_index % 2 == 0 else "attack"
+	if traits.has("evade") and round_index % 3 == 0:
+		return "dodge"
+	if traits.has("fortify") and round_index % 2 == 0:
+		return "defend"
+	return "attack"
+
+
+func enemy_intent_text(index: int) -> String:
+	if index < 0 or index >= enemies.size():
+		return "未知"
+	var intent := _enemy_intent(enemies[index])
+	match intent:
+		"taunt":
+			return "嘲讽/防守"
+		"defend":
+			return "防守"
+		"dodge":
+			return "闪避"
+	return "攻击"
 
 
 func _alive_enemy_count() -> int:

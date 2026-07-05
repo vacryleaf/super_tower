@@ -24,6 +24,7 @@ func run_all() -> void:
 
 func run_manual_campaign(class_id: String) -> void:
 	var session := PlaySession.new()
+	session.delete_save()
 	session.start_new_game(class_id)
 	var guard := 0
 	while session.phase != "victory" and session.phase != "game_over" and guard < 2000:

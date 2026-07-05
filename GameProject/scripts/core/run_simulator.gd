@@ -153,9 +153,9 @@ func _normal_encounter(tower_floor: int, battle_index: int) -> Dictionary:
 	var selector := (tower_floor + battle_index) % 5
 	if selector == 0 and tower_floor >= 3:
 		return _formation("enc_normal_goblin_team", "normal", [
-			_low_unit("哥布林矛手", 0.48, [""]),
-			_low_unit("哥布林投石手", 0.48, []),
-			_low_unit("哥布林斥候", 0.48, ["first_strike"])
+			_low_unit("哥布林盾矛手", 0.52, ["tank", "taunt"]),
+			_low_unit("哥布林投石手", 0.50, ["backline"]),
+			_low_unit("哥布林斥候", 0.46, ["first_strike", "evade"])
 		])
 	if selector == 1 and tower_floor >= 4:
 		return _formation_from_units("enc_normal_guard_pair", "normal", [2, 3], [0.62, 0.62])
@@ -270,13 +270,13 @@ func _apply_formal_reward(player: Dictionary, battle_type: String, tower_floor: 
 		player["normal_rewards"] += 1
 	elif battle_type == "elite":
 		attach_reward(player, _preferred_attachment_target(player, "attack"), {"kind": "attack", "value": 4 + fixed_scale, "label": "攻击 +%d" % (4 + fixed_scale)})
-		attach_reward(player, _preferred_attachment_target(player, "defense"), {"kind": "defense", "value": 3 + fixed_scale, "label": "护甲 +%d" % (3 + fixed_scale)})
+		attach_reward(player, _preferred_attachment_target(player, "defense"), {"kind": "defense", "value": 2 + fixed_scale, "label": "护甲 +%d" % (2 + fixed_scale)})
 		attach_reward(player, _preferred_attachment_target(player, "hp"), {"kind": "hp", "value": 8 + fixed_scale, "label": "生命上限 +%d" % (8 + fixed_scale)})
 		attach_reward(player, _preferred_attachment_target(player, "state"), {"kind": "state", "value": 1, "label": "状态 Buff强化 +1"})
 		player["elite_rewards"] += 1
 	else:
 		attach_reward(player, _preferred_attachment_target(player, "attack"), {"kind": "attack", "value": 8 + fixed_scale, "label": "攻击 +%d" % (8 + fixed_scale)})
-		attach_reward(player, _preferred_attachment_target(player, "defense"), {"kind": "defense", "value": 6 + fixed_scale, "label": "护甲 +%d" % (6 + fixed_scale)})
+		attach_reward(player, _preferred_attachment_target(player, "defense"), {"kind": "defense", "value": 3 + fixed_scale, "label": "护甲 +%d" % (3 + fixed_scale)})
 		attach_reward(player, _preferred_attachment_target(player, "hp"), {"kind": "hp", "value": 20 + fixed_scale, "label": "生命上限 +%d" % (20 + fixed_scale)})
 		attach_reward(player, _preferred_attachment_target(player, "skill"), {"kind": "skill_power", "value": 2, "label": "技能效果 +2"})
 		_unlock_next_skill(player)

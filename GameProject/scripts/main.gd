@@ -199,7 +199,7 @@ func _enemy_card(index: int) -> Control:
 
 func _enemy_card_text(index: int, selected: String = "") -> String:
 	var enemy: Dictionary = session.enemies[index]
-	return "%s %s\n%s\n生命 %d/%d\n攻击 %d  护甲 %d\n意图：攻击\n特性：%s" % [
+	return "%s %s\n%s\n生命 %d/%d\n攻击 %d  护甲 %d\n意图：%s\n特性：%s" % [
 		selected,
 		enemy["name"],
 		_rank_label(enemy["rank"]),
@@ -207,6 +207,7 @@ func _enemy_card_text(index: int, selected: String = "") -> String:
 		int(enemy["max_hp"]),
 		int(enemy["attack"]),
 		int(enemy["armor"]),
+		session.enemy_intent_text(index),
 		_trait_labels(enemy["traits"])
 	]
 
@@ -398,7 +399,9 @@ func _play_action_feedback() -> void:
 		if event.get("target", "") == "enemy":
 			var target_index := int(event.get("target_index", 0))
 			_shake_node(enemy_card_nodes.get(target_index, null))
-			_float_number(enemy_card_nodes.get(target_index, null), "-%d" % int(event.get("amount", 0)), "center_bottom")
+			var enemy_prefix := "+" if event.get("kind", "") in ["defense", "dodge"] else "-"
+			if int(event.get("amount", 0)) > 0:
+				_float_number(enemy_card_nodes.get(target_index, null), "%s%d" % [enemy_prefix, int(event.get("amount", 0))], "center_bottom")
 		elif event.get("target", "") == "player":
 			_shake_node(player_status_node)
 			if int(event.get("amount", 0)) > 0:
@@ -727,6 +730,9 @@ func _trait_labels(traits: Array) -> String:
 		"mark": "标记",
 		"curse": "诅咒",
 		"guard": "护卫",
+		"tank": "肉盾",
+		"taunt": "嘲讽",
+		"backline": "后排",
 		"fortify": "固守",
 		"summon": "召唤",
 		"revive": "复苏",

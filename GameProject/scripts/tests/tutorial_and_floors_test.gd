@@ -20,6 +20,8 @@ func _init() -> void:
 
 func run_all() -> void:
 	test_state_card_weights()
+	test_player_armor_baseline_is_low()
+	test_enemy_roles_include_tank_taunt_and_backline()
 	test_skill_costs_minimum_two()
 	test_reward_attachment_flow()
 	test_save_round_trip()
@@ -39,6 +41,24 @@ func test_state_card_weights() -> void:
 	assert_equal(int(DataCatalog.STATE_CARDS["read"]["weight"]), 5, "read state card weight")
 	assert_equal(int(DataCatalog.STATE_CARDS["perfect_guard"]["weight"]), 5, "perfect guard state card weight")
 	assert_equal(int(DataCatalog.STATE_CARDS["fallback"]["weight"]), 5, "emergency fallback state card weight")
+
+
+func test_player_armor_baseline_is_low() -> void:
+	assert_equal(int(DataCatalog.CLASSES["warrior"]["base_defense"]), 1, "warrior base armor")
+	assert_equal(int(DataCatalog.CLASSES["archer"]["base_defense"]), 0, "archer base armor")
+	for item_id in DataCatalog.EQUIPMENT.keys():
+		assert_true(int(DataCatalog.EQUIPMENT[item_id]["armor"]) <= 2, "%s equipment armor cap" % item_id)
+
+
+func test_enemy_roles_include_tank_taunt_and_backline() -> void:
+	var has_taunt_tank := false
+	var has_backline := false
+	for unit in DataCatalog.NORMAL_UNITS + DataCatalog.ELITE_UNITS + DataCatalog.BOSS_UNITS:
+		var traits: Array = unit.get("traits", [])
+		has_taunt_tank = has_taunt_tank or (traits.has("tank") and traits.has("taunt"))
+		has_backline = has_backline or traits.has("backline")
+	assert_true(has_taunt_tank, "enemy catalog should include taunting tank")
+	assert_true(has_backline, "enemy catalog should include backline output")
 
 
 func test_skill_costs_minimum_two() -> void:
@@ -134,7 +154,7 @@ func test_tutorial_unlocks(class_id: String) -> void:
 	assert_equal(player["equipment_ids"].size(), 9, "%s tutorial equipment count" % class_id)
 	assert_equal(player["equipped_skills"].size(), 1, "%s first skill equipped" % class_id)
 	assert_equal(player["unlocked_skills"].size(), 1, "%s first skill unlocked once" % class_id)
-	assert_equal(int(player["tutorial_restarts"]), 0, "%s tutorial should not need restart with baseline policy" % class_id)
+	assert_true(int(player["tutorial_restarts"]) <= 1, "%s tutorial protection should rarely restart with low-armor baseline" % class_id)
 
 	var first_skill: String = DataCatalog.CLASSES[class_id]["first_skill"]
 	assert_true(player["equipped_skills"].has(first_skill), "%s first skill id" % class_id)

@@ -18,7 +18,7 @@ const CLASSES := {
 		"name": "战士",
 		"max_hp": 90,
 		"base_attack": 7,
-		"base_defense": 5,
+		"base_defense": 1,
 		"resource": "rage",
 		"first_skill": "heavy_slash"
 	},
@@ -26,7 +26,7 @@ const CLASSES := {
 		"name": "弓箭手",
 		"max_hp": 70,
 		"base_attack": 8,
-		"base_defense": 4,
+		"base_defense": 0,
 		"resource": "focus",
 		"first_skill": "precise_shot"
 	}
@@ -46,24 +46,24 @@ const SKILLS := {
 }
 
 const EQUIPMENT := {
-	"warrior_training_helm": {"class": "warrior", "slot": "head", "name": "训练铁盔", "hp": 10, "attack": 0, "armor": 2},
-	"warrior_old_chest": {"class": "warrior", "slot": "body", "name": "旧胸甲", "hp": 14, "attack": 0, "armor": 3},
-	"warrior_soldier_belt": {"class": "warrior", "slot": "waist", "name": "士兵腰带", "hp": 8, "attack": 0, "armor": 1},
-	"warrior_practice_greaves": {"class": "warrior", "slot": "legs", "name": "练习腿裤", "hp": 6, "attack": 0, "armor": 4},
-	"warrior_cloth_gloves": {"class": "warrior", "slot": "hands", "name": "粗布手套", "hp": 4, "attack": 2, "armor": 1},
-	"warrior_old_leggings": {"class": "warrior", "slot": "leggings", "name": "旧护腿", "hp": 8, "attack": 0, "armor": 3},
-	"warrior_march_boots": {"class": "warrior", "slot": "feet", "name": "行军靴", "hp": 5, "attack": 0, "armor": 3},
+	"warrior_training_helm": {"class": "warrior", "slot": "head", "name": "训练铁盔", "hp": 10, "attack": 0, "armor": 1},
+	"warrior_old_chest": {"class": "warrior", "slot": "body", "name": "旧胸甲", "hp": 14, "attack": 0, "armor": 1},
+	"warrior_soldier_belt": {"class": "warrior", "slot": "waist", "name": "士兵腰带", "hp": 8, "attack": 0, "armor": 0},
+	"warrior_practice_greaves": {"class": "warrior", "slot": "legs", "name": "练习腿裤", "hp": 6, "attack": 0, "armor": 1},
+	"warrior_cloth_gloves": {"class": "warrior", "slot": "hands", "name": "粗布手套", "hp": 4, "attack": 2, "armor": 0},
+	"warrior_old_leggings": {"class": "warrior", "slot": "leggings", "name": "旧护腿", "hp": 8, "attack": 0, "armor": 1},
+	"warrior_march_boots": {"class": "warrior", "slot": "feet", "name": "行军靴", "hp": 5, "attack": 0, "armor": 1},
 	"warrior_training_sword": {"class": "warrior", "slot": "weapon", "name": "训练剑", "hp": 0, "attack": 5, "armor": 0},
-	"warrior_wooden_shield": {"class": "warrior", "slot": "offhand", "name": "木盾", "hp": 4, "attack": 0, "armor": 5},
-	"archer_practice_hood": {"class": "archer", "slot": "head", "name": "练习兜帽", "hp": 7, "attack": 1, "armor": 1},
-	"archer_old_leather": {"class": "archer", "slot": "body", "name": "旧皮甲", "hp": 10, "attack": 0, "armor": 2},
-	"archer_hunter_belt": {"class": "archer", "slot": "waist", "name": "猎人腰带", "hp": 6, "attack": 1, "armor": 1},
-	"archer_light_pants": {"class": "archer", "slot": "legs", "name": "轻便护裤", "hp": 6, "attack": 1, "armor": 2},
-	"archer_bracers": {"class": "archer", "slot": "hands", "name": "射手护腕", "hp": 3, "attack": 2, "armor": 1},
-	"archer_soft_leggings": {"class": "archer", "slot": "leggings", "name": "软皮绑腿", "hp": 6, "attack": 0, "armor": 2},
-	"archer_light_boots": {"class": "archer", "slot": "feet", "name": "轻便靴", "hp": 4, "attack": 1, "armor": 1},
+	"warrior_wooden_shield": {"class": "warrior", "slot": "offhand", "name": "木盾", "hp": 4, "attack": 0, "armor": 2},
+	"archer_practice_hood": {"class": "archer", "slot": "head", "name": "练习兜帽", "hp": 7, "attack": 1, "armor": 0},
+	"archer_old_leather": {"class": "archer", "slot": "body", "name": "旧皮甲", "hp": 10, "attack": 0, "armor": 1},
+	"archer_hunter_belt": {"class": "archer", "slot": "waist", "name": "猎人腰带", "hp": 6, "attack": 1, "armor": 0},
+	"archer_light_pants": {"class": "archer", "slot": "legs", "name": "轻便护裤", "hp": 6, "attack": 1, "armor": 1},
+	"archer_bracers": {"class": "archer", "slot": "hands", "name": "射手护腕", "hp": 3, "attack": 2, "armor": 0},
+	"archer_soft_leggings": {"class": "archer", "slot": "leggings", "name": "软皮绑腿", "hp": 6, "attack": 0, "armor": 1},
+	"archer_light_boots": {"class": "archer", "slot": "feet", "name": "轻便靴", "hp": 4, "attack": 1, "armor": 0},
 	"archer_practice_bow": {"class": "archer", "slot": "weapon", "name": "练习弓", "hp": 0, "attack": 5, "armor": 0},
-	"archer_simple_quiver": {"class": "archer", "slot": "offhand", "name": "简易箭袋", "hp": 2, "attack": 2, "armor": 1}
+	"archer_simple_quiver": {"class": "archer", "slot": "offhand", "name": "简易箭袋", "hp": 2, "attack": 2, "armor": 0}
 }
 
 const TUTORIAL_UNLOCKS := {
@@ -81,31 +81,31 @@ const TUTORIAL_UNLOCKS := {
 
 const TUTORIAL_ENCOUNTERS := [
 	{"id": "tutorial_01", "type": "normal", "name": "训练腐鼠", "units": [{"name": "训练腐鼠", "rank": "normal", "hp": 28, "attack": 8, "defense": 0, "traits": []}]},
-	{"id": "tutorial_02", "type": "normal", "name": "迟缓守卫", "units": [{"name": "迟缓守卫", "rank": "normal", "hp": 44, "attack": 15, "defense": 2, "traits": []}]},
-	{"id": "tutorial_03", "type": "normal", "name": "投石哥布林", "units": [{"name": "投石哥布林", "rank": "normal", "hp": 48, "attack": 13, "defense": 1, "traits": []}]},
-	{"id": "tutorial_04", "type": "elite", "name": "盾卫学徒", "units": [{"name": "盾卫学徒", "rank": "elite", "hp": 42, "attack": 14, "defense": 4, "traits": ["guard"]}]},
-	{"id": "tutorial_05", "type": "normal", "name": "哥布林二人队", "units": [{"name": "哥布林矛手", "rank": "normal", "hp": 22, "attack": 10, "defense": 0, "traits": []}, {"name": "哥布林投石手", "rank": "normal", "hp": 22, "attack": 10, "defense": 0, "traits": []}]},
-	{"id": "tutorial_06", "type": "normal", "name": "毒尾幼鼠", "units": [{"name": "毒尾幼鼠", "rank": "normal", "hp": 42, "attack": 16, "defense": 2, "traits": ["corrode"]}]},
-	{"id": "tutorial_07", "type": "normal", "name": "影贼学徒", "units": [{"name": "影贼学徒", "rank": "normal", "hp": 40, "attack": 15, "defense": 2, "traits": ["first_strike"]}]},
-	{"id": "tutorial_08", "type": "elite", "name": "铁甲训练官", "units": [{"name": "铁甲训练官", "rank": "elite", "hp": 62, "attack": 18, "defense": 5, "traits": ["thick_skin"]}]},
-	{"id": "tutorial_09", "type": "normal", "name": "术士残影", "units": [{"name": "术士残影", "rank": "normal", "hp": 42, "attack": 15, "defense": 3, "traits": ["summon"]}, {"name": "残影仆从", "rank": "normal", "hp": 22, "attack": 10, "defense": 0, "traits": ["support"]}]},
-	{"id": "tutorial_10", "type": "boss", "name": "试炼守门人", "units": [{"name": "试炼守门人", "rank": "boss", "hp": 95, "attack": 22, "defense": 6, "traits": ["phase"]}]}
+	{"id": "tutorial_02", "type": "normal", "name": "迟缓守卫", "units": [{"name": "迟缓守卫", "rank": "normal", "hp": 44, "attack": 8, "defense": 2, "traits": []}]},
+	{"id": "tutorial_03", "type": "normal", "name": "投石哥布林", "units": [{"name": "投石哥布林", "rank": "normal", "hp": 48, "attack": 8, "defense": 1, "traits": []}]},
+	{"id": "tutorial_04", "type": "elite", "name": "盾卫学徒", "units": [{"name": "盾卫学徒", "rank": "elite", "hp": 42, "attack": 8, "defense": 4, "traits": ["guard"]}]},
+	{"id": "tutorial_05", "type": "normal", "name": "哥布林二人队", "units": [{"name": "哥布林矛手", "rank": "normal", "hp": 22, "attack": 6, "defense": 0, "traits": []}, {"name": "哥布林投石手", "rank": "normal", "hp": 22, "attack": 6, "defense": 0, "traits": []}]},
+	{"id": "tutorial_06", "type": "normal", "name": "毒尾幼鼠", "units": [{"name": "毒尾幼鼠", "rank": "normal", "hp": 42, "attack": 9, "defense": 2, "traits": ["corrode"]}]},
+	{"id": "tutorial_07", "type": "normal", "name": "影贼学徒", "units": [{"name": "影贼学徒", "rank": "normal", "hp": 40, "attack": 8, "defense": 2, "traits": ["first_strike"]}]},
+	{"id": "tutorial_08", "type": "elite", "name": "铁甲训练官", "units": [{"name": "铁甲训练官", "rank": "elite", "hp": 62, "attack": 10, "defense": 5, "traits": ["thick_skin"]}]},
+	{"id": "tutorial_09", "type": "normal", "name": "术士残影", "units": [{"name": "术士残影", "rank": "normal", "hp": 42, "attack": 8, "defense": 3, "traits": ["summon"]}, {"name": "残影仆从", "rank": "normal", "hp": 22, "attack": 6, "defense": 0, "traits": ["support"]}]},
+	{"id": "tutorial_10", "type": "boss", "name": "试炼守门人", "units": [{"name": "试炼守门人", "rank": "boss", "hp": 95, "attack": 9, "defense": 6, "traits": ["phase"]}]}
 ]
 
 const NORMAL_UNITS := [
 	{"id": "normal_rat_01", "name": "腐鼠", "hp": 0.75, "attack": 0.90, "defense": 0.60, "traits": ["swarm"]},
 	{"id": "normal_rat_02", "name": "尖牙鼠", "hp": 0.80, "attack": 1.05, "defense": 0.60, "traits": ["claw"]},
-	{"id": "normal_guard_01", "name": "生锈守卫", "hp": 1.10, "attack": 0.75, "defense": 1.30, "traits": ["thick_skin"]},
-	{"id": "normal_guard_03", "name": "矛卫", "hp": 0.95, "attack": 1.00, "defense": 1.10, "traits": ["break_armor"]},
-	{"id": "normal_shadow_01", "name": "影贼", "hp": 0.75, "attack": 1.05, "defense": 0.70, "traits": ["first_strike"]},
-	{"id": "normal_shadow_02", "name": "暗弩手", "hp": 0.80, "attack": 1.15, "defense": 0.70, "traits": ["mark"]},
+	{"id": "normal_guard_01", "name": "生锈守卫", "hp": 1.10, "attack": 0.75, "defense": 1.30, "traits": ["thick_skin", "tank", "taunt"]},
+	{"id": "normal_guard_03", "name": "矛卫", "hp": 0.95, "attack": 1.00, "defense": 1.10, "traits": ["break_armor", "tank"]},
+	{"id": "normal_shadow_01", "name": "影贼", "hp": 0.75, "attack": 1.05, "defense": 0.70, "traits": ["first_strike", "evade"]},
+	{"id": "normal_shadow_02", "name": "暗弩手", "hp": 0.80, "attack": 1.15, "defense": 0.70, "traits": ["mark", "backline"]},
 	{"id": "normal_caster_01", "name": "学徒术士", "hp": 0.80, "attack": 0.90, "defense": 0.80, "traits": ["curse"]},
 	{"id": "normal_mutant_02", "name": "晶刺兽", "hp": 0.95, "attack": 1.05, "defense": 0.95, "traits": ["break_armor"]}
 ]
 
 const ELITE_UNITS := [
 	{"id": "elite_rat_01", "name": "鼠群头目", "hp": 0.95, "attack": 1.05, "defense": 0.80, "traits": ["swarm", "summon"]},
-	{"id": "elite_guard_01", "name": "铁甲队长", "hp": 1.20, "attack": 0.95, "defense": 1.50, "traits": ["guard", "fortify"]},
+	{"id": "elite_guard_01", "name": "铁甲队长", "hp": 1.20, "attack": 0.95, "defense": 1.50, "traits": ["guard", "fortify", "tank", "taunt"]},
 	{"id": "elite_shadow_01", "name": "暗影猎长", "hp": 0.90, "attack": 1.25, "defense": 0.90, "traits": ["first_strike", "mark"]},
 	{"id": "elite_caster_01", "name": "深塔祭司", "hp": 1.00, "attack": 1.00, "defense": 1.00, "traits": ["curse", "summon"]},
 	{"id": "elite_mutant_01", "name": "裂塔巨兽", "hp": 1.35, "attack": 1.00, "defense": 1.25, "traits": ["thick_skin", "revive"]}
