@@ -103,6 +103,8 @@ func _render_game() -> void:
 			_render_battle()
 		"reward":
 			_render_reward()
+		"reward_target":
+			_render_reward_target()
 		"victory":
 			_render_end_screen("已通关第 10 层", "你已经完成当前可玩版本的目标。")
 		"game_over":
@@ -287,13 +289,20 @@ func _equipment_panel() -> Control:
 	else:
 		for item_id in session.player["equipment_ids"]:
 			var item: Dictionary = DataCatalog.EQUIPMENT[item_id]
-			bag.add_child(_label("%s\n%s  生命+%d 攻击+%d 护甲+%d" % [
+			bag.add_child(_label("%s\n%s  生命+%d 攻击+%d 护甲+%d\n%s" % [
 				item["name"],
 				_slot_label(item["slot"]),
 				int(item["hp"]),
 				int(item["attack"]),
-				int(item["armor"])
+				int(item["armor"]),
+				_attachment_summary("equipment", item_id)
 			], 12))
+	bag.add_child(_label("技能附着", 16))
+	for skill_id in session.player["equipped_skills"]:
+		bag.add_child(_label("%s\n%s" % [
+			DataCatalog.SKILLS[skill_id]["name"],
+			_attachment_summary("skill", skill_id)
+		], 12))
 	return panel
 
 
@@ -441,6 +450,35 @@ func _render_reward() -> void:
 		button.custom_minimum_size = Vector2(460, 64)
 		button.pressed.connect(func(index := i) -> void:
 			session.choose_reward(index)
+			selected_target = 0
+			_request_game_render()
+		)
+		options.add_child(button)
+
+
+func _render_reward_target() -> void:
+	var target_area := CenterContainer.new()
+	target_area.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	target_area.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	root.add_child(target_area)
+
+	var options := VBoxContainer.new()
+	options.custom_minimum_size = Vector2(500, 0)
+	options.alignment = BoxContainer.ALIGNMENT_CENTER
+	target_area.add_child(options)
+	var title := _label("选择附着目标", 24)
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	options.add_child(title)
+	var subtitle := _label(String(session.message), 15)
+	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	options.add_child(subtitle)
+	for i in range(session.reward_targets.size()):
+		var target: Dictionary = session.reward_targets[i]
+		var button := Button.new()
+		button.text = "%s\n%s" % [_target_label(target), _attachment_summary(String(target["type"]), String(target["id"]))]
+		button.custom_minimum_size = Vector2(500, 72)
+		button.pressed.connect(func(index := i) -> void:
+			session.choose_reward_target(index)
 			selected_target = 0
 			_request_game_render()
 		)
@@ -624,6 +662,30 @@ func _slot_label(slot: String) -> String:
 		"ring": "戒指"
 	}
 	return labels.get(slot, slot)
+
+
+func _target_label(target: Dictionary) -> String:
+	var target_type := String(target.get("type", ""))
+	var target_id := String(target.get("id", ""))
+	if target_type == "equipment" and DataCatalog.EQUIPMENT.has(target_id):
+		var item: Dictionary = DataCatalog.EQUIPMENT[target_id]
+		return "装备：%s（%s）" % [item["name"], _slot_label(item["slot"])]
+	if target_type == "skill" and DataCatalog.SKILLS.has(target_id):
+		var skill: Dictionary = DataCatalog.SKILLS[target_id]
+		return "技能：%s" % skill["name"]
+	return target_id
+
+
+func _attachment_summary(target_type: String, target_id: String) -> String:
+	var key := "equipment_attachments" if target_type == "equipment" else "skill_attachments"
+	var groups: Dictionary = session.player.get(key, {})
+	var attachments: Array = groups.get(target_id, [])
+	if attachments.is_empty():
+		return "附着：无"
+	var labels: Array[String] = []
+	for attachment in attachments:
+		labels.append(String(attachment.get("label", attachment.get("kind", ""))).replace("状态卡", "状态 Buff"))
+	return "附着：" + "、".join(labels)
 
 
 func _trait_labels(traits: Array) -> String:

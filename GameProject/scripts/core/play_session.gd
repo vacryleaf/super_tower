@@ -24,6 +24,8 @@ var round_index := 0
 var pending_state_card := ""
 var state_draw_cursor := 0
 var reward_options: Array[Dictionary] = []
+var pending_reward: Dictionary = {}
+var reward_targets: Array[Dictionary] = []
 var battle_log: Array[String] = []
 var last_events: Array[Dictionary] = []
 
@@ -162,12 +164,12 @@ func use_skill(slot_index: int, target_index: int) -> void:
 		var target := _valid_target(target_index)
 		if target < 0:
 			return
-		var damage := _modified_value(int(player["attack"]) + int(skill.get("power", 0)) + int(player.get("skill_bonus", 0)), "attack")
+		var damage := _modified_value(int(player["attack"]) + int(skill.get("power", 0)) + _skill_attachment_bonus(skill_id, "attack"), "attack")
 		_apply_damage_to_enemy(target, damage)
 		if pending_state_card == "fallback":
 			player_block += maxi(1, int(round(float(player["defense"]) * 0.5)))
 	elif skill_type == "defense" or skill_type == "stance":
-		var gained := _modified_value(int(skill.get("power", 0)) + int(player["defense"]), "defense")
+		var gained := _modified_value(int(skill.get("power", 0)) + int(player["defense"]) + _skill_attachment_bonus(skill_id, "defense"), "defense")
 		player_block += gained
 		battle_log.append("%s：获得 %d 点格挡值。" % [skill["name"], gained])
 		last_events.append({"kind": "defense", "target": "player", "amount": gained})
@@ -176,16 +178,16 @@ func use_skill(slot_index: int, target_index: int) -> void:
 		if pending_state_card == "read":
 			gained = 2
 		dodge_layers += gained
-		player_block += int(skill.get("power", 0))
+		player_block += int(skill.get("power", 0)) + _skill_attachment_bonus(skill_id, "defense")
 		battle_log.append("%s：获得 %d 层躲避。" % [skill["name"], gained])
 		last_events.append({"kind": "dodge", "target": "player", "amount": gained})
 	elif skill_type == "heal":
-		var healed := int(skill.get("power", 0))
+		var healed := int(skill.get("power", 0)) + _skill_attachment_bonus(skill_id, "hp")
 		player["hp"] = mini(int(player["max_hp"]), int(player["hp"]) + healed)
 		battle_log.append("%s：恢复 %d 点生命。" % [skill["name"], healed])
 		last_events.append({"kind": "heal", "target": "player", "amount": healed})
 	else:
-		player["attack_bonus"] += 1
+		simulator.attach_reward(player, {"type": "skill", "id": skill_id}, {"kind": "attack", "value": 1, "label": "攻击 +1"})
 		simulator._recalculate_player_stats(player, false)
 		battle_log.append("%s：攻击提高。" % skill["name"])
 	action_points -= cost
@@ -209,22 +211,39 @@ func choose_reward(index: int) -> void:
 	if index < 0 or index >= reward_options.size():
 		return
 	var reward := reward_options[index]
+	if _reward_needs_attachment(reward):
+		pending_reward = reward.duplicate(true)
+		reward_targets = _build_reward_targets()
+		if reward_targets.is_empty():
+			message = "没有可附着目标，奖励已跳过。"
+			_advance_after_reward()
+			return
+		phase = "reward_target"
+		message = "选择「%s」要附着到的装备或技能。" % _reward_short_label(pending_reward)
+		return
 	match String(reward["kind"]):
 		"tutorial_unlock":
 			_apply_tutorial_unlock()
-		"attack":
-			player["attack_bonus"] += int(reward["value"])
-		"defense":
-			player["defense_bonus"] += int(reward["value"])
-		"hp":
-			player["max_hp_bonus"] += int(reward["value"])
 		"heal":
 			player["hp"] = mini(int(player["max_hp"]), int(player["hp"]) + int(reward["value"]))
 		"skill":
 			_unlock_next_skill()
-		"state":
-			player["state_attack_bonus"] += int(reward["value"])
 	simulator._recalculate_player_stats(player, false)
+	_advance_after_reward()
+
+
+func choose_reward_target(index: int) -> void:
+	last_events.clear()
+	if phase != "reward_target":
+		return
+	if index < 0 or index >= reward_targets.size():
+		return
+	var target := reward_targets[index]
+	simulator.attach_reward(player, target, pending_reward)
+	simulator._recalculate_player_stats(player, false)
+	message = "%s 已附着到 %s。" % [_reward_short_label(pending_reward), _target_label(target)]
+	pending_reward = {}
+	reward_targets.clear()
 	_advance_after_reward()
 
 
@@ -378,6 +397,44 @@ func _apply_tutorial_unlock() -> void:
 
 func _unlock_next_skill() -> void:
 	simulator._unlock_next_skill(player)
+
+
+func _reward_needs_attachment(reward: Dictionary) -> bool:
+	return ["attack", "defense", "hp", "state"].has(String(reward.get("kind", "")))
+
+
+func _build_reward_targets() -> Array[Dictionary]:
+	var targets: Array[Dictionary] = []
+	for item_id in player.get("equipment_ids", []):
+		targets.append({"type": "equipment", "id": String(item_id)})
+	for skill_id in player.get("equipped_skills", []):
+		targets.append({"type": "skill", "id": String(skill_id)})
+	return targets
+
+
+func _reward_short_label(reward: Dictionary) -> String:
+	var label := String(reward.get("label", "奖励"))
+	label = label.replace("精英奖励：", "")
+	label = label.replace("Boss 五选一卡牌：", "")
+	label = label.replace("永久装备分支：", "")
+	label = label.replace("状态卡强化：", "状态 Buff强化：")
+	return label
+
+
+func _target_label(target: Dictionary) -> String:
+	var target_type := String(target.get("type", ""))
+	var target_id := String(target.get("id", ""))
+	if target_type == "equipment" and DataCatalog.EQUIPMENT.has(target_id):
+		var item: Dictionary = DataCatalog.EQUIPMENT[target_id]
+		return "装备：%s" % item["name"]
+	if target_type == "skill" and DataCatalog.SKILLS.has(target_id):
+		var skill: Dictionary = DataCatalog.SKILLS[target_id]
+		return "技能：%s" % skill["name"]
+	return target_id
+
+
+func _skill_attachment_bonus(skill_id: String, kind: String) -> int:
+	return simulator.skill_attachment_bonus(player, skill_id, kind)
 
 
 func _floor_value(base: int) -> int:

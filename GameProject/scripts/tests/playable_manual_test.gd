@@ -1,6 +1,7 @@
 extends SceneTree
 
 const PlaySession = preload("res://scripts/core/play_session.gd")
+const DataCatalog = preload("res://scripts/core/data_catalog.gd")
 
 var failures: Array[String] = []
 
@@ -31,6 +32,8 @@ func run_manual_campaign(class_id: String) -> void:
 			_play_one_action(session)
 		elif session.phase == "reward":
 			session.choose_reward(_best_reward_index(session))
+		elif session.phase == "reward_target":
+			session.choose_reward_target(_best_target_index(session))
 	assert_equal(session.phase, "victory", "%s manual campaign should clear floor 10" % class_id)
 	assert_true(int(session.player["hp"]) > 0, "%s ends alive" % class_id)
 	assert_equal(int(session.player["battles_completed"]), 100, "%s completed 100 battles" % class_id)
@@ -49,9 +52,12 @@ func _play_one_action(session: PlaySession) -> void:
 	if _incoming_damage(session) >= int(session.player["defense"]) and session.action_points >= 1 and session.player_block < int(session.player["defense"]):
 		session.player_defend()
 		return
-	if session.player["equipped_skills"].size() > 0 and session.action_points >= 1:
-		session.use_skill(0, target)
-		return
+	if session.player["equipped_skills"].size() > 0:
+		var skill_id: String = session.player["equipped_skills"][0]
+		var skill_cost := int(DataCatalog.SKILLS[skill_id].get("cost", 2))
+		if session.action_points >= skill_cost:
+			session.use_skill(0, target)
+			return
 	if session.action_points >= 1:
 		session.player_attack(target)
 		return
@@ -100,6 +106,29 @@ func _best_reward_index(session: PlaySession) -> int:
 				return i
 	for i in range(session.reward_options.size()):
 		if session.reward_options[i]["kind"] == "attack":
+			return i
+	return 0
+
+
+func _best_target_index(session: PlaySession) -> int:
+	var reward_kind := String(session.pending_reward.get("kind", ""))
+	if reward_kind == "attack":
+		for i in range(session.reward_targets.size()):
+			var target: Dictionary = session.reward_targets[i]
+			if target.get("type", "") == "equipment":
+				var item_id := String(target.get("id", ""))
+				if DataCatalog.EQUIPMENT.has(item_id) and DataCatalog.EQUIPMENT[item_id]["slot"] == "weapon":
+					return i
+	if reward_kind == "defense":
+		for slot in ["offhand", "body", "head"]:
+			for i in range(session.reward_targets.size()):
+				var target: Dictionary = session.reward_targets[i]
+				if target.get("type", "") == "equipment":
+					var item_id := String(target.get("id", ""))
+					if DataCatalog.EQUIPMENT.has(item_id) and DataCatalog.EQUIPMENT[item_id]["slot"] == slot:
+						return i
+	for i in range(session.reward_targets.size()):
+		if session.reward_targets[i].get("type", "") == "equipment":
 			return i
 	return 0
 

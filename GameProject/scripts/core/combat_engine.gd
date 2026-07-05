@@ -28,11 +28,11 @@ func run_battle(player: Dictionary, encounter: Dictionary, tower_floor: int, bat
 			action_points -= 1
 			log.append("round_%d:defend" % rounds)
 
-		if _should_use_skill(player, used_first_skill) and action_points > 0:
+		if _should_use_skill(player, used_first_skill) and _can_pay_first_skill(player, action_points):
 			var skill_damage := _skill_damage(player)
 			_damage_lowest_enemy(enemies, skill_damage, log, "skill")
 			used_first_skill = true
-			action_points -= 1
+			action_points -= _first_skill_cost(player)
 
 		while action_points > 0 and _alive_count(enemies) > 0:
 			var attack_damage := int(player["attack"]) + _state_bonus(player, "attack")
@@ -135,7 +135,19 @@ func _skill_damage(player: Dictionary) -> int:
 	if skill.get("type", "") == "heal":
 		player["hp"] = mini(int(player["max_hp"]), int(player["hp"]) + int(skill["power"]))
 		return 0
-	return int(player["attack"]) + int(skill.get("power", 0)) + int(player.get("skill_bonus", 0))
+	return int(player["attack"]) + int(skill.get("power", 0)) + _skill_attachment_bonus(player, skill_id, "attack")
+
+
+func _can_pay_first_skill(player: Dictionary, action_points: int) -> bool:
+	return action_points >= _first_skill_cost(player)
+
+
+func _first_skill_cost(player: Dictionary) -> int:
+	if player["equipped_skills"].is_empty():
+		return 999
+	var skill_id: String = player["equipped_skills"][0]
+	var skill: Dictionary = DataCatalog.SKILLS[skill_id]
+	return int(skill.get("cost", 2))
 
 
 func _damage_lowest_enemy(enemies: Array[Dictionary], amount: int, log: Array[String], source: String) -> void:
@@ -232,6 +244,16 @@ func _state_bonus(player: Dictionary, tag: String) -> int:
 	if tag == "defense":
 		return int(player.get("state_defense_bonus", 0))
 	return 0
+
+
+func _skill_attachment_bonus(player: Dictionary, skill_id: String, kind: String) -> int:
+	var total := 0
+	var attachments: Dictionary = player.get("skill_attachments", {})
+	for attachment in attachments.get(skill_id, []):
+		var attachment_kind := String(attachment.get("kind", ""))
+		if (attachment_kind == kind) or (attachment_kind == "skill_power" and kind == "attack"):
+			total += int(attachment.get("value", 0))
+	return total
 
 
 func _has_first_strike(enemies: Array[Dictionary]) -> bool:

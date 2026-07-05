@@ -19,6 +19,8 @@ func _init() -> void:
 
 func run_all() -> void:
 	test_state_card_weights()
+	test_skill_costs_minimum_two()
+	test_reward_attachment_flow()
 	test_tutorial_unlocks("warrior")
 	test_tutorial_unlocks("archer")
 	test_encounter_generation()
@@ -32,6 +34,35 @@ func test_state_card_weights() -> void:
 	assert_equal(int(DataCatalog.STATE_CARDS["read"]["weight"]), 5, "read state card weight")
 	assert_equal(int(DataCatalog.STATE_CARDS["perfect_guard"]["weight"]), 5, "perfect guard state card weight")
 	assert_equal(int(DataCatalog.STATE_CARDS["fallback"]["weight"]), 5, "emergency fallback state card weight")
+
+
+func test_skill_costs_minimum_two() -> void:
+	for skill_id in DataCatalog.SKILLS.keys():
+		assert_true(int(DataCatalog.SKILLS[skill_id].get("cost", 0)) >= 2, "%s skill cost minimum two" % skill_id)
+
+
+func test_reward_attachment_flow() -> void:
+	var session_script = load("res://scripts/core/play_session.gd")
+	var session = session_script.new()
+	session.start_new_game("warrior")
+	while session.is_tutorial():
+		if session.phase == "battle":
+			_force_win(session)
+		elif session.phase == "reward":
+			session.choose_reward(0)
+	session.phase = "reward"
+	session.current_encounter = {"type": "normal"}
+	session._build_reward_options()
+	session.choose_reward(0)
+	assert_equal(session.phase, "reward_target", "normal reward should request attachment target")
+	assert_true(session.reward_targets.size() > 0, "reward target list should not be empty")
+	session.choose_reward_target(0)
+	var target_count := 0
+	for attachments in session.player.get("equipment_attachments", {}).values():
+		target_count += attachments.size()
+	for attachments in session.player.get("skill_attachments", {}).values():
+		target_count += attachments.size()
+	assert_true(target_count > 0, "reward should attach to equipment or skill")
 
 
 func test_tutorial_unlocks(class_id: String) -> void:
@@ -90,6 +121,12 @@ func test_campaign_floors_1_to_10(class_id: String) -> void:
 
 	for floor_summary in result["floor_summaries"]:
 		assert_equal(int(floor_summary["battles"]), 10, "%s floor %d has ten battles" % [class_id, int(floor_summary["floor"])])
+
+
+func _force_win(session) -> void:
+	for enemy in session.enemies:
+		enemy["hp"] = 0
+	session._on_victory()
 
 
 func _has_no_duplicates(values: Array) -> bool:
