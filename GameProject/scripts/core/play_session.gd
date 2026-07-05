@@ -17,6 +17,7 @@ var message := ""
 var enemies: Array[Dictionary] = []
 var current_encounter: Dictionary = {}
 var action_points := 1
+var max_action_points := 1
 var player_armor := 0
 var dodge_layers := 0
 var round_index := 0
@@ -50,6 +51,7 @@ func _start_current_battle() -> void:
 	current_encounter = _get_current_encounter()
 	enemies = _build_enemies(current_encounter)
 	action_points = 1
+	max_action_points = 1
 	player_armor = 0
 	dodge_layers = 0
 	round_index = 0
@@ -92,7 +94,8 @@ func _build_enemies(encounter: Dictionary) -> Array[Dictionary]:
 
 func _begin_player_turn() -> void:
 	round_index += 1
-	action_points = mini(round_index, 3)
+	max_action_points = mini(round_index, 3)
+	action_points = max_action_points
 	player_armor = 0
 	used_state_cards_this_turn = 0
 	_draw_state_cards(1)
@@ -359,10 +362,10 @@ func _build_reward_options() -> void:
 func _advance_after_reward() -> void:
 	if is_tutorial() and battle_index == 10:
 		player["tutorial_completed"] = true
-		player["hp"] = player["max_hp"]
 		floor_index = 2
 		battle_index = 1
 		message = "新手引导完成，正式高塔开始。"
+		_apply_limited_post_battle_recovery()
 		_start_current_battle()
 		return
 	if battle_index >= 10:
@@ -374,7 +377,7 @@ func _advance_after_reward() -> void:
 		battle_index = 1
 	else:
 		battle_index += 1
-	player["hp"] = mini(int(player["max_hp"]), int(player["hp"]) + _post_reward_heal_amount())
+	_apply_limited_post_battle_recovery()
 	_start_current_battle()
 
 
@@ -392,6 +395,13 @@ func _unlock_next_skill() -> void:
 
 func _floor_value(base: int) -> int:
 	return base + maxi(0, int(floor(float(floor_index - 1) / 10.0)))
+
+
+func _apply_limited_post_battle_recovery() -> void:
+	var cap := int(floor(float(player["max_hp"]) * 0.80))
+	if int(player["hp"]) >= cap:
+		return
+	player["hp"] = mini(cap, int(player["hp"]) + _post_reward_heal_amount())
 
 
 func _post_reward_heal_amount() -> int:

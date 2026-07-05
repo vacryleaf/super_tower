@@ -216,7 +216,7 @@ func _render_player_status(parent: Control) -> void:
 	var box := VBoxContainer.new()
 	panel.add_child(box)
 	player_status_labels["class"] = _label(DataCatalog.CLASSES[session.class_id]["name"], 18)
-	player_status_labels["action"] = _label("行动力 %d" % session.action_points, 15)
+	player_status_labels["action"] = _label("行动力 %d/%d" % [session.action_points, session.max_action_points], 15)
 	player_status_labels["hp"] = _label("hp %d/%d" % [int(session.player["hp"]), int(session.player["max_hp"])], 15)
 	player_status_labels["attack"] = _label("攻击 %d" % int(session.player["attack"]), 15)
 	player_status_labels["armor"] = _label("护甲 %d" % int(session.player["defense"]), 15)
@@ -526,7 +526,7 @@ func _refresh_battle_ui() -> void:
 			button.text = _enemy_card_text(int(index), selected)
 			button.disabled = int(session.enemies[index]["hp"]) <= 0
 	if player_status_labels.has("action"):
-		player_status_labels["action"].text = "行动力 %d" % session.action_points
+		player_status_labels["action"].text = "行动力 %d/%d" % [session.action_points, session.max_action_points]
 	if player_status_labels.has("hp"):
 		player_status_labels["hp"].text = "hp %d/%d" % [int(session.player["hp"]), int(session.player["max_hp"])]
 	if player_status_labels.has("attack"):

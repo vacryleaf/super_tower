@@ -51,7 +51,7 @@ func run_tutorial(class_id: String) -> Dictionary:
 		_apply_tutorial_unlock(player, i)
 		player["battles_completed"] += 1
 	player["tutorial_completed"] = true
-	player["hp"] = player["max_hp"]
+	_apply_limited_post_battle_recovery(player, "boss")
 	return {
 		"success": true,
 		"player": player,
@@ -261,7 +261,14 @@ func _apply_formal_reward(player: Dictionary, battle_type: String, tower_floor: 
 		_unlock_next_skill(player)
 		player["boss_rewards"] += 1
 	_recalculate_player_stats(player, false)
-	player["hp"] = mini(int(player["max_hp"]), int(player["hp"]) + _reward_heal_amount(battle_type, player))
+	_apply_limited_post_battle_recovery(player, battle_type)
+
+
+func _apply_limited_post_battle_recovery(player: Dictionary, battle_type: String) -> void:
+	var cap := int(floor(float(player["max_hp"]) * 0.80))
+	if int(player["hp"]) >= cap:
+		return
+	player["hp"] = mini(cap, int(player["hp"]) + _reward_heal_amount(battle_type, player))
 
 
 func _reward_heal_amount(battle_type: String, player: Dictionary) -> int:
