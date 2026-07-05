@@ -97,8 +97,8 @@ const NORMAL_UNITS := [
 	{"id": "normal_rat_02", "name": "尖牙鼠", "hp": 0.80, "attack": 1.05, "defense": 0.60, "traits": ["claw"]},
 	{"id": "normal_guard_01", "name": "生锈守卫", "hp": 1.10, "attack": 0.75, "defense": 1.30, "traits": ["thick_skin", "tank", "taunt"]},
 	{"id": "normal_guard_03", "name": "矛卫", "hp": 0.95, "attack": 1.00, "defense": 1.10, "traits": ["break_armor", "tank"]},
-	{"id": "normal_shadow_01", "name": "影贼", "hp": 0.75, "attack": 1.05, "defense": 0.70, "traits": ["first_strike", "evade"]},
-	{"id": "normal_shadow_02", "name": "暗弩手", "hp": 0.80, "attack": 1.15, "defense": 0.70, "traits": ["mark", "backline"]},
+	{"id": "normal_shadow_01", "name": "影贼", "hp": 0.75, "attack": 1.05, "defense": 0.70, "traits": ["first_strike", "evade", "cunning"]},
+	{"id": "normal_shadow_02", "name": "暗弩手", "hp": 0.80, "attack": 1.15, "defense": 0.70, "traits": ["mark", "backline", "cunning"]},
 	{"id": "normal_caster_01", "name": "学徒术士", "hp": 0.80, "attack": 0.90, "defense": 0.80, "traits": ["curse"]},
 	{"id": "normal_mutant_02", "name": "晶刺兽", "hp": 0.95, "attack": 1.05, "defense": 0.95, "traits": ["break_armor"]}
 ]
@@ -106,7 +106,7 @@ const NORMAL_UNITS := [
 const ELITE_UNITS := [
 	{"id": "elite_rat_01", "name": "鼠群头目", "hp": 0.95, "attack": 1.05, "defense": 0.80, "traits": ["swarm", "summon"]},
 	{"id": "elite_guard_01", "name": "铁甲队长", "hp": 1.20, "attack": 0.95, "defense": 1.50, "traits": ["guard", "fortify", "tank", "taunt"]},
-	{"id": "elite_shadow_01", "name": "暗影猎长", "hp": 0.90, "attack": 1.25, "defense": 0.90, "traits": ["first_strike", "mark"]},
+	{"id": "elite_shadow_01", "name": "暗影猎长", "hp": 0.90, "attack": 1.25, "defense": 0.90, "traits": ["first_strike", "mark", "cunning"]},
 	{"id": "elite_caster_01", "name": "深塔祭司", "hp": 1.00, "attack": 1.00, "defense": 1.00, "traits": ["curse", "summon"]},
 	{"id": "elite_mutant_01", "name": "裂塔巨兽", "hp": 1.35, "attack": 1.00, "defense": 1.25, "traits": ["thick_skin", "revive"]}
 ]
@@ -114,7 +114,7 @@ const ELITE_UNITS := [
 const BOSS_UNITS := [
 	{"id": "boss_rat_king", "name": "腐巢鼠王", "hp": 1.00, "attack": 1.10, "defense": 0.90, "traits": ["swarm", "summon", "enrage"]},
 	{"id": "boss_iron_warden", "name": "铁狱典狱长", "hp": 1.25, "attack": 1.00, "defense": 1.45, "traits": ["thick_skin", "guard", "fortify"]},
-	{"id": "boss_shadow_duke", "name": "夜幕公爵", "hp": 0.95, "attack": 1.30, "defense": 1.00, "traits": ["first_strike", "evade", "mark"]},
+	{"id": "boss_shadow_duke", "name": "夜幕公爵", "hp": 0.95, "attack": 1.30, "defense": 1.00, "traits": ["first_strike", "evade", "mark", "cunning"]},
 	{"id": "boss_deep_oracle", "name": "深塔预言者", "hp": 1.05, "attack": 1.10, "defense": 1.20, "traits": ["curse", "spell_shield", "summon"]},
 	{"id": "boss_tower_core", "name": "裂塔核心", "hp": 1.20, "attack": 1.20, "defense": 1.20, "traits": ["revive", "charge", "split"]}
 ]

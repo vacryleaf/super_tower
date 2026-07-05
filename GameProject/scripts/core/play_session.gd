@@ -621,6 +621,9 @@ func _enemy_intent(enemy: Dictionary) -> String:
 func enemy_intent_text(index: int) -> String:
 	if index < 0 or index >= enemies.size():
 		return "未知"
+	var traits: Array = enemies[index].get("traits", [])
+	if traits.has("cunning"):
+		return "狡诈"
 	var intent := _enemy_intent(enemies[index])
 	match intent:
 		"taunt":

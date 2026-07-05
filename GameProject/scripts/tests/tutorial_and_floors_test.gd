@@ -22,6 +22,7 @@ func run_all() -> void:
 	test_state_card_weights()
 	test_player_armor_baseline_is_low()
 	test_enemy_roles_include_tank_taunt_and_backline()
+	test_cunning_masks_enemy_intent()
 	test_skill_costs_minimum_two()
 	test_reward_attachment_flow()
 	test_save_round_trip()
@@ -59,6 +60,32 @@ func test_enemy_roles_include_tank_taunt_and_backline() -> void:
 		has_backline = has_backline or traits.has("backline")
 	assert_true(has_taunt_tank, "enemy catalog should include taunting tank")
 	assert_true(has_backline, "enemy catalog should include backline output")
+
+
+func test_cunning_masks_enemy_intent() -> void:
+	var has_cunning := false
+	for unit in DataCatalog.NORMAL_UNITS + DataCatalog.ELITE_UNITS + DataCatalog.BOSS_UNITS:
+		var traits: Array = unit.get("traits", [])
+		has_cunning = has_cunning or traits.has("cunning")
+	assert_true(has_cunning, "enemy catalog should include cunning enemies")
+
+	var session_script = load("res://scripts/core/play_session.gd")
+	var session = session_script.new()
+	session.start_new_game("warrior")
+	session.enemies.clear()
+	session.enemies.append({
+		"name": "狡诈测试敌人",
+		"rank": "normal",
+		"max_hp": 10,
+		"hp": 10,
+		"attack": 5,
+		"defense": 1,
+		"armor": 0,
+		"dodge_layers": 0,
+		"taunt": 0,
+		"traits": ["cunning", "evade"]
+	})
+	assert_equal(session.enemy_intent_text(0), "狡诈", "cunning should mask true intent")
 
 
 func test_skill_costs_minimum_two() -> void:
