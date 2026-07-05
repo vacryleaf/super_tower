@@ -293,7 +293,7 @@ func _apply_formal_reward(player: Dictionary, battle_type: String, tower_floor: 
 		elif boss_cycle == 1:
 			attach_reward(player, _preferred_attachment_target(player, "charge"), {"kind": "charge_repeat_defense", "value": 1, "label": "充能：下一次防御追加一次结算"})
 		else:
-			attach_reward(player, _preferred_attachment_target(player, "skill"), {"kind": "skill_power", "value": 2, "label": "技能效果 +2"})
+			attach_reward(player, _preferred_attachment_target(player, "skill"), {"kind": "skill_power", "value": 0.10, "label": "技能倍率 +0.10"})
 		_unlock_next_skill(player)
 		player["boss_rewards"] += 1
 	_recalculate_player_stats(player, false)
@@ -418,6 +418,22 @@ func skill_attachment_bonus(player: Dictionary, skill_id: String, kind: String) 
 	return total
 
 
+func skill_multiplier_bonus(player: Dictionary, skill_id: String, kind: String = "") -> float:
+	var total := 0.0
+	var attachments: Dictionary = player.get("skill_attachments", {})
+	for attachment in attachments.get(skill_id, []):
+		var attachment_kind := _attachment_stat_kind(String(attachment.get("kind", "")))
+		if attachment_kind == "skill_power" or attachment_kind == kind:
+			total += _attachment_multiplier_value(float(attachment.get("value", 0.0)))
+	return total
+
+
+func _attachment_multiplier_value(value: float) -> float:
+	if absf(value) >= 1.0:
+		return value * 0.05
+	return value
+
+
 func _recalculate_player_stats(player: Dictionary, reset_hp: bool) -> void:
 	if not player.has("base_block"):
 		var class_data: Dictionary = DataCatalog.CLASSES[String(player.get("class_id", "warrior"))]
@@ -472,8 +488,10 @@ func _recalculate_player_stats(player: Dictionary, reset_hp: bool) -> void:
 
 func _attachment_stat_kind(kind: String) -> String:
 	match kind:
-		"attack", "skill_power":
+		"attack":
 			return "attack"
+		"skill_power":
+			return "skill_power"
 		"defense":
 			return "defense"
 		"hp":

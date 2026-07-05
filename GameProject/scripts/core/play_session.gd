@@ -28,6 +28,7 @@ var dodge_layers := 0
 var round_index := 0
 var pending_state_card := ""
 var state_draw_cursor := 0
+var battle_attack_multiplier := 1.0
 var reward_options: Array[Dictionary] = []
 var pending_reward: Dictionary = {}
 var reward_targets: Array[Dictionary] = []
@@ -130,6 +131,7 @@ func _reset_to_camp_state() -> void:
 	round_index = 0
 	pending_state_card = ""
 	state_draw_cursor = 0
+	battle_attack_multiplier = 1.0
 	reward_options.clear()
 	pending_reward = {}
 	reward_targets.clear()
@@ -154,6 +156,7 @@ func _start_current_battle() -> void:
 	dodge_layers = 0
 	round_index = 0
 	pending_state_card = ""
+	battle_attack_multiplier = 1.0
 	charge_used = {}
 	charge_ready = {}
 	pending_charge_effects = _empty_charge_effects()
@@ -203,7 +206,7 @@ func player_attack(target_index: int) -> void:
 	var target := _valid_target(target_index)
 	if target < 0:
 		return
-	var damage := _modified_value(int(player["attack"]), "attack")
+	var damage := _modified_value(_current_attack_value(), "attack")
 	damage = _apply_charge_attack_modifiers(damage)
 	_apply_damage_to_enemy(target, damage)
 	var repeats := _consume_charge_repeat("attack")
@@ -268,18 +271,23 @@ func use_skill(slot_index: int, target_index: int) -> void:
 		var target := _valid_target(target_index)
 		if target < 0:
 			return
-		var damage := _modified_value(int(player["attack"]) + int(skill.get("power", 0)) + _skill_attachment_bonus(skill_id, "attack"), "attack")
+		var damage := _modified_value(_skill_attack_value(skill_id), "attack")
 		damage = _apply_charge_attack_modifiers(damage, skill_id)
-		_apply_damage_to_enemy(target, damage)
-		var repeats := _consume_charge_repeat("attack", skill_id)
-		for _i in range(repeats):
+		var hits := maxi(1, int(skill.get("hits", 1)))
+		for _hit in range(hits):
 			if _alive_enemy_count() <= 0:
 				break
 			_apply_damage_to_enemy(target, damage)
+		var repeats := _consume_charge_repeat("attack", skill_id)
+		for _i in range(repeats):
+			for _hit in range(hits):
+				if _alive_enemy_count() <= 0:
+					break
+				_apply_damage_to_enemy(target, damage)
 		if pending_state_card == "fallback":
 			_add_player_block(maxi(1, int(round(float(player["block_power"]) * 0.5))))
 	elif skill_type == "defense" or skill_type == "stance":
-		var gained := _modified_value(int(skill.get("power", 0)) + int(player["block_power"]) + _skill_attachment_bonus(skill_id, "defense"), "defense")
+		var gained := _modified_value(_skill_defense_value(skill_id), "defense")
 		gained = _apply_charge_defense_modifiers(gained, skill_id)
 		var total_gained := gained
 		var repeats := _consume_charge_repeat("defense", skill_id)
@@ -288,23 +296,41 @@ func use_skill(slot_index: int, target_index: int) -> void:
 		_add_player_block(total_gained)
 		battle_log.append("%s：获得 %d 点格挡值。" % [skill["name"], total_gained])
 		last_events.append({"kind": "defense", "target": "player", "amount": total_gained})
+		if skill_type == "stance":
+			var attack_multiplier := float(skill.get("attack_multiplier", 1.0)) + _skill_multiplier_bonus(skill_id, "attack")
+			battle_attack_multiplier *= attack_multiplier
+			battle_log.append("%s：本场战斗攻击倍率 x%.2f。" % [skill["name"], attack_multiplier])
 	elif skill_type == "dodge":
-		var gained := 1
+		var gained := int(skill.get("dodge_layers", 1))
 		if pending_state_card == "read":
-			gained = 2
+			gained *= 2
 		_add_player_dodge(gained)
-		_add_player_block(int(skill.get("power", 0)) + _skill_attachment_bonus(skill_id, "defense"))
+		var block_gained := _skill_dodge_block_value(skill_id)
+		if block_gained > 0:
+			_add_player_block(block_gained)
 		battle_log.append("%s：获得 %d 层躲避。" % [skill["name"], gained])
 		last_events.append({"kind": "dodge", "target": "player", "amount": gained})
 	elif skill_type == "heal":
-		var healed := int(skill.get("power", 0)) + _skill_attachment_bonus(skill_id, "hp")
+		var healed := _skill_heal_value(skill_id)
 		player["hp"] = mini(int(player["max_hp"]), int(player["hp"]) + healed)
 		battle_log.append("%s：恢复 %d 点生命。" % [skill["name"], healed])
 		last_events.append({"kind": "heal", "target": "player", "amount": healed})
+	elif skill_type == "buff":
+		var multiplier := float(skill.get("attack_multiplier", 1.0)) + _skill_multiplier_bonus(skill_id, "attack")
+		battle_attack_multiplier *= multiplier
+		battle_log.append("%s：本场战斗攻击倍率 x%.2f。" % [skill["name"], multiplier])
+		last_events.append({"kind": "buff", "target": "player", "amount": 0})
+	elif skill_type == "debuff":
+		var target := _valid_target(target_index)
+		if target < 0:
+			return
+		var multiplier := float(skill.get("mark_multiplier", 1.0)) + _skill_multiplier_bonus(skill_id, "attack")
+		enemies[target]["mark_multiplier"] = maxf(float(enemies[target].get("mark_multiplier", 1.0)), multiplier)
+		battle_log.append("%s：%s 受到标记，承受伤害 x%.2f。" % [skill["name"], enemies[target]["name"], multiplier])
+		last_events.append({"kind": "debuff", "target": "enemy", "target_index": target, "amount": 0})
 	else:
-		simulator.attach_reward(player, {"type": "skill", "id": skill_id}, {"kind": "attack", "value": 1, "label": "攻击 +1"})
-		simulator._recalculate_player_stats(player, false)
-		battle_log.append("%s：攻击提高。" % skill["name"])
+		message = "该技能暂未实现。"
+		return
 	action_points -= cost
 	_consume_state_after_action(skill_type)
 	_after_player_action()
@@ -377,6 +403,36 @@ func _after_player_action() -> void:
 
 func _player_combatant() -> Dictionary:
 	return Combatant.from_player(player, player_block, dodge_layers)
+
+
+func _current_attack_value() -> int:
+	return maxi(1, int(round(float(player["attack"]) * battle_attack_multiplier)))
+
+
+func _skill_attack_value(skill_id: String) -> int:
+	var skill: Dictionary = DataCatalog.SKILLS[skill_id]
+	var multiplier := float(skill.get("multiplier", 1.0)) + _skill_multiplier_bonus(skill_id, "attack")
+	return maxi(1, int(round(float(player["attack"]) * battle_attack_multiplier * multiplier)))
+
+
+func _skill_defense_value(skill_id: String) -> int:
+	var skill: Dictionary = DataCatalog.SKILLS[skill_id]
+	var multiplier := float(skill.get("multiplier", skill.get("block_multiplier", 1.0))) + _skill_multiplier_bonus(skill_id, "defense")
+	return maxi(1, int(round(float(player["block_power"]) * multiplier)))
+
+
+func _skill_dodge_block_value(skill_id: String) -> int:
+	var skill: Dictionary = DataCatalog.SKILLS[skill_id]
+	var multiplier := float(skill.get("block_multiplier", 0.0)) + _skill_multiplier_bonus(skill_id, "defense")
+	if multiplier <= 0.0:
+		return 0
+	return maxi(1, int(round(float(player["block_power"]) * multiplier)))
+
+
+func _skill_heal_value(skill_id: String) -> int:
+	var skill: Dictionary = DataCatalog.SKILLS[skill_id]
+	var multiplier := float(skill.get("heal_multiplier", 0.0)) + _skill_multiplier_bonus(skill_id, "hp")
+	return maxi(1, int(round(float(player["max_hp"]) * multiplier)))
 
 
 func _sync_player_combatant(combatant_unit: Dictionary) -> void:
@@ -473,7 +529,8 @@ func _apply_damage_to_enemy(target_index: int, damage: int) -> void:
 	if taunt_target >= 0:
 		target_index = taunt_target
 	var enemy := enemies[target_index]
-	var result := Combatant.apply_damage(enemy, damage)
+	var marked_damage := maxi(0, int(round(float(damage) * float(enemy.get("mark_multiplier", 1.0)))))
+	var result := Combatant.apply_damage(enemy, marked_damage)
 	if bool(result["dodged"]):
 		battle_log.append("%s 闪避了这次命中。" % enemy["name"])
 		last_events.append({"kind": "dodge_enemy_attack", "target": "enemy", "target_index": target_index, "amount": 0})
@@ -701,6 +758,10 @@ func _target_label(target: Dictionary) -> String:
 
 func _skill_attachment_bonus(skill_id: String, kind: String) -> int:
 	return simulator.skill_attachment_bonus(player, skill_id, kind)
+
+
+func _skill_multiplier_bonus(skill_id: String, kind: String = "") -> float:
+	return simulator.skill_multiplier_bonus(player, skill_id, kind)
 
 
 func available_charges() -> Array[Dictionary]:
@@ -1047,6 +1108,7 @@ func _save_data() -> Dictionary:
 		"round_index": round_index,
 		"pending_state_card": pending_state_card,
 		"state_draw_cursor": state_draw_cursor,
+		"battle_attack_multiplier": battle_attack_multiplier,
 		"charge_used": charge_used,
 		"charge_ready": charge_ready,
 		"pending_charge_effects": pending_charge_effects,
@@ -1146,6 +1208,7 @@ func _load_save_data(data: Dictionary) -> bool:
 	round_index = int(data.get("round_index", 0))
 	pending_state_card = String(data.get("pending_state_card", ""))
 	state_draw_cursor = int(data.get("state_draw_cursor", 0))
+	battle_attack_multiplier = float(data.get("battle_attack_multiplier", 1.0))
 	charge_used = _dictionary(data.get("charge_used", {}))
 	charge_ready = _dictionary(data.get("charge_ready", {}))
 	pending_charge_effects = _dictionary(data.get("pending_charge_effects", {}))

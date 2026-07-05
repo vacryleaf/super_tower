@@ -107,9 +107,11 @@ func _skill_damage(player: Dictionary) -> int:
 	var skill_id: String = player["equipped_skills"][0]
 	var skill: Dictionary = DataCatalog.SKILLS[skill_id]
 	if skill.get("type", "") == "heal":
-		player["hp"] = mini(int(player["max_hp"]), int(player["hp"]) + int(skill["power"]))
+		var healed := maxi(1, int(round(float(player["max_hp"]) * (float(skill.get("heal_multiplier", 0.0)) + _skill_multiplier_bonus(player, skill_id, "hp")))))
+		player["hp"] = mini(int(player["max_hp"]), int(player["hp"]) + healed)
 		return 0
-	return int(player["attack"]) + int(skill.get("power", 0)) + _skill_attachment_bonus(player, skill_id, "attack")
+	var multiplier := float(skill.get("multiplier", 1.0)) + _skill_multiplier_bonus(player, skill_id, "attack")
+	return maxi(1, int(round(float(player["attack"]) * multiplier)))
 
 
 func _can_pay_first_skill(player: Dictionary, action_points: int) -> bool:
@@ -387,6 +389,22 @@ func _skill_attachment_bonus(player: Dictionary, skill_id: String, kind: String)
 		if (attachment_kind == kind) or (attachment_kind == "skill_power" and kind == "attack"):
 			total += int(attachment.get("value", 0))
 	return total
+
+
+func _skill_multiplier_bonus(player: Dictionary, skill_id: String, kind: String = "") -> float:
+	var total := 0.0
+	var attachments: Dictionary = player.get("skill_attachments", {})
+	for attachment in attachments.get(skill_id, []):
+		var attachment_kind := String(attachment.get("kind", ""))
+		if attachment_kind == "skill_power" or attachment_kind == kind:
+			total += _attachment_multiplier_value(float(attachment.get("value", 0.0)))
+	return total
+
+
+func _attachment_multiplier_value(value: float) -> float:
+	if absf(value) >= 1.0:
+		return value * 0.05
+	return value
 
 
 func _has_first_strike(enemies: Array[Dictionary]) -> bool:

@@ -30,6 +30,7 @@ func run_all() -> void:
 	test_enemy_roles_include_tank_taunt_and_backline()
 	test_cunning_masks_enemy_intent()
 	test_skill_costs_minimum_two()
+	test_skill_multiplier_effects()
 	test_reward_attachment_flow()
 	test_random_reward_pool_counts()
 	test_charge_reward_flow()
@@ -223,6 +224,42 @@ func test_cunning_masks_enemy_intent() -> void:
 func test_skill_costs_minimum_two() -> void:
 	for skill_id in DataCatalog.SKILLS.keys():
 		assert_true(int(DataCatalog.SKILLS[skill_id].get("cost", 0)) >= 2, "%s skill cost minimum two" % skill_id)
+		assert_true(not DataCatalog.SKILLS[skill_id].has("power"), "%s skill should use multipliers instead of flat power" % skill_id)
+
+
+func test_skill_multiplier_effects() -> void:
+	var session_script = load("res://scripts/core/play_session.gd")
+	var warrior = session_script.new()
+	warrior.start_new_game("warrior")
+	warrior.player["equipped_skills"] = ["war_cry"]
+	warrior.action_points = 3
+	var before_multiplier := float(warrior.battle_attack_multiplier)
+	warrior.use_skill(0, 0)
+	assert_true(float(warrior.battle_attack_multiplier) > before_multiplier, "war cry should increase battle attack multiplier")
+
+	var archer = session_script.new()
+	archer.start_new_game("archer")
+	archer.player["equipped_skills"] = ["hunter_mark"]
+	archer.player["attack"] = 10
+	var marked_enemies: Array[Dictionary] = [{
+		"name": "标记测试敌人",
+		"rank": "normal",
+		"max_hp": 100,
+		"hp": 100,
+		"attack": 0,
+		"defense": 0,
+		"armor": 0,
+		"block_power": 1,
+		"block": 0,
+		"dodge_layers": 0,
+		"taunt": 0,
+		"traits": []
+	}]
+	archer.enemies = marked_enemies
+	archer.action_points = 3
+	archer.use_skill(0, 0)
+	archer.player_attack(0)
+	assert_true(int(archer.enemies[0]["hp"]) < 90, "hunter mark should amplify following attack damage")
 
 
 func test_reward_attachment_flow() -> void:
@@ -374,7 +411,8 @@ func test_skill_bound_charge_only_triggers_on_that_skill() -> void:
 	assert_equal(int(session.enemies[0]["hp"]), after_attack, "normal attack should not consume skill-bound charge")
 	var skill: Dictionary = DataCatalog.SKILLS[skill_id]
 	session.use_skill(0, 0)
-	var expected_hp := after_attack - int(session.player["attack"]) - int(skill.get("power", 0)) - bonus
+	var expected_skill_damage := int(round(float(session.player["attack"]) * float(skill.get("multiplier", 1.0)))) + bonus
+	var expected_hp := after_attack - expected_skill_damage
 	assert_equal(int(session.enemies[0]["hp"]), expected_hp, "matching skill should consume skill-bound charge")
 
 

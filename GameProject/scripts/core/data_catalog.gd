@@ -35,16 +35,16 @@ const CLASSES := {
 }
 
 const SKILLS := {
-	"heavy_slash": {"name": "重劈", "class": "warrior", "type": "attack", "cost": 2, "power": 12},
-	"shield_wall": {"name": "盾墙", "class": "warrior", "type": "defense", "cost": 2, "power": 14},
-	"counter_stance": {"name": "反击架势", "class": "warrior", "type": "stance", "cost": 2, "power": 6},
-	"war_cry": {"name": "战吼", "class": "warrior", "type": "buff", "cost": 2, "power": 2},
-	"precise_shot": {"name": "精准射击", "class": "archer", "type": "attack", "cost": 2, "power": 10},
-	"quick_shot": {"name": "连珠箭", "class": "archer", "type": "attack", "cost": 2, "power": 18},
-	"hunter_mark": {"name": "猎人标记", "class": "archer", "type": "debuff", "cost": 2, "power": 3},
-	"roll": {"name": "翻滚", "class": "archer", "type": "dodge", "cost": 2, "power": 5},
-	"first_aid": {"name": "急救", "class": "common", "type": "heal", "cost": 2, "power": 18},
-	"tactical_retreat": {"name": "战术后撤", "class": "common", "type": "dodge", "cost": 2, "power": 1}
+	"heavy_slash": {"name": "重劈", "class": "warrior", "type": "attack", "cost": 2, "multiplier": 2.25, "hits": 1},
+	"shield_wall": {"name": "盾墙", "class": "warrior", "type": "defense", "cost": 2, "multiplier": 2.40},
+	"counter_stance": {"name": "反击架势", "class": "warrior", "type": "stance", "cost": 2, "block_multiplier": 1.45, "attack_multiplier": 1.15},
+	"war_cry": {"name": "战吼", "class": "warrior", "type": "buff", "cost": 2, "attack_multiplier": 1.25},
+	"precise_shot": {"name": "精准射击", "class": "archer", "type": "attack", "cost": 2, "multiplier": 2.10, "hits": 1},
+	"quick_shot": {"name": "连珠箭", "class": "archer", "type": "attack", "cost": 2, "multiplier": 1.20, "hits": 2},
+	"hunter_mark": {"name": "猎人标记", "class": "archer", "type": "debuff", "cost": 2, "mark_multiplier": 1.35},
+	"roll": {"name": "翻滚", "class": "archer", "type": "dodge", "cost": 2, "block_multiplier": 1.20, "dodge_layers": 1},
+	"first_aid": {"name": "急救", "class": "common", "type": "heal", "cost": 2, "heal_multiplier": 0.25},
+	"tactical_retreat": {"name": "战术后撤", "class": "common", "type": "dodge", "cost": 2, "block_multiplier": 0.90, "dodge_layers": 1}
 }
 
 const EQUIPMENT := {
