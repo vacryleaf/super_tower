@@ -56,9 +56,9 @@ func _render_menu() -> void:
 	var title := _label("无限高塔", 30)
 	root.add_child(title)
 	root.add_child(_label("可玩版本：新手引导、手动战斗、奖励选择、装备、技能和 1-10 层流程。", 16))
-	if session.has_save():
+	if session.has_active_run():
 		var continue_button := Button.new()
-		continue_button.text = "继续游戏"
+		continue_button.text = "继续当前派遣"
 		continue_button.custom_minimum_size = Vector2(220, 56)
 		continue_button.pressed.connect(func() -> void:
 			if session.load_game():
@@ -82,8 +82,16 @@ func _class_panel(class_key: String) -> Control:
 	box.add_child(_label(String(data["name"]), 24))
 	box.add_child(_label("生命 %d  攻击 %d  护甲 %d" % [int(data["max_hp"]), int(data["base_attack"]), int(data["base_defense"])], 16))
 	box.add_child(_label("第一个技能：%s" % DataCatalog.SKILLS[data["first_skill"]]["name"], 16))
+	var roster_player := session.get_roster_player(class_key)
+	if roster_player.is_empty():
+		box.add_child(_label("队伍状态：未招募", 14))
+	else:
+		box.add_child(_label("队伍状态：装备 %d  技能 %d" % [
+			roster_player.get("equipment_ids", []).size(),
+			roster_player.get("unlocked_skills", []).size()
+		], 14))
 	var button := Button.new()
-	button.text = "开始：%s" % data["name"]
+	button.text = "派遣：%s" % data["name"]
 	button.custom_minimum_size = Vector2(180, 56)
 	button.pressed.connect(func() -> void:
 		session.start_new_game(class_key)
@@ -603,10 +611,7 @@ func _pending_state_text() -> String:
 
 
 func _persist_session() -> void:
-	if session.phase == "game_over" or session.phase == "victory":
-		session.delete_save()
-	else:
-		session.save_game()
+	session.save_game()
 
 
 func _action_button(text_value: String, callback: Callable) -> Button:

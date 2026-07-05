@@ -34,11 +34,11 @@ var last_events: Array[Dictionary] = []
 
 func start_new_game(selected_class: String) -> void:
 	class_id = selected_class
-	player = simulator.create_character(selected_class)
-	floor_index = 1
+	player = _roster_player_or_new(selected_class)
+	floor_index = 2 if bool(player.get("tutorial_completed", false)) else 1
 	battle_index = 1
 	phase = "battle"
-	message = "新手引导开始。胜利后会逐步解锁基础装备。"
+	message = "派遣%s进入高塔。" % DataCatalog.CLASSES[selected_class]["name"]
 	_start_current_battle()
 
 
@@ -46,27 +46,42 @@ func has_save() -> bool:
 	return FileAccess.file_exists(SAVE_PATH)
 
 
+func has_active_run() -> bool:
+	var profile := _read_profile()
+	return not _dictionary(profile.get("active_run", {})).is_empty()
+
+
+func get_roster_player(selected_class: String) -> Dictionary:
+	var profile := _read_profile()
+	var roster := _dictionary(profile.get("roster", {}))
+	return _dictionary(roster.get(selected_class, {}))
+
+
 func save_game() -> bool:
 	if phase == "menu" or player.is_empty():
 		return false
+	var profile := _read_profile()
+	var roster := _dictionary(profile.get("roster", {}))
+	roster[class_id] = _persistent_player_snapshot(player)
+	profile["version"] = 2
+	profile["roster"] = roster
+	if phase == "game_over" or phase == "victory":
+		profile["active_run"] = {}
+	else:
+		profile["active_run"] = _save_data()
 	var file := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 	if file == null:
 		return false
-	file.store_string(JSON.stringify(_save_data()))
+	file.store_string(JSON.stringify(profile))
 	return true
 
 
 func load_game() -> bool:
-	if not has_save():
+	var profile := _read_profile()
+	var active_run := _dictionary(profile.get("active_run", {}))
+	if active_run.is_empty():
 		return false
-	var file := FileAccess.open(SAVE_PATH, FileAccess.READ)
-	if file == null:
-		return false
-	var json := JSON.new()
-	var error := json.parse(file.get_as_text())
-	if error != OK or typeof(json.data) != TYPE_DICTIONARY:
-		return false
-	return _load_save_data(json.data)
+	return _load_save_data(active_run)
 
 
 func delete_save() -> void:
@@ -582,6 +597,70 @@ func _save_data() -> Dictionary:
 		"reward_targets": reward_targets,
 		"battle_log": battle_log
 	}
+
+
+func _read_profile() -> Dictionary:
+	if not has_save():
+		return _empty_profile()
+	var file := FileAccess.open(SAVE_PATH, FileAccess.READ)
+	if file == null:
+		return _empty_profile()
+	var json := JSON.new()
+	var error := json.parse(file.get_as_text())
+	if error != OK or typeof(json.data) != TYPE_DICTIONARY:
+		return _empty_profile()
+	var data: Dictionary = json.data
+	if int(data.get("version", 0)) == 2:
+		if not data.has("roster"):
+			data["roster"] = {}
+		if not data.has("active_run"):
+			data["active_run"] = {}
+		return data
+	if int(data.get("version", 0)) == 1:
+		return _profile_from_legacy_run(data)
+	return _empty_profile()
+
+
+func _empty_profile() -> Dictionary:
+	return {
+		"version": 2,
+		"roster": {},
+		"active_run": {}
+	}
+
+
+func _profile_from_legacy_run(run_data: Dictionary) -> Dictionary:
+	var roster := {}
+	var saved_player := _dictionary(run_data.get("player", {}))
+	var saved_class := String(run_data.get("class_id", saved_player.get("class_id", "")))
+	if saved_class != "" and DataCatalog.CLASSES.has(saved_class) and not saved_player.is_empty():
+		roster[saved_class] = _persistent_player_snapshot(saved_player)
+	return {
+		"version": 2,
+		"roster": roster,
+		"active_run": run_data
+	}
+
+
+func _roster_player_or_new(selected_class: String) -> Dictionary:
+	var saved_player := get_roster_player(selected_class)
+	if saved_player.is_empty():
+		return simulator.create_character(selected_class)
+	simulator._recalculate_player_stats(saved_player, true)
+	return saved_player
+
+
+func _persistent_player_snapshot(source_player: Dictionary) -> Dictionary:
+	var snapshot := source_player.duplicate(true)
+	snapshot["equipment_attachments"] = {}
+	snapshot["skill_attachments"] = {}
+	snapshot["state_attack_bonus"] = 0
+	snapshot["state_defense_bonus"] = 0
+	snapshot["normal_rewards"] = int(snapshot.get("normal_rewards", 0))
+	snapshot["elite_rewards"] = int(snapshot.get("elite_rewards", 0))
+	snapshot["boss_rewards"] = int(snapshot.get("boss_rewards", 0))
+	simulator._recalculate_player_stats(snapshot, true)
+	return snapshot
 
 
 func _load_save_data(data: Dictionary) -> bool:

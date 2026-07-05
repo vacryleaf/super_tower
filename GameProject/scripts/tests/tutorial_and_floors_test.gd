@@ -23,6 +23,7 @@ func run_all() -> void:
 	test_skill_costs_minimum_two()
 	test_reward_attachment_flow()
 	test_save_round_trip()
+	test_profile_keeps_multiple_classes()
 	test_block_expires_each_round()
 	test_tutorial_unlocks("warrior")
 	test_tutorial_unlocks("archer")
@@ -87,6 +88,31 @@ func test_save_round_trip() -> void:
 	assert_equal(loaded.enemies.size(), session.enemies.size(), "loaded enemy count")
 	assert_true(loaded.battle_log.has("save_marker"), "loaded battle log")
 	loaded.delete_save()
+
+
+func test_profile_keeps_multiple_classes() -> void:
+	var session_script = load("res://scripts/core/play_session.gd")
+	var warrior_session = session_script.new()
+	warrior_session.delete_save()
+	warrior_session.start_new_game("warrior")
+	_force_win(warrior_session)
+	warrior_session.choose_reward(0)
+	assert_true(warrior_session.save_game(), "warrior profile save")
+
+	var archer_session = session_script.new()
+	archer_session.start_new_game("archer")
+	_force_win(archer_session)
+	archer_session.choose_reward(0)
+	assert_true(archer_session.save_game(), "archer profile save")
+
+	var profile_session = session_script.new()
+	var warrior: Dictionary = profile_session.get_roster_player("warrior")
+	var archer: Dictionary = profile_session.get_roster_player("archer")
+	assert_true(not warrior.is_empty(), "profile keeps warrior")
+	assert_true(not archer.is_empty(), "profile keeps archer")
+	assert_equal(warrior.get("class_id", ""), "warrior", "warrior roster class")
+	assert_equal(archer.get("class_id", ""), "archer", "archer roster class")
+	profile_session.delete_save()
 
 
 func test_block_expires_each_round() -> void:

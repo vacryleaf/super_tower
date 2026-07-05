@@ -12,7 +12,7 @@ func _run() -> void:
 	var main := scene.instantiate()
 	root.add_child(main)
 	await process_frame
-	_press_button(main, "开始：战士")
+	_press_button(main, "派遣：战士")
 	await process_frame
 	_press_button(main, "普通攻击")
 	await _wait_seconds(1.1)
