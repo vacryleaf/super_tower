@@ -36,11 +36,12 @@ func run_battle(player: Dictionary, encounter: Dictionary, tower_floor: int, bat
 			log.append("round_%d:defend" % rounds)
 
 		if _should_use_skill(player, used_first_skill) and _can_pay_first_skill(player, action_points):
+			var skill_id := _first_skill_id(player)
 			var skill_damage := _skill_damage(player)
 			if skill_damage > 0:
-				skill_damage = _apply_charge_attack_value(skill_damage, charge_state)
+				skill_damage = _apply_charge_attack_value(skill_damage, charge_state, skill_id)
 				_damage_lowest_enemy(enemies, skill_damage, log, "skill")
-				for _i in range(_consume_charge_repeats(charge_state, "attack")):
+				for _i in range(_consume_charge_repeats(charge_state, "attack", skill_id)):
 					_damage_lowest_enemy(enemies, skill_damage, log, "skill_charge_repeat")
 			used_first_skill = true
 			action_points -= _first_skill_cost(player)
@@ -172,11 +173,17 @@ func _can_pay_first_skill(player: Dictionary, action_points: int) -> bool:
 
 
 func _first_skill_cost(player: Dictionary) -> int:
-	if player["equipped_skills"].is_empty():
+	var skill_id := _first_skill_id(player)
+	if skill_id == "":
 		return 999
-	var skill_id: String = player["equipped_skills"][0]
 	var skill: Dictionary = DataCatalog.SKILLS[skill_id]
 	return int(skill.get("cost", 2))
+
+
+func _first_skill_id(player: Dictionary) -> String:
+	if player["equipped_skills"].is_empty():
+		return ""
+	return String(player["equipped_skills"][0])
 
 
 func _damage_lowest_enemy(enemies: Array[Dictionary], amount: int, log: Array[String], source: String) -> void:
@@ -347,7 +354,8 @@ func _battle_charge_state(player: Dictionary) -> Dictionary:
 		"repeat_attack": 0,
 		"repeat_defense": 0,
 		"pool": [],
-		"activated": []
+		"activated": [],
+		"skills": {}
 	}
 	_collect_charge_pool(state["pool"], player.get("equipment_attachments", {}))
 	_collect_charge_pool(state["pool"], player.get("skill_attachments", {}))
@@ -382,23 +390,44 @@ func _charge_one_for_round(state: Dictionary) -> void:
 
 
 func _apply_charged_effect(state: Dictionary, charge: Dictionary) -> void:
+	var target_type := String(charge.get("target_type", ""))
+	var target_id := String(charge.get("target_id", ""))
+	var bucket := state
+	if target_type == "skill" and target_id != "":
+		var skills: Dictionary = state.get("skills", {})
+		if not skills.has(target_id):
+			skills[target_id] = {
+				"attack_multiplier": 1.0,
+				"defense_multiplier": 1.0,
+				"bonus_damage": 0,
+				"repeat_attack": 0,
+				"repeat_defense": 0
+			}
+		state["skills"] = skills
+		bucket = skills[target_id]
 	match String(charge.get("kind", "")):
 		"charge_attack_multiplier":
-			state["attack_multiplier"] = float(state["attack_multiplier"]) * float(charge.get("value", 1.0))
+			bucket["attack_multiplier"] = float(bucket["attack_multiplier"]) * float(charge.get("value", 1.0))
 		"charge_defense_multiplier":
-			state["defense_multiplier"] = float(state["defense_multiplier"]) * float(charge.get("value", 1.0))
+			bucket["defense_multiplier"] = float(bucket["defense_multiplier"]) * float(charge.get("value", 1.0))
 		"charge_bonus_damage":
-			state["bonus_damage"] = int(state["bonus_damage"]) + int(charge.get("value", 0))
+			bucket["bonus_damage"] = int(bucket["bonus_damage"]) + int(charge.get("value", 0))
 		"charge_repeat_attack":
-			state["repeat_attack"] = int(state["repeat_attack"]) + maxi(1, int(charge.get("value", 1)))
+			bucket["repeat_attack"] = int(bucket["repeat_attack"]) + maxi(1, int(charge.get("value", 1)))
 		"charge_repeat_defense":
-			state["repeat_defense"] = int(state["repeat_defense"]) + maxi(1, int(charge.get("value", 1)))
+			bucket["repeat_defense"] = int(bucket["repeat_defense"]) + maxi(1, int(charge.get("value", 1)))
 
 
-func _apply_charge_attack_value(base: int, state: Dictionary) -> int:
-	var result := int(round(float(base) * float(state.get("attack_multiplier", 1.0)))) + int(state.get("bonus_damage", 0))
+func _apply_charge_attack_value(base: int, state: Dictionary, skill_id: String = "") -> int:
+	var effects := _merged_charge_state(state, skill_id)
+	var result := int(round(float(base) * float(effects.get("attack_multiplier", 1.0)))) + int(effects.get("bonus_damage", 0))
 	state["attack_multiplier"] = 1.0
 	state["bonus_damage"] = 0
+	if skill_id != "":
+		var skills: Dictionary = state.get("skills", {})
+		if skills.has(skill_id):
+			skills[skill_id]["attack_multiplier"] = 1.0
+			skills[skill_id]["bonus_damage"] = 0
 	return maxi(1, result)
 
 
@@ -408,11 +437,28 @@ func _apply_charge_defense_value(base: int, state: Dictionary) -> int:
 	return maxi(1, result)
 
 
-func _consume_charge_repeats(state: Dictionary, action_tag: String) -> int:
+func _consume_charge_repeats(state: Dictionary, action_tag: String, skill_id: String = "") -> int:
 	var key := "repeat_attack" if action_tag == "attack" else "repeat_defense"
 	var repeats := int(state.get(key, 0))
 	state[key] = 0
+	if skill_id != "":
+		var skills: Dictionary = state.get("skills", {})
+		if skills.has(skill_id):
+			repeats += int(skills[skill_id].get(key, 0))
+			skills[skill_id][key] = 0
 	return repeats
+
+
+func _merged_charge_state(state: Dictionary, skill_id: String) -> Dictionary:
+	var result := state.duplicate(true)
+	if skill_id != "":
+		var skills: Dictionary = state.get("skills", {})
+		if skills.has(skill_id):
+			var skill_effects: Dictionary = skills[skill_id]
+			result["attack_multiplier"] = float(result.get("attack_multiplier", 1.0)) * float(skill_effects.get("attack_multiplier", 1.0))
+			result["defense_multiplier"] = float(result.get("defense_multiplier", 1.0)) * float(skill_effects.get("defense_multiplier", 1.0))
+			result["bonus_damage"] = int(result.get("bonus_damage", 0)) + int(skill_effects.get("bonus_damage", 0))
+	return result
 
 
 func _skill_attachment_bonus(player: Dictionary, skill_id: String, kind: String) -> int:

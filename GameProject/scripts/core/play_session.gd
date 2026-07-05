@@ -248,9 +248,9 @@ func use_skill(slot_index: int, target_index: int) -> void:
 		if target < 0:
 			return
 		var damage := _modified_value(int(player["attack"]) + int(skill.get("power", 0)) + _skill_attachment_bonus(skill_id, "attack"), "attack")
-		damage = _apply_charge_attack_modifiers(damage)
+		damage = _apply_charge_attack_modifiers(damage, skill_id)
 		_apply_damage_to_enemy(target, damage)
-		var repeats := _consume_charge_repeat("attack")
+		var repeats := _consume_charge_repeat("attack", skill_id)
 		for _i in range(repeats):
 			if _alive_enemy_count() <= 0:
 				break
@@ -259,9 +259,9 @@ func use_skill(slot_index: int, target_index: int) -> void:
 			player_block += maxi(1, int(round(float(player["block_power"]) * 0.5)))
 	elif skill_type == "defense" or skill_type == "stance":
 		var gained := _modified_value(int(skill.get("power", 0)) + int(player["block_power"]) + _skill_attachment_bonus(skill_id, "defense"), "defense")
-		gained = _apply_charge_defense_modifiers(gained)
+		gained = _apply_charge_defense_modifiers(gained, skill_id)
 		var total_gained := gained
-		var repeats := _consume_charge_repeat("defense")
+		var repeats := _consume_charge_repeat("defense", skill_id)
 		for _i in range(repeats):
 			total_gained += gained
 		player_block += total_gained
@@ -675,53 +675,120 @@ func _random_ready_charge() -> String:
 
 func _apply_charge_effect(charge: Dictionary) -> void:
 	_ensure_charge_effects()
+	var effects := _charge_effect_bucket(charge)
 	var kind := String(charge.get("kind", ""))
 	match kind:
 		"charge_attack_multiplier":
-			pending_charge_effects["attack_multiplier"] = float(pending_charge_effects.get("attack_multiplier", 1.0)) * float(charge.get("value", 1.0))
+			effects["attack_multiplier"] = float(effects.get("attack_multiplier", 1.0)) * float(charge.get("value", 1.0))
 		"charge_defense_multiplier":
-			pending_charge_effects["defense_multiplier"] = float(pending_charge_effects.get("defense_multiplier", 1.0)) * float(charge.get("value", 1.0))
+			effects["defense_multiplier"] = float(effects.get("defense_multiplier", 1.0)) * float(charge.get("value", 1.0))
 		"charge_repeat_attack":
-			pending_charge_effects["repeat_attack"] = int(pending_charge_effects.get("repeat_attack", 0)) + maxi(1, int(charge.get("value", 1)))
+			effects["repeat_attack"] = int(effects.get("repeat_attack", 0)) + maxi(1, int(charge.get("value", 1)))
 		"charge_repeat_defense":
-			pending_charge_effects["repeat_defense"] = int(pending_charge_effects.get("repeat_defense", 0)) + maxi(1, int(charge.get("value", 1)))
+			effects["repeat_defense"] = int(effects.get("repeat_defense", 0)) + maxi(1, int(charge.get("value", 1)))
 		"charge_bonus_damage":
-			pending_charge_effects["bonus_damage"] = int(pending_charge_effects.get("bonus_damage", 0)) + int(charge.get("value", 0))
+			effects["bonus_damage"] = int(effects.get("bonus_damage", 0)) + int(charge.get("value", 0))
 
 
-func _apply_charge_attack_modifiers(base: int) -> int:
+func _charge_effect_bucket(charge: Dictionary) -> Dictionary:
+	var target_type := String(charge.get("target_type", ""))
+	var target_id := String(charge.get("target_id", ""))
+	if target_type == "skill" and target_id != "":
+		var skills: Dictionary = pending_charge_effects.get("skills", {})
+		if not skills.has(target_id):
+			skills[target_id] = _empty_charge_values()
+		pending_charge_effects["skills"] = skills
+		return skills[target_id]
+	return pending_charge_effects["global"]
+
+
+func _apply_charge_attack_modifiers(base: int, skill_id: String = "") -> int:
 	_ensure_charge_effects()
-	var multiplier := float(pending_charge_effects.get("attack_multiplier", 1.0))
-	var bonus := int(pending_charge_effects.get("bonus_damage", 0))
-	pending_charge_effects["attack_multiplier"] = 1.0
-	pending_charge_effects["bonus_damage"] = 0
+	var effects := _merged_charge_effects(skill_id)
+	var multiplier := float(effects.get("attack_multiplier", 1.0))
+	var bonus := int(effects.get("bonus_damage", 0))
+	_clear_charge_attack_effects(skill_id)
 	return maxi(1, int(round(float(base) * multiplier)) + bonus)
 
 
-func _apply_charge_defense_modifiers(base: int) -> int:
+func _apply_charge_defense_modifiers(base: int, skill_id: String = "") -> int:
 	_ensure_charge_effects()
-	var multiplier := float(pending_charge_effects.get("defense_multiplier", 1.0))
-	pending_charge_effects["defense_multiplier"] = 1.0
+	var effects := _merged_charge_effects(skill_id)
+	var multiplier := float(effects.get("defense_multiplier", 1.0))
+	_clear_charge_defense_effects(skill_id)
 	return maxi(1, int(round(float(base) * multiplier)))
 
 
-func _consume_charge_repeat(action_tag: String) -> int:
+func _consume_charge_repeat(action_tag: String, skill_id: String = "") -> int:
 	_ensure_charge_effects()
 	var key := "repeat_attack" if action_tag == "attack" else "repeat_defense"
-	var repeats := int(pending_charge_effects.get(key, 0))
-	pending_charge_effects[key] = 0
+	var repeats := int(pending_charge_effects["global"].get(key, 0))
+	pending_charge_effects["global"][key] = 0
+	if skill_id != "":
+		var skills: Dictionary = pending_charge_effects.get("skills", {})
+		if skills.has(skill_id):
+			repeats += int(skills[skill_id].get(key, 0))
+			skills[skill_id][key] = 0
 	return repeats
+
+
+func _merged_charge_effects(skill_id: String) -> Dictionary:
+	var global_effects: Dictionary = pending_charge_effects["global"]
+	var result := global_effects.duplicate(true)
+	if skill_id != "":
+		var skills: Dictionary = pending_charge_effects.get("skills", {})
+		if skills.has(skill_id):
+			var skill_effects: Dictionary = skills[skill_id]
+			result["attack_multiplier"] = float(result.get("attack_multiplier", 1.0)) * float(skill_effects.get("attack_multiplier", 1.0))
+			result["defense_multiplier"] = float(result.get("defense_multiplier", 1.0)) * float(skill_effects.get("defense_multiplier", 1.0))
+			result["bonus_damage"] = int(result.get("bonus_damage", 0)) + int(skill_effects.get("bonus_damage", 0))
+			result["repeat_attack"] = int(result.get("repeat_attack", 0)) + int(skill_effects.get("repeat_attack", 0))
+			result["repeat_defense"] = int(result.get("repeat_defense", 0)) + int(skill_effects.get("repeat_defense", 0))
+	return result
+
+
+func _clear_charge_attack_effects(skill_id: String) -> void:
+	pending_charge_effects["global"]["attack_multiplier"] = 1.0
+	pending_charge_effects["global"]["bonus_damage"] = 0
+	if skill_id != "":
+		var skills: Dictionary = pending_charge_effects.get("skills", {})
+		if skills.has(skill_id):
+			skills[skill_id]["attack_multiplier"] = 1.0
+			skills[skill_id]["bonus_damage"] = 0
+
+
+func _clear_charge_defense_effects(skill_id: String) -> void:
+	pending_charge_effects["global"]["defense_multiplier"] = 1.0
+	if skill_id != "":
+		var skills: Dictionary = pending_charge_effects.get("skills", {})
+		if skills.has(skill_id):
+			skills[skill_id]["defense_multiplier"] = 1.0
 
 
 func _ensure_charge_effects() -> void:
 	if pending_charge_effects.is_empty():
 		pending_charge_effects = _empty_charge_effects()
-	for key in _empty_charge_effects().keys():
-		if not pending_charge_effects.has(key):
-			pending_charge_effects[key] = _empty_charge_effects()[key]
+	if not pending_charge_effects.has("global"):
+		var legacy := pending_charge_effects.duplicate(true)
+		pending_charge_effects = _empty_charge_effects()
+		for key in _empty_charge_values().keys():
+			if legacy.has(key):
+				pending_charge_effects["global"][key] = legacy[key]
+	if not pending_charge_effects.has("skills"):
+		pending_charge_effects["skills"] = {}
+	for key in _empty_charge_values().keys():
+		if not pending_charge_effects["global"].has(key):
+			pending_charge_effects["global"][key] = _empty_charge_values()[key]
 
 
 func _empty_charge_effects() -> Dictionary:
+	return {
+		"global": _empty_charge_values(),
+		"skills": {}
+	}
+
+
+func _empty_charge_values() -> Dictionary:
 	return {
 		"attack_multiplier": 1.0,
 		"defense_multiplier": 1.0,

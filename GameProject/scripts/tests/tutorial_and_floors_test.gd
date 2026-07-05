@@ -29,6 +29,7 @@ func run_all() -> void:
 	test_skill_costs_minimum_two()
 	test_reward_attachment_flow()
 	test_charge_reward_flow()
+	test_skill_bound_charge_only_triggers_on_that_skill()
 	test_charge_limit()
 	test_save_round_trip()
 	test_profile_keeps_multiple_classes()
@@ -239,6 +240,56 @@ func test_charge_reward_flow() -> void:
 	session.player_attack(0)
 	var expected_hp := 999 - int(session.player["attack"]) - bonus
 	assert_equal(int(session.enemies[0]["hp"]), expected_hp, "charge bonus damage should apply to next attack")
+
+
+func test_skill_bound_charge_only_triggers_on_that_skill() -> void:
+	var session_script = load("res://scripts/core/play_session.gd")
+	var session = session_script.new()
+	session.start_new_game("warrior")
+	while session.is_tutorial():
+		if session.phase == "battle":
+			_force_win(session)
+		elif session.phase == "reward":
+			session.choose_reward(0)
+	var skill_id := String(session.player["equipped_skills"][0])
+	var bonus := 11
+	session.simulator.attach_reward(session.player, {"type": "skill", "id": skill_id}, {
+		"kind": "charge_bonus_damage",
+		"label": "技能绑定充能测试",
+		"value": bonus
+	})
+	var charges: Array[Dictionary] = session.available_charges()
+	var charge_id := ""
+	for charge in charges:
+		if String(charge.get("target_type", "")) == "skill" and String(charge.get("target_id", "")) == skill_id:
+			charge_id = String(charge.get("charge_id", ""))
+			break
+	assert_true(charge_id != "", "skill-bound charge should be listed")
+	session.charge_ready[charge_id] = true
+	session.use_charge(charge_id)
+	var test_enemies: Array[Dictionary] = [{
+		"name": "技能充能测试敌人",
+		"rank": "normal",
+		"max_hp": 999,
+		"hp": 999,
+		"attack": 0,
+		"defense": 0,
+		"armor": 0,
+		"block_power": 1,
+		"block": 0,
+		"dodge_layers": 0,
+		"taunt": 0,
+		"traits": []
+	}]
+	session.enemies = test_enemies
+	session.action_points = 3
+	session.player_attack(0)
+	var after_attack := 999 - int(session.player["attack"])
+	assert_equal(int(session.enemies[0]["hp"]), after_attack, "normal attack should not consume skill-bound charge")
+	var skill: Dictionary = DataCatalog.SKILLS[skill_id]
+	session.use_skill(0, 0)
+	var expected_hp := after_attack - int(session.player["attack"]) - int(skill.get("power", 0)) - bonus
+	assert_equal(int(session.enemies[0]["hp"]), expected_hp, "matching skill should consume skill-bound charge")
 
 
 func test_charge_limit() -> void:
