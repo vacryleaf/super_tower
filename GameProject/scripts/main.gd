@@ -442,19 +442,29 @@ func _animate_draw_cards(cards: Array) -> void:
 
 
 func _render_reward() -> void:
-	root.add_child(_label("选择奖励", 24))
+	var reward_area := CenterContainer.new()
+	reward_area.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	reward_area.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	root.add_child(reward_area)
+
+	var options := VBoxContainer.new()
+	options.custom_minimum_size = Vector2(460, 0)
+	options.alignment = BoxContainer.ALIGNMENT_CENTER
+	reward_area.add_child(options)
+	var title := _label("选择奖励", 24)
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	options.add_child(title)
 	for i in range(session.reward_options.size()):
 		var reward: Dictionary = session.reward_options[i]
 		var button := Button.new()
-		button.text = reward["label"]
-		button.custom_minimum_size = Vector2(760, 56)
+		button.text = String(reward["label"]).replace("塔内附着：", "")
+		button.custom_minimum_size = Vector2(460, 64)
 		button.pressed.connect(func(index := i) -> void:
 			session.choose_reward(index)
 			selected_target = 0
 			_request_game_render()
 		)
-		root.add_child(button)
-	_render_character_panel(root)
+		options.add_child(button)
 
 
 func _render_end_screen(title: String, subtitle: String) -> void:

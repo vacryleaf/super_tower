@@ -333,9 +333,9 @@ func _build_reward_options() -> void:
 	var encounter_type := String(current_encounter["type"])
 	if encounter_type == "normal":
 		reward_options = [
-			{"kind": "attack", "label": "塔内附着：攻击 +%d" % _floor_value(3), "value": _floor_value(3)},
-			{"kind": "defense", "label": "塔内附着：护甲 +%d" % _floor_value(3), "value": _floor_value(3)},
-			{"kind": "hp", "label": "塔内附着：生命上限 +%d" % _floor_value(6), "value": _floor_value(6)}
+			{"kind": "attack", "label": "攻击 +%d" % _floor_value(3), "value": _floor_value(3)},
+			{"kind": "defense", "label": "护甲 +%d" % _floor_value(3), "value": _floor_value(3)},
+			{"kind": "hp", "label": "生命上限 +%d" % _floor_value(6), "value": _floor_value(6)}
 		]
 		player["normal_rewards"] += 1
 	elif encounter_type == "elite":
