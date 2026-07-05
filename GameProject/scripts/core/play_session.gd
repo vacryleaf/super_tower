@@ -6,9 +6,11 @@ const CombatEngine = preload("res://scripts/core/combat_engine.gd")
 const RunSimulator = preload("res://scripts/core/run_simulator.gd")
 
 const SAVE_PATH := "user://savegame.json"
+const MAX_CHARGES := 5
 
 var simulator := RunSimulator.new()
 var combat := CombatEngine.new()
+var rng := RandomNumberGenerator.new()
 
 var player: Dictionary = {}
 var class_id := ""
@@ -31,6 +33,7 @@ var reward_targets: Array[Dictionary] = []
 var battle_log: Array[String] = []
 var last_events: Array[Dictionary] = []
 var charge_used: Dictionary = {}
+var charge_ready: Dictionary = {}
 var pending_charge_effects: Dictionary = {}
 
 
@@ -106,6 +109,7 @@ func _start_current_battle() -> void:
 	round_index = 0
 	pending_state_card = ""
 	charge_used = {}
+	charge_ready = {}
 	pending_charge_effects = _empty_charge_effects()
 	battle_log.clear()
 	phase = "battle"
@@ -149,7 +153,10 @@ func _begin_player_turn() -> void:
 	action_points = max_action_points
 	player_block = 0
 	pending_state_card = _draw_state_buff()
+	var charged_label := _random_ready_charge()
 	message = "你的回合。状态 Buff：%s" % _state_name(pending_state_card)
+	if charged_label != "":
+		message += " 随机充能：%s。" % charged_label
 
 
 func _draw_state_buff() -> String:
@@ -317,6 +324,12 @@ func choose_reward_target(index: int) -> void:
 	if index < 0 or index >= reward_targets.size():
 		return
 	var target := reward_targets[index]
+	if _is_charge_reward(pending_reward) and available_charges().size() >= MAX_CHARGES:
+		message = "最多只能持有 %d 个充能，本次充能奖励已跳过。" % MAX_CHARGES
+		pending_reward = {}
+		reward_targets.clear()
+		_advance_after_reward()
+		return
 	simulator.attach_reward(player, target, pending_reward)
 	simulator._recalculate_player_stats(player, false)
 	message = "%s 已附着到 %s。" % [_reward_short_label(pending_reward), _target_label(target)]
@@ -518,7 +531,11 @@ func _unlock_next_skill() -> void:
 
 func _reward_needs_attachment(reward: Dictionary) -> bool:
 	var kind := String(reward.get("kind", ""))
-	return ["attack", "defense", "hp", "state"].has(kind) or kind.begins_with("charge_")
+	return ["attack", "defense", "hp", "state"].has(kind) or _is_charge_reward(reward)
+
+
+func _is_charge_reward(reward: Dictionary) -> bool:
+	return String(reward.get("kind", "")).begins_with("charge_")
 
 
 func _build_reward_targets() -> Array[Dictionary]:
@@ -569,11 +586,15 @@ func use_charge(charge_id: String) -> void:
 	if bool(charge_used.get(charge_id, false)):
 		message = "该充能本场战斗已经使用。"
 		return
+	if not bool(charge_ready.get(charge_id, false)):
+		message = "该充能尚未就绪。"
+		return
 	var charge := _charge_by_id(charge_id)
 	if charge.is_empty():
 		message = "没有找到可用充能。"
 		return
 	charge_used[charge_id] = true
+	charge_ready[charge_id] = false
 	_apply_charge_effect(charge)
 	var label := _reward_short_label(charge)
 	battle_log.append("发动充能：%s。" % label)
@@ -585,6 +606,8 @@ func _collect_charges_from_group(result: Array[Dictionary], target_type: String,
 	for target_id in groups.keys():
 		var attachments: Array = groups.get(target_id, [])
 		for i in range(attachments.size()):
+			if result.size() >= MAX_CHARGES:
+				return
 			var attachment: Dictionary = attachments[i]
 			var kind := String(attachment.get("kind", ""))
 			if not kind.begins_with("charge_"):
@@ -593,6 +616,7 @@ func _collect_charges_from_group(result: Array[Dictionary], target_type: String,
 			charge["charge_id"] = "%s:%s:%d" % [target_type, String(target_id), i]
 			charge["source_label"] = _target_label({"type": target_type, "id": String(target_id)})
 			charge["used"] = bool(charge_used.get(charge["charge_id"], false))
+			charge["ready"] = bool(charge_ready.get(charge["charge_id"], false))
 			result.append(charge)
 
 
@@ -601,6 +625,25 @@ func _charge_by_id(charge_id: String) -> Dictionary:
 		if String(charge.get("charge_id", "")) == charge_id:
 			return charge
 	return {}
+
+
+func _random_ready_charge() -> String:
+	var charges := available_charges()
+	var candidates: Array[Dictionary] = []
+	for charge in charges:
+		var charge_id := String(charge.get("charge_id", ""))
+		if bool(charge.get("used", false)):
+			continue
+		if bool(charge.get("ready", false)):
+			continue
+		candidates.append(charge)
+	if candidates.is_empty():
+		return ""
+	rng.randomize()
+	var selected: Dictionary = candidates[rng.randi_range(0, candidates.size() - 1)]
+	var selected_id := String(selected.get("charge_id", ""))
+	charge_ready[selected_id] = true
+	return _reward_short_label(selected)
 
 
 func _apply_charge_effect(charge: Dictionary) -> void:
@@ -807,6 +850,7 @@ func _save_data() -> Dictionary:
 		"pending_state_card": pending_state_card,
 		"state_draw_cursor": state_draw_cursor,
 		"charge_used": charge_used,
+		"charge_ready": charge_ready,
 		"pending_charge_effects": pending_charge_effects,
 		"reward_options": reward_options,
 		"pending_reward": pending_reward,
@@ -904,6 +948,7 @@ func _load_save_data(data: Dictionary) -> bool:
 	pending_state_card = String(data.get("pending_state_card", ""))
 	state_draw_cursor = int(data.get("state_draw_cursor", 0))
 	charge_used = _dictionary(data.get("charge_used", {}))
+	charge_ready = _dictionary(data.get("charge_ready", {}))
 	pending_charge_effects = _dictionary(data.get("pending_charge_effects", {}))
 	_ensure_charge_effects()
 	reward_options = _dictionary_array(data.get("reward_options", []))

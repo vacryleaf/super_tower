@@ -27,6 +27,7 @@ func run_all() -> void:
 	test_skill_costs_minimum_two()
 	test_reward_attachment_flow()
 	test_charge_reward_flow()
+	test_charge_limit()
 	test_save_round_trip()
 	test_profile_keeps_multiple_classes()
 	test_block_expires_each_round()
@@ -156,6 +157,7 @@ func test_charge_reward_flow() -> void:
 	var charges: Array[Dictionary] = session.available_charges()
 	assert_true(charges.size() > 0, "attached charge should be available in next battle")
 	var charge_id := String(charges[0].get("charge_id", ""))
+	assert_true(bool(charges[0].get("ready", false)), "one charge should become ready at player turn start")
 	var bonus := int(charges[0].get("value", 0))
 	var test_enemies: Array[Dictionary] = [{
 		"name": "充能测试敌人",
@@ -176,6 +178,25 @@ func test_charge_reward_flow() -> void:
 	session.player_attack(0)
 	var expected_hp := 999 - int(session.player["attack"]) - bonus
 	assert_equal(int(session.enemies[0]["hp"]), expected_hp, "charge bonus damage should apply to next attack")
+
+
+func test_charge_limit() -> void:
+	var session_script = load("res://scripts/core/play_session.gd")
+	var session = session_script.new()
+	session.start_new_game("warrior")
+	while session.is_tutorial():
+		if session.phase == "battle":
+			_force_win(session)
+		elif session.phase == "reward":
+			session.choose_reward(0)
+	var target := {"type": "equipment", "id": String(session.player["equipment_ids"][0])}
+	for i in range(6):
+		session.simulator.attach_reward(session.player, target, {
+			"kind": "charge_bonus_damage",
+			"label": "充能测试 %d" % i,
+			"value": i + 1
+		})
+	assert_equal(session.available_charges().size(), 5, "player should hold at most five charges")
 
 
 func test_save_round_trip() -> void:

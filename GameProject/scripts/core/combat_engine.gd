@@ -23,6 +23,7 @@ func run_battle(player: Dictionary, encounter: Dictionary, tower_floor: int, bat
 		rounds += 1
 		player_block = 0
 		var action_points: int = mini(rounds, 3)
+		_charge_one_for_round(charge_state)
 		var incoming := _incoming_damage(enemies, rounds)
 
 		var defend_value := int(player.get("block_power", player.get("defense", 1))) + _state_bonus(player, "defense")
@@ -319,28 +320,54 @@ func _battle_charge_state(player: Dictionary) -> Dictionary:
 		"defense_multiplier": 1.0,
 		"bonus_damage": 0,
 		"repeat_attack": 0,
-		"repeat_defense": 0
+		"repeat_defense": 0,
+		"pool": [],
+		"activated": []
 	}
-	_collect_charge_state(state, player.get("equipment_attachments", {}))
-	_collect_charge_state(state, player.get("skill_attachments", {}))
+	_collect_charge_pool(state["pool"], player.get("equipment_attachments", {}))
+	_collect_charge_pool(state["pool"], player.get("skill_attachments", {}))
 	return state
 
 
-func _collect_charge_state(state: Dictionary, groups: Dictionary) -> void:
+func _collect_charge_pool(pool: Array, groups: Dictionary) -> void:
 	for attachments in groups.values():
 		for attachment in attachments:
+			if pool.size() >= 5:
+				return
 			var charge: Dictionary = attachment
-			match String(charge.get("kind", "")):
-				"charge_attack_multiplier":
-					state["attack_multiplier"] = float(state["attack_multiplier"]) * float(charge.get("value", 1.0))
-				"charge_defense_multiplier":
-					state["defense_multiplier"] = float(state["defense_multiplier"]) * float(charge.get("value", 1.0))
-				"charge_bonus_damage":
-					state["bonus_damage"] = int(state["bonus_damage"]) + int(charge.get("value", 0))
-				"charge_repeat_attack":
-					state["repeat_attack"] = int(state["repeat_attack"]) + maxi(1, int(charge.get("value", 1)))
-				"charge_repeat_defense":
-					state["repeat_defense"] = int(state["repeat_defense"]) + maxi(1, int(charge.get("value", 1)))
+			if String(charge.get("kind", "")).begins_with("charge_"):
+				pool.append(charge)
+
+
+func _charge_one_for_round(state: Dictionary) -> void:
+	var pool: Array = state.get("pool", [])
+	var activated: Array = state.get("activated", [])
+	var candidates: Array[int] = []
+	for i in range(pool.size()):
+		if not activated.has(i):
+			candidates.append(i)
+	if candidates.is_empty():
+		return
+	var rng := RandomNumberGenerator.new()
+	rng.randomize()
+	var selected_index := candidates[rng.randi_range(0, candidates.size() - 1)]
+	activated.append(selected_index)
+	state["activated"] = activated
+	_apply_charged_effect(state, pool[selected_index])
+
+
+func _apply_charged_effect(state: Dictionary, charge: Dictionary) -> void:
+	match String(charge.get("kind", "")):
+		"charge_attack_multiplier":
+			state["attack_multiplier"] = float(state["attack_multiplier"]) * float(charge.get("value", 1.0))
+		"charge_defense_multiplier":
+			state["defense_multiplier"] = float(state["defense_multiplier"]) * float(charge.get("value", 1.0))
+		"charge_bonus_damage":
+			state["bonus_damage"] = int(state["bonus_damage"]) + int(charge.get("value", 0))
+		"charge_repeat_attack":
+			state["repeat_attack"] = int(state["repeat_attack"]) + maxi(1, int(charge.get("value", 1)))
+		"charge_repeat_defense":
+			state["repeat_defense"] = int(state["repeat_defense"]) + maxi(1, int(charge.get("value", 1)))
 
 
 func _apply_charge_attack_value(base: int, state: Dictionary) -> int:

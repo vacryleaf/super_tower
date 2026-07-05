@@ -279,10 +279,10 @@ func _render_actions(parent: Control) -> void:
 			var button := Button.new()
 			var charge_id := String(charge.get("charge_id", ""))
 			button.set_meta("charge_id", charge_id)
-			button.custom_minimum_size = Vector2(150, 54)
+			button.custom_minimum_size = Vector2(150, 72)
 			button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			button.text = "%s\n%s" % [_charge_button_label(charge), String(charge.get("source_label", ""))]
-			button.disabled = input_locked or bool(charge.get("used", false))
+			button.disabled = input_locked or bool(charge.get("used", false)) or not bool(charge.get("ready", false))
 			button.pressed.connect(func(id := charge_id) -> void:
 				_on_charge_pressed(id)
 			)
@@ -642,7 +642,7 @@ func _refresh_action_buttons() -> void:
 		if button == null or not is_instance_valid(button):
 			continue
 		var charge_id := String(button.get_meta("charge_id", ""))
-		button.disabled = input_locked or bool(session.charge_used.get(charge_id, false))
+		button.disabled = input_locked or bool(session.charge_used.get(charge_id, false)) or not bool(session.charge_ready.get(charge_id, false))
 
 
 func _pending_state_text() -> String:
@@ -759,7 +759,8 @@ func _attachment_summary(target_type: String, target_id: String) -> String:
 func _charge_button_label(charge: Dictionary) -> String:
 	var label := String(charge.get("label", "充能"))
 	label = label.replace("充能：", "")
-	return label
+	var state := "已使用" if bool(charge.get("used", false)) else ("已充能" if bool(charge.get("ready", false)) else "未充能")
+	return "%s\n%s" % [label, state]
 
 
 func _trait_labels(traits: Array) -> String:

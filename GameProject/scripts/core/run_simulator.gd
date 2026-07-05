@@ -2,6 +2,7 @@ extends RefCounted
 class_name RunSimulator
 
 const DataCatalog = preload("res://scripts/core/data_catalog.gd")
+const MAX_CHARGES := 5
 const CombatEngine = preload("res://scripts/core/combat_engine.gd")
 
 var combat := CombatEngine.new()
@@ -333,6 +334,8 @@ func _unlock_next_skill(player: Dictionary) -> void:
 func attach_reward(player: Dictionary, target: Dictionary, reward: Dictionary) -> void:
 	if target.is_empty():
 		return
+	if _is_charge_kind(String(reward.get("kind", ""))) and _charge_count(player) >= MAX_CHARGES:
+		return
 	var target_type := String(target.get("type", ""))
 	var target_id := String(target.get("id", ""))
 	if target_type == "" or target_id == "":
@@ -348,6 +351,20 @@ func attach_reward(player: Dictionary, target: Dictionary, reward: Dictionary) -
 	attachment["target_type"] = target_type
 	attachment["target_id"] = target_id
 	player[key][target_id].append(attachment)
+
+
+func _charge_count(player: Dictionary) -> int:
+	var total := 0
+	for groups in [player.get("equipment_attachments", {}), player.get("skill_attachments", {})]:
+		for attachments in groups.values():
+			for attachment in attachments:
+				if _is_charge_kind(String(attachment.get("kind", ""))):
+					total += 1
+	return total
+
+
+func _is_charge_kind(kind: String) -> bool:
+	return kind.begins_with("charge_")
 
 
 func _preferred_attachment_target(player: Dictionary, reward_kind: String) -> Dictionary:
