@@ -29,6 +29,8 @@ var round_index := 0
 var pending_state_card := ""
 var state_draw_cursor := 0
 var battle_attack_multiplier := 1.0
+var counter_stance_charges := 0
+var counter_attack_multiplier := 1.0
 var reward_options: Array[Dictionary] = []
 var pending_reward: Dictionary = {}
 var reward_targets: Array[Dictionary] = []
@@ -132,6 +134,8 @@ func _reset_to_camp_state() -> void:
 	pending_state_card = ""
 	state_draw_cursor = 0
 	battle_attack_multiplier = 1.0
+	counter_stance_charges = 0
+	counter_attack_multiplier = 1.0
 	reward_options.clear()
 	pending_reward = {}
 	reward_targets.clear()
@@ -157,6 +161,8 @@ func _start_current_battle() -> void:
 	round_index = 0
 	pending_state_card = ""
 	battle_attack_multiplier = 1.0
+	counter_stance_charges = 0
+	counter_attack_multiplier = 1.0
 	charge_used = {}
 	charge_ready = {}
 	pending_charge_effects = _empty_charge_effects()
@@ -164,7 +170,7 @@ func _start_current_battle() -> void:
 	phase = "battle"
 	message = _battle_title()
 	if _has_first_strike():
-		_enemy_attack(enemies[0], true)
+		_enemy_attack(enemies[0], 0, true)
 	_begin_player_turn()
 
 
@@ -297,9 +303,9 @@ func use_skill(slot_index: int, target_index: int) -> void:
 		battle_log.append("%s：获得 %d 点格挡值。" % [skill["name"], total_gained])
 		last_events.append({"kind": "defense", "target": "player", "amount": total_gained})
 		if skill_type == "stance":
-			var attack_multiplier := float(skill.get("attack_multiplier", 1.0)) + _skill_multiplier_bonus(skill_id, "attack")
-			battle_attack_multiplier *= attack_multiplier
-			battle_log.append("%s：本场战斗攻击倍率 x%.2f。" % [skill["name"], attack_multiplier])
+			counter_stance_charges += 1
+			counter_attack_multiplier = maxf(counter_attack_multiplier, float(skill.get("counter_multiplier", 1.0)) + _skill_multiplier_bonus(skill_id, "attack"))
+			battle_log.append("%s：准备反击下一次命中自身的敌方攻击，反击倍率 x%.2f。" % [skill["name"], counter_attack_multiplier])
 	elif skill_type == "dodge":
 		var gained := int(skill.get("dodge_layers", 1))
 		if pending_state_card == "read":
@@ -497,36 +503,71 @@ func _resolve_enemy_action(enemy: Dictionary, enemy_index: int) -> void:
 			battle_log.append("%s 准备闪避下一次命中。" % enemy["name"])
 			last_events.append({"kind": "dodge", "target": "enemy", "target_index": enemy_index, "source": enemy["name"], "amount": 1})
 		_:
-			_enemy_attack(enemy, false)
+			_enemy_attack(enemy, enemy_index, false)
 
 
 func _enemy_defend(enemy: Dictionary, scale: float) -> int:
 	return Combatant.add_block(enemy, scale)
 
 
-func _enemy_attack(enemy: Dictionary, first_strike: bool) -> void:
-	var damage := int(enemy["attack"])
-	if first_strike:
-		damage = maxi(1, int(round(float(damage) * 0.75)))
+func _enemy_attack(enemy: Dictionary, enemy_index: int, first_strike: bool) -> void:
+	var segments := _enemy_attack_segments(enemy, first_strike)
 	var player_unit := _player_combatant()
-	var result := Combatant.apply_damage(player_unit, damage)
-	_sync_player_combatant(player_unit)
-	if bool(result["dodged"]):
-		battle_log.append("躲避了 %s 的攻击。" % enemy["name"])
-		last_events.append({"kind": "dodge_enemy_attack", "target": "player", "source": enemy["name"], "amount": 0})
+	var was_hit := false
+	for damage in segments:
+		var result := Combatant.apply_damage(player_unit, damage)
+		_sync_player_combatant(player_unit)
+		if bool(result["dodged"]):
+			battle_log.append("躲避了 %s 的一段攻击。" % enemy["name"])
+			last_events.append({"kind": "dodge_enemy_attack", "target": "player", "source": enemy["name"], "amount": 0})
+			continue
+		was_hit = true
+		battle_log.append("%s 攻击：护甲减免 %d，格挡吸收 %d，造成 %d 点伤害。" % [
+			enemy["name"],
+			int(result["armor_reduced"]),
+			int(result["block_absorbed"]),
+			int(result["damage"])
+		])
+		last_events.append({"kind": "damage", "target": "player", "source": enemy["name"], "amount": int(result["damage"])})
+	if was_hit:
+		_trigger_counter_attack(enemy_index)
+
+
+func _enemy_attack_segments(enemy: Dictionary, first_strike: bool) -> Array[int]:
+	var base_damage := int(enemy["attack"])
+	var traits: Array = enemy.get("traits", [])
+	if traits.has("claw"):
+		base_damage = int(round(float(base_damage) * 1.15))
+	if traits.has("enrage") and int(enemy["hp"]) <= int(enemy["max_hp"]) * 0.4:
+		base_damage = int(round(float(base_damage) * 1.30))
+	if first_strike:
+		base_damage = maxi(1, int(round(float(base_damage) * 0.75)))
+	var segments: Array[int] = [maxi(1, base_damage)]
+	if traits.has("swarm"):
+		segments.append(maxi(1, int(round(float(enemy["attack"]) * 0.35))))
+	if traits.has("summon") and round_index % 4 == 0:
+		segments.append(maxi(1, int(round(float(enemy["attack"]) * 0.50))))
+	return segments
+
+
+func _trigger_counter_attack(enemy_index: int) -> void:
+	if counter_stance_charges <= 0:
 		return
-	battle_log.append("%s 攻击：护甲减免 %d，格挡吸收 %d，造成 %d 点伤害。" % [
-		enemy["name"],
-		int(result["armor_reduced"]),
-		int(result["block_absorbed"]),
-		int(result["damage"])
-	])
-	last_events.append({"kind": "damage", "target": "player", "source": enemy["name"], "amount": int(result["damage"])})
+	if enemy_index < 0 or enemy_index >= enemies.size():
+		return
+	if int(enemies[enemy_index]["hp"]) <= 0:
+		return
+	counter_stance_charges -= 1
+	var damage := maxi(1, int(round(float(_current_attack_value()) * counter_attack_multiplier)))
+	battle_log.append("反击架势触发，对 %s 反击 %d 点。" % [enemies[enemy_index]["name"], damage])
+	_apply_damage_to_enemy(enemy_index, damage, true)
+	if counter_stance_charges <= 0:
+		counter_attack_multiplier = 1.0
 
 
-func _apply_damage_to_enemy(target_index: int, damage: int) -> void:
+func _apply_damage_to_enemy(target_index: int, damage: int, ignore_taunt: bool = false) -> void:
 	var taunt_target := _active_taunt_target()
-	if taunt_target >= 0:
+	if not ignore_taunt and taunt_target >= 0:
 		target_index = taunt_target
 	var enemy := enemies[target_index]
 	var marked_damage := maxi(0, int(round(float(damage) * float(enemy.get("mark_multiplier", 1.0)))))
@@ -1109,6 +1150,8 @@ func _save_data() -> Dictionary:
 		"pending_state_card": pending_state_card,
 		"state_draw_cursor": state_draw_cursor,
 		"battle_attack_multiplier": battle_attack_multiplier,
+		"counter_stance_charges": counter_stance_charges,
+		"counter_attack_multiplier": counter_attack_multiplier,
 		"charge_used": charge_used,
 		"charge_ready": charge_ready,
 		"pending_charge_effects": pending_charge_effects,
@@ -1209,6 +1252,8 @@ func _load_save_data(data: Dictionary) -> bool:
 	pending_state_card = String(data.get("pending_state_card", ""))
 	state_draw_cursor = int(data.get("state_draw_cursor", 0))
 	battle_attack_multiplier = float(data.get("battle_attack_multiplier", 1.0))
+	counter_stance_charges = int(data.get("counter_stance_charges", 0))
+	counter_attack_multiplier = float(data.get("counter_attack_multiplier", 1.0))
 	charge_used = _dictionary(data.get("charge_used", {}))
 	charge_ready = _dictionary(data.get("charge_ready", {}))
 	pending_charge_effects = _dictionary(data.get("pending_charge_effects", {}))

@@ -31,6 +31,7 @@ func run_all() -> void:
 	test_cunning_masks_enemy_intent()
 	test_skill_costs_minimum_two()
 	test_skill_multiplier_effects()
+	test_counter_stance_and_multihit_dodge()
 	test_reward_attachment_flow()
 	test_random_reward_pool_counts()
 	test_charge_reward_flow()
@@ -260,6 +261,62 @@ func test_skill_multiplier_effects() -> void:
 	archer.use_skill(0, 0)
 	archer.player_attack(0)
 	assert_true(int(archer.enemies[0]["hp"]) < 90, "hunter mark should amplify following attack damage")
+
+
+func test_counter_stance_and_multihit_dodge() -> void:
+	var session_script = load("res://scripts/core/play_session.gd")
+
+	var warrior = session_script.new()
+	warrior.start_new_game("warrior")
+	warrior.player["equipped_skills"] = ["counter_stance"]
+	warrior.player["attack"] = 10
+	var counter_enemies: Array[Dictionary] = [_test_enemy("反击测试敌人", 100, 1, [])]
+	warrior.enemies = counter_enemies
+	warrior.action_points = 3
+	warrior.use_skill(0, 0)
+	warrior._enemy_attack(warrior.enemies[0], 0, false)
+	assert_true(int(warrior.enemies[0]["hp"]) < 100, "counter stance should counterattack after being hit")
+	assert_equal(int(warrior.counter_stance_charges), 0, "counter stance should consume one counter charge")
+
+	var archer = session_script.new()
+	archer.start_new_game("archer")
+	archer.player["equipped_skills"] = ["quick_shot"]
+	archer.player["attack"] = 10
+	var dodging_enemies: Array[Dictionary] = [_test_enemy("闪避测试敌人", 100, 0, [])]
+	dodging_enemies[0]["dodge_layers"] = 1
+	archer.enemies = dodging_enemies
+	archer.action_points = 3
+	archer.use_skill(0, 0)
+	assert_equal(int(archer.enemies[0]["hp"]), 88, "quick shot should only lose its first hit to one dodge layer")
+
+	var dodger = session_script.new()
+	dodger.start_new_game("warrior")
+	dodger.player["hp"] = 100
+	dodger.player["defense"] = 0
+	dodger.player_block = 0
+	dodger.dodge_layers = 1
+	var swarm_enemies: Array[Dictionary] = [_test_enemy("多段测试敌人", 100, 10, ["swarm"])]
+	dodger.enemies = swarm_enemies
+	dodger._enemy_attack(dodger.enemies[0], 0, false)
+	assert_equal(int(dodger.dodge_layers), 0, "one dodge layer should be consumed by the first hit only")
+	assert_true(int(dodger.player["hp"]) < 100, "later hits in a multi-hit attack should still deal damage")
+
+
+func _test_enemy(enemy_name: String, hp: int, attack: int, traits: Array) -> Dictionary:
+	return {
+		"name": enemy_name,
+		"rank": "normal",
+		"max_hp": hp,
+		"hp": hp,
+		"attack": attack,
+		"defense": 0,
+		"armor": 0,
+		"block_power": 1,
+		"block": 0,
+		"dodge_layers": 0,
+		"taunt": 0,
+		"traits": traits
+	}
 
 
 func test_reward_attachment_flow() -> void:
