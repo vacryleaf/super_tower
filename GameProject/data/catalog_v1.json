@@ -1,0 +1,47 @@
+{
+  "version": 1,
+  "description": "Prototype external data catalog. Runtime still reads DataCatalog constants while migration proceeds table by table.",
+  "tables": {
+    "state_cards": {
+      "steady": {"name": "平稳", "weight": 50, "multiplier": 1.0, "tag": "numeric"},
+      "good": {"name": "效果不错", "weight": 20, "multiplier": 1.1, "tag": "numeric"},
+      "great": {"name": "效果拔群", "weight": 10, "multiplier": 1.2, "tag": "numeric"},
+      "critical": {"name": "暴击", "weight": 5, "multiplier": 2.0, "tag": "attack"},
+      "read": {"name": "识破", "weight": 5, "multiplier": 2.0, "tag": "dodge"},
+      "perfect_guard": {"name": "完美格挡", "weight": 5, "multiplier": 2.0, "tag": "defense"},
+      "fallback": {"name": "紧急回撤", "weight": 5, "multiplier": 1.0, "tag": "hybrid"}
+    },
+    "classes": {
+      "warrior": {
+        "name": "战士",
+        "max_hp": 90,
+        "base_attack": 7,
+        "base_defense": 1,
+        "base_block": 5,
+        "resource": "rage",
+        "first_skill": "heavy_slash"
+      },
+      "archer": {
+        "name": "弓箭手",
+        "max_hp": 70,
+        "base_attack": 8,
+        "base_defense": 0,
+        "base_block": 3,
+        "resource": "focus",
+        "first_skill": "precise_shot"
+      }
+    },
+    "skills": {
+      "heavy_slash": {"name": "重劈", "class": "warrior", "type": "attack", "cost": 2, "multiplier": 2.25, "hits": 1},
+      "shield_wall": {"name": "盾墙", "class": "warrior", "type": "defense", "cost": 2, "multiplier": 2.4},
+      "counter_stance": {"name": "反击架势", "class": "warrior", "type": "stance", "cost": 2, "block_multiplier": 1.2, "counter_multiplier": 1.35},
+      "war_cry": {"name": "战吼", "class": "warrior", "type": "buff", "cost": 2, "attack_multiplier": 1.25},
+      "precise_shot": {"name": "精准射击", "class": "archer", "type": "attack", "cost": 2, "multiplier": 2.1, "hits": 1},
+      "quick_shot": {"name": "连珠箭", "class": "archer", "type": "attack", "cost": 2, "multiplier": 1.2, "hits": 2},
+      "hunter_mark": {"name": "猎人标记", "class": "archer", "type": "debuff", "cost": 2, "mark_multiplier": 1.35},
+      "roll": {"name": "翻滚", "class": "archer", "type": "dodge", "cost": 2, "block_multiplier": 1.2, "dodge_layers": 1},
+      "first_aid": {"name": "急救", "class": "common", "type": "heal", "cost": 2, "heal_multiplier": 0.25},
+      "tactical_retreat": {"name": "战术后撤", "class": "common", "type": "dodge", "cost": 2, "block_multiplier": 0.9, "dodge_layers": 1}
+    }
+  }
+}

@@ -1,6 +1,8 @@
 extends RefCounted
 class_name DataCatalog
 
+const DataRepository = preload("res://scripts/core/data_repository.gd")
+
 const BATTLE_TYPES := ["normal", "normal", "normal", "elite", "normal", "normal", "normal", "elite", "normal", "boss"]
 
 const STATE_CARDS := {
@@ -131,3 +133,18 @@ static func get_state_weight_total() -> int:
 
 static func get_floor_battle_type(index: int) -> String:
 	return BATTLE_TYPES[index - 1]
+
+
+static func external_table(table_name: String) -> Dictionary:
+	var repository := DataRepository.new()
+	return repository.table(table_name)
+
+
+static func external_catalog_version() -> int:
+	var repository := DataRepository.new()
+	return repository.version()
+
+
+static func external_catalog_tables() -> Array[String]:
+	var repository := DataRepository.new()
+	return repository.available_tables()

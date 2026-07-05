@@ -2,10 +2,16 @@ extends Control
 
 const DataCatalog = preload("res://scripts/core/data_catalog.gd")
 const PlaySession = preload("res://scripts/core/play_session.gd")
+const BattleView = preload("res://scripts/ui/battle_view.gd")
+const RewardView = preload("res://scripts/ui/reward_view.gd")
+const EquipmentOverlay = preload("res://scripts/ui/equipment_overlay.gd")
 
 @onready var root: VBoxContainer = $Root
 
 var session := PlaySession.new()
+var battle_view: BattleView = BattleView.new()
+var reward_view: RewardView = RewardView.new()
+var equipment_overlay: EquipmentOverlay = EquipmentOverlay.new()
 var selected_target := 0
 var render_queued := false
 var input_locked := false
@@ -179,53 +185,28 @@ func _render_battle() -> void:
 
 
 func _enemy_card(index: int) -> Control:
-	var enemy: Dictionary = session.enemies[index]
-	var button := Button.new()
-	button.custom_minimum_size = Vector2(168, 172)
-	button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	var selected := ">" if index == selected_target else ""
-	button.text = _enemy_card_text(index, selected)
-	button.tooltip_text = _trait_tooltip(enemy["traits"])
-	button.disabled = int(enemy["hp"]) <= 0
-	button.pressed.connect(_on_enemy_card_pressed.bind(index))
+	var button: Button = battle_view.enemy_card(
+		session,
+		index,
+		selected_target,
+		Callable(self, "_rank_label"),
+		Callable(self, "_trait_labels"),
+		Callable(self, "_trait_tooltip"),
+		Callable(self, "_on_enemy_card_pressed")
+	)
 	enemy_card_nodes[index] = button
 	return button
 
 
 func _enemy_card_text(index: int, selected: String = "") -> String:
-	var enemy: Dictionary = session.enemies[index]
-	return "%s %s\n%s\n生命 %d/%d\n攻击 %d  护甲 %d\n格挡 %d  格挡值 %d\n意图：%s\n特性：%s" % [
-		selected,
-		enemy["name"],
-		_rank_label(enemy["rank"]),
-		int(enemy["hp"]),
-		int(enemy["max_hp"]),
-		int(enemy["attack"]),
-		int(enemy.get("armor", enemy.get("defense", 0))),
-		int(enemy.get("block", 0)),
-		int(enemy.get("block_power", enemy.get("defense", 0))),
-		session.enemy_intent_text(index),
-		_trait_labels(enemy["traits"])
-	]
+	return battle_view.enemy_card_text(session, index, selected, Callable(self, "_rank_label"), Callable(self, "_trait_labels"))
 
 
 func _render_player_status(parent: Control) -> void:
-	var panel := PanelContainer.new()
-	panel.custom_minimum_size = Vector2(190, 178)
-	panel.size_flags_vertical = Control.SIZE_SHRINK_END
-	var box := VBoxContainer.new()
-	panel.add_child(box)
-	player_status_labels["class"] = _label(DataCatalog.CLASSES[session.class_id]["name"], 18)
-	player_status_labels["action"] = _label("行动力 %d/%d" % [session.action_points, session.max_action_points], 15)
-	player_status_labels["hp"] = _label("hp %d/%d" % [int(session.player["hp"]), int(session.player["max_hp"])], 15)
-	player_status_labels["block"] = _label("格挡 %d" % session.player_block, 15)
-	player_status_labels["block_power"] = _label("格挡值 %d" % int(session.player["block_power"]), 15)
-	player_status_labels["attack"] = _label("攻击 %d" % int(session.player["attack"]), 15)
-	player_status_labels["armor"] = _label("护甲 %d" % int(session.player["defense"]), 15)
-	for key in ["class", "action", "hp", "block", "block_power", "attack", "armor"]:
-		box.add_child(player_status_labels[key])
-	player_status_node = panel
-	parent.add_child(panel)
+	var status: Dictionary = battle_view.player_status(session, DataCatalog.CLASSES[session.class_id]["name"], Callable(self, "_label"))
+	player_status_node = status["panel"]
+	player_status_labels = status["labels"]
+	parent.add_child(player_status_node)
 
 
 func _render_actions(parent: Control) -> void:
@@ -339,22 +320,7 @@ func _equipment_panel() -> Control:
 
 
 func _show_equipment_overlay() -> void:
-	var overlay := Control.new()
-	overlay.name = "EquipmentOverlay"
-	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
-	overlay.mouse_filter = Control.MOUSE_FILTER_STOP
-	overlay.z_index = 200
-	add_child(overlay)
-
-	var shade := ColorRect.new()
-	shade.set_anchors_preset(Control.PRESET_FULL_RECT)
-	shade.color = Color(0, 0, 0, 0.45)
-	overlay.add_child(shade)
-
-	var center := CenterContainer.new()
-	center.set_anchors_preset(Control.PRESET_FULL_RECT)
-	center.add_child(_equipment_panel())
-	overlay.add_child(center)
+	equipment_overlay.show(self, _equipment_panel())
 
 
 func _on_continue_pressed() -> void:
@@ -520,50 +486,19 @@ func _float_number_position(control: Control, popup_size: Vector2, placement: St
 
 
 func _render_reward() -> void:
-	var reward_area := CenterContainer.new()
-	reward_area.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	reward_area.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	root.add_child(reward_area)
-
-	var options := VBoxContainer.new()
-	options.custom_minimum_size = Vector2(460, 0)
-	options.alignment = BoxContainer.ALIGNMENT_CENTER
-	reward_area.add_child(options)
-	var title := _label("选择奖励", 24)
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	options.add_child(title)
-	for i in range(session.reward_options.size()):
-		var reward: Dictionary = session.reward_options[i]
-		var button := Button.new()
-		button.text = String(reward["label"]).replace("塔内附着：", "")
-		button.custom_minimum_size = Vector2(460, 64)
-		button.pressed.connect(_on_reward_pressed.bind(i))
-		options.add_child(button)
+	reward_view.render_reward(root, session.reward_options, Callable(self, "_on_reward_pressed"), Callable(self, "_label"))
 
 
 func _render_reward_target() -> void:
-	var target_area := CenterContainer.new()
-	target_area.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	target_area.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	root.add_child(target_area)
-
-	var options := VBoxContainer.new()
-	options.custom_minimum_size = Vector2(500, 0)
-	options.alignment = BoxContainer.ALIGNMENT_CENTER
-	target_area.add_child(options)
-	var title := _label("选择附着目标", 24)
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	options.add_child(title)
-	var subtitle := _label(String(session.message), 15)
-	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	options.add_child(subtitle)
-	for i in range(session.reward_targets.size()):
-		var target: Dictionary = session.reward_targets[i]
-		var button := Button.new()
-		button.text = "%s\n%s" % [_target_label(target), _attachment_summary(String(target["type"]), String(target["id"]))]
-		button.custom_minimum_size = Vector2(500, 72)
-		button.pressed.connect(_on_reward_target_pressed.bind(i))
-		options.add_child(button)
+	reward_view.render_reward_target(
+		root,
+		String(session.message),
+		session.reward_targets,
+		Callable(self, "_on_reward_target_pressed"),
+		Callable(self, "_label"),
+		Callable(self, "_target_label"),
+		Callable(self, "_attachment_summary")
+	)
 
 
 func _render_end_screen(title: String, subtitle: String) -> void:

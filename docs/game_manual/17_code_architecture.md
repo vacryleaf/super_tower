@@ -14,10 +14,14 @@
 | 单局状态机 | `GameProject/scripts/core/play_session.gd` | 管理当前派遣的一局爬塔：楼层、战斗编号、敌人列表、行动力、阶段切换、调用服务。不得继续承载大块可独立服务。 |
 | 奖励服务 | `GameProject/scripts/core/reward_service.gd` | 生成普通/精英/Boss 奖励池，判断奖励是否需要附着，处理奖励短标签和楼层奖励数值。 |
 | 存档 Profile | `GameProject/scripts/core/save_profile.gd` | 读写 `user://savegame.json`，维护 profile 版本、队伍 roster、当前 active run 和旧存档兼容。 |
+| 战斗服务 | `GameProject/scripts/core/battle_service.gd` | 承载玩家基础行动、技能释放、敌人回合、敌人行动和多段攻击等战斗流程。 |
+| 遭遇服务 | `GameProject/scripts/core/encounter_service.gd` | 承载普通/精英/Boss 遭遇生成、敌人编队和每层战斗压力曲线。 |
 | 战斗结算实体 | `GameProject/scripts/core/combatant.gd` | 玩家和敌人的统一伤害结算、护甲、格挡、闪避、敌人标准化。 |
 | 自动战斗模拟 | `GameProject/scripts/core/combat_engine.gd` | 用于测试和数值估算的自动战斗逻辑。后续应逐步与真实战斗共用更多规则。 |
 | 原型模拟器 | `GameProject/scripts/core/run_simulator.gd` | 创建角色、生成遭遇、自动跑新手引导和楼层，用于数值验证。 |
 | 静态数据 | `GameProject/scripts/core/data_catalog.gd` | 职业、技能、基础装备、敌人模板、状态卡等原型静态表。后续内容量扩大后迁移到 JSON 或 Resource。 |
+| 数据资源加载 | `GameProject/scripts/core/data_repository.gd` / `GameProject/data/catalog_v1.json` | 第一版外部数据资源入口。首批包含状态卡、职业和技能；后续装备和敌人表继续按同一格式迁移。 |
+| UI View | `GameProject/scripts/ui/*.gd` | 战斗页部件、奖励页和装备遮罩的界面构建。`main.gd` 只编排页面与转发输入。 |
 
 ## 强制约束
 
@@ -31,12 +35,10 @@
 
 ## 后续拆分顺序
 
-1. `BattleService`：从 `PlaySession` 继续抽离玩家行动、敌人回合、技能结算、充能触发。
-2. `EncounterService`：从 `RunSimulator` 抽离遭遇生成和楼层压力曲线，供真实爬塔与模拟器共用。
-3. `scripts/ui/BattleView.gd`：从 `main.gd` 抽离战斗页布局、敌人卡、玩家状态栏、行动按钮。
-4. `scripts/ui/RewardView.gd`：从 `main.gd` 抽离奖励页和附着目标页。
-5. `scripts/ui/EquipmentOverlay.gd`：从 `main.gd` 抽离装备弹层和背包展示。
-6. 数据资源化：把 `DataCatalog` 中大表迁移为 JSON 或 Godot Resource，保留 `DataCatalog` 作为加载和索引入口。
+1. 继续削薄 `PlaySession`：新增战斗规则必须进 `BattleService`，`PlaySession` 只保留阶段推进和当前局状态字段。
+2. 继续削薄 `main.gd`：新增界面必须进 `scripts/ui/`，`main.gd` 只编排页面与连接回调。
+3. 继续迁移遭遇规则：新增敌人编队和楼层压力曲线必须进 `EncounterService`。
+4. 继续数据资源化：装备、套装、敌人、教程遭遇后续迁入 `GameProject/data/catalog_v1.json` 或拆分 JSON/Resource，并通过 `DataCatalog` 暴露索引入口。
 
 ## 不允许的开发方式
 
