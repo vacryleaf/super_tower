@@ -48,7 +48,7 @@ func _play_one_action(session: PlaySession) -> void:
 	if session.player["equipped_skills"].size() > 0 and session.action_points >= 1:
 		session.use_skill(0, target)
 		return
-	if _incoming_damage(session) > int(session.player["defense"]) + 8 and session.action_points >= 1:
+	if _incoming_damage(session) > int(session.player["defense"]) + 8 and session.action_points == 3:
 		session.player_defend()
 		return
 	if session.action_points >= 1:

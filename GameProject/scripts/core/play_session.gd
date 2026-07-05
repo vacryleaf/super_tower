@@ -26,6 +26,8 @@ var state_draw_cursor := 0
 var used_state_cards_this_turn := 0
 var reward_options: Array[Dictionary] = []
 var battle_log: Array[String] = []
+var last_events: Array[Dictionary] = []
+var last_drawn_cards: Array[String] = []
 
 
 func start_new_game(selected_class: String) -> void:
@@ -43,6 +45,8 @@ func is_tutorial() -> bool:
 
 
 func _start_current_battle() -> void:
+	last_events.clear()
+	last_drawn_cards.clear()
 	current_encounter = _get_current_encounter()
 	enemies = _build_enemies(current_encounter)
 	action_points = 3
@@ -96,14 +100,18 @@ func _begin_player_turn() -> void:
 
 func _draw_state_cards(count: int) -> void:
 	var cycle := ["steady", "good", "steady", "great", "steady", "critical", "steady", "read", "good", "perfect_guard", "steady", "fallback"]
+	last_drawn_cards.clear()
 	for i in range(count):
 		if state_cards.size() >= 5:
 			return
-		state_cards.append(cycle[state_draw_cursor % cycle.size()])
+		var card_id: String = cycle[state_draw_cursor % cycle.size()]
+		state_cards.append(card_id)
+		last_drawn_cards.append(card_id)
 		state_draw_cursor += 1
 
 
 func use_state_card(index: int) -> void:
+	last_events.clear()
 	if phase != "battle":
 		return
 	if index < 0 or index >= state_cards.size():
@@ -118,6 +126,7 @@ func use_state_card(index: int) -> void:
 
 
 func player_attack(target_index: int) -> void:
+	last_events.clear()
 	if not _can_act(1):
 		return
 	var target := _valid_target(target_index)
@@ -133,17 +142,20 @@ func player_attack(target_index: int) -> void:
 
 
 func player_defend() -> void:
+	last_events.clear()
 	if not _can_act(1):
 		return
 	var gained := _modified_value(int(player["defense"]), "defense")
 	player_armor += gained
 	action_points -= 1
 	battle_log.append("防御：获得 %d 点护甲。" % gained)
+	last_events.append({"kind": "defense", "target": "player", "amount": gained})
 	_consume_pending_state()
 	_after_player_action()
 
 
 func player_dodge() -> void:
+	last_events.clear()
 	if not _can_act(1):
 		return
 	var gained := 1
@@ -152,11 +164,13 @@ func player_dodge() -> void:
 	dodge_layers += gained
 	action_points -= 1
 	battle_log.append("躲避：获得 %d 层躲避。" % gained)
+	last_events.append({"kind": "dodge", "target": "player", "amount": gained})
 	_consume_pending_state()
 	_after_player_action()
 
 
 func use_skill(slot_index: int, target_index: int) -> void:
+	last_events.clear()
 	if phase != "battle":
 		return
 	if slot_index < 0 or slot_index >= player["equipped_skills"].size():
@@ -178,14 +192,17 @@ func use_skill(slot_index: int, target_index: int) -> void:
 		var gained := _modified_value(int(skill.get("power", 0)) + int(player["defense"]), "defense")
 		player_armor += gained
 		battle_log.append("%s：获得 %d 点护甲。" % [skill["name"], gained])
+		last_events.append({"kind": "defense", "target": "player", "amount": gained})
 	elif skill_type == "dodge":
 		dodge_layers += 1
 		player_armor += int(skill.get("power", 0))
 		battle_log.append("%s：获得躲避。" % skill["name"])
+		last_events.append({"kind": "dodge", "target": "player", "amount": 1})
 	elif skill_type == "heal":
 		var healed := int(skill.get("power", 0))
 		player["hp"] = mini(int(player["max_hp"]), int(player["hp"]) + healed)
 		battle_log.append("%s：恢复 %d 点生命。" % [skill["name"], healed])
+		last_events.append({"kind": "heal", "target": "player", "amount": healed})
 	else:
 		player["attack_bonus"] += 1
 		simulator._recalculate_player_stats(player, false)
@@ -196,6 +213,7 @@ func use_skill(slot_index: int, target_index: int) -> void:
 
 
 func end_turn() -> void:
+	last_events.clear()
 	if phase != "battle":
 		return
 	_enemy_turn()
@@ -205,6 +223,7 @@ func end_turn() -> void:
 
 
 func choose_reward(index: int) -> void:
+	last_events.clear()
 	if phase != "reward":
 		return
 	if index < 0 or index >= reward_options.size():
@@ -257,6 +276,7 @@ func _enemy_attack(enemy: Dictionary, first_strike: bool) -> void:
 	if dodge_layers > 0:
 		dodge_layers -= 1
 		battle_log.append("躲避了 %s 的攻击。" % enemy["name"])
+		last_events.append({"kind": "dodge_enemy_attack", "target": "player", "source": enemy["name"], "amount": 0})
 		return
 	if player_armor > 0:
 		var absorbed: int = mini(player_armor, damage)
@@ -265,6 +285,7 @@ func _enemy_attack(enemy: Dictionary, first_strike: bool) -> void:
 	if damage > 0:
 		player["hp"] = maxi(0, int(player["hp"]) - damage)
 	battle_log.append("%s 造成 %d 点伤害。" % [enemy["name"], damage])
+	last_events.append({"kind": "damage", "target": "player", "source": enemy["name"], "amount": damage})
 
 
 func _apply_damage_to_enemy(target_index: int, damage: int) -> void:
@@ -277,6 +298,7 @@ func _apply_damage_to_enemy(target_index: int, damage: int) -> void:
 	if remaining > 0:
 		enemy["hp"] = maxi(0, int(enemy["hp"]) - remaining)
 	battle_log.append("命中 %s，造成 %d 点伤害。" % [enemy["name"], damage])
+	last_events.append({"kind": "damage", "target": "enemy", "target_index": target_index, "amount": damage})
 
 
 func _on_victory() -> void:

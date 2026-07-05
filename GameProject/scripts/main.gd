@@ -8,6 +8,12 @@ const PlaySession = preload("res://scripts/core/play_session.gd")
 var session := PlaySession.new()
 var selected_target := 0
 var render_queued := false
+var input_locked := false
+var equipment_open := false
+var enemy_card_nodes: Dictionary = {}
+var player_status_node: Control = null
+var deck_node: Control = null
+var hand_row_node: Control = null
 
 
 func _ready() -> void:
@@ -30,8 +36,7 @@ func _request_menu_render() -> void:
 
 func _clear_root() -> void:
 	for child in root.get_children():
-		root.remove_child(child)
-		child.free()
+		child.queue_free()
 
 
 func _render_menu() -> void:
@@ -76,10 +81,6 @@ func _render_game() -> void:
 	top.add_child(_status_badge("第 %d 层" % session.floor_index, 22, Vector2(110, 42)))
 	top.add_child(_status_badge("第 %d 场" % session.battle_index, 22, Vector2(110, 42)))
 	top.add_child(_spacer())
-	top.add_child(_status_badge("生命 %d/%d" % [int(session.player.get("hp", 0)), int(session.player.get("max_hp", 0))], 18, Vector2(150, 42)))
-	top.add_child(_status_badge("护甲 %d" % session.player_armor, 18, Vector2(92, 42)))
-	top.add_child(_status_badge("躲避 %d" % session.dodge_layers, 18, Vector2(92, 42)))
-	top.add_child(_status_badge("行动力 %d" % session.action_points, 18, Vector2(110, 42)))
 	root.add_child(top)
 	var message_label := _label(session.message, 16)
 	message_label.custom_minimum_size = Vector2(0, 30)
@@ -97,107 +98,87 @@ func _render_game() -> void:
 
 
 func _render_battle() -> void:
+	enemy_card_nodes.clear()
+	player_status_node = null
+	deck_node = null
+	hand_row_node = null
 	var body := HBoxContainer.new()
 	body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	body.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	root.add_child(body)
 
-	var left := VBoxContainer.new()
-	left.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	left.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	left.custom_minimum_size = Vector2(760, 0)
-	body.add_child(left)
-	left.add_child(_label("敌人（第 1 场是单敌人教学，后续会出现多敌人编队）", 20))
+	var combat_area := VBoxContainer.new()
+	combat_area.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	combat_area.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	combat_area.custom_minimum_size = Vector2(650, 0)
+	body.add_child(combat_area)
+	combat_area.add_child(_label("敌人", 20))
 	var enemy_row := HBoxContainer.new()
 	enemy_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	left.add_child(enemy_row)
+	combat_area.add_child(enemy_row)
 	for i in range(session.enemies.size()):
 		enemy_row.add_child(_enemy_card(i))
 
-	left.add_child(_label("状态卡", 18))
+	combat_area.add_child(_spacer_vertical())
+	combat_area.add_child(_label("手牌", 18))
 	var state_row := HBoxContainer.new()
 	state_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	left.add_child(state_row)
+	hand_row_node = state_row
+	combat_area.add_child(state_row)
 	for i in range(session.state_cards.size()):
 		var card_id: String = session.state_cards[i]
 		var button := Button.new()
 		button.text = DataCatalog.STATE_CARDS[card_id]["name"]
-		button.custom_minimum_size = Vector2(130, 48)
+		button.custom_minimum_size = Vector2(136, 56)
+		button.disabled = input_locked
 		button.pressed.connect(func(index := i) -> void:
 			session.use_state_card(index)
 			_request_game_render()
 		)
 		state_row.add_child(button)
 	if session.pending_state_card != "":
-		left.add_child(_label("已准备：%s" % DataCatalog.STATE_CARDS[session.pending_state_card]["name"], 16))
+		combat_area.add_child(_label("已准备：%s" % DataCatalog.STATE_CARDS[session.pending_state_card]["name"], 16))
 
-	var action_row := HBoxContainer.new()
-	action_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	left.add_child(action_row)
-	action_row.add_child(_action_button("普通攻击", func() -> void:
-		session.player_attack(selected_target)
+	var bottom_bar := HBoxContainer.new()
+	bottom_bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	combat_area.add_child(bottom_bar)
+	_render_player_status(bottom_bar)
+	var equip_button := _action_button("装备", func() -> void:
+		equipment_open = not equipment_open
 		_request_game_render()
-	))
-	action_row.add_child(_action_button("防御", func() -> void:
-		session.player_defend()
-		_request_game_render()
-	))
-	action_row.add_child(_action_button("躲避", func() -> void:
-		session.player_dodge()
-		_request_game_render()
-	))
-	action_row.add_child(_action_button("结束回合", func() -> void:
-		session.end_turn()
-		_request_game_render()
-	))
+	)
+	equip_button.custom_minimum_size = Vector2(96, 92)
+	bottom_bar.add_child(equip_button)
+	_render_actions(bottom_bar)
 
-	left.add_child(_label("技能", 18))
-	var skill_row := HBoxContainer.new()
-	skill_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	left.add_child(skill_row)
-	for i in range(4):
-		var button := Button.new()
-		button.custom_minimum_size = Vector2(150, 52)
-		if i < session.player["equipped_skills"].size():
-			var skill_id: String = session.player["equipped_skills"][i]
-			var skill: Dictionary = DataCatalog.SKILLS[skill_id]
-			button.text = "%s（%d 行动力）" % [skill["name"], int(skill.get("cost", 0))]
-			button.pressed.connect(func(index := i) -> void:
-				session.use_skill(index, selected_target)
-				_request_game_render()
-			)
-		else:
-			button.text = "未解锁"
-			button.disabled = true
-		skill_row.add_child(button)
+	if equipment_open:
+		body.add_child(_equipment_panel())
 
 	var right := VBoxContainer.new()
-	right.custom_minimum_size = Vector2(360, 0)
+	right.custom_minimum_size = Vector2(340, 0)
 	right.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	body.add_child(right)
-	var right_scroll := ScrollContainer.new()
-	right_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	right_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	right.add_child(right_scroll)
-	var right_content := VBoxContainer.new()
-	right_content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	right_scroll.add_child(right_content)
-	_render_character_panel(right_content)
-	_render_log(right_content)
+	_render_deck(right)
+	_render_log(right)
+	if not session.last_drawn_cards.is_empty():
+		var cards := session.last_drawn_cards.duplicate()
+		session.last_drawn_cards.clear()
+		call_deferred("_animate_draw_cards", cards)
 
 
 func _enemy_card(index: int) -> Control:
 	var enemy: Dictionary = session.enemies[index]
 	var button := Button.new()
-	button.custom_minimum_size = Vector2(210, 132)
+	button.custom_minimum_size = Vector2(220, 160)
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var selected := ">" if index == selected_target else ""
-	button.text = "%s %s\n%s\n生命 %d/%d\n护甲 %d\n特性：%s" % [
+	button.text = "%s %s\n%s\n生命 %d/%d\n攻击 %d  护甲 %d\n意图：攻击\n特性：%s" % [
 		selected,
 		enemy["name"],
 		_rank_label(enemy["rank"]),
 		int(enemy["hp"]),
 		int(enemy["max_hp"]),
+		int(enemy["attack"]),
 		int(enemy["armor"]),
 		_trait_labels(enemy["traits"])
 	]
@@ -206,7 +187,216 @@ func _enemy_card(index: int) -> Control:
 		selected_target = index
 		_request_game_render()
 	)
+	enemy_card_nodes[index] = button
 	return button
+
+
+func _render_player_status(parent: Control) -> void:
+	var panel := PanelContainer.new()
+	panel.custom_minimum_size = Vector2(180, 132)
+	panel.size_flags_vertical = Control.SIZE_SHRINK_END
+	var box := VBoxContainer.new()
+	panel.add_child(box)
+	box.add_child(_label(DataCatalog.CLASSES[session.class_id]["name"], 18))
+	box.add_child(_label("行动力 %d" % session.action_points, 15))
+	box.add_child(_label("hp %d/%d" % [int(session.player["hp"]), int(session.player["max_hp"])], 15))
+	box.add_child(_label("攻击 %d" % int(session.player["attack"]), 15))
+	box.add_child(_label("护甲 %d" % int(session.player["defense"]), 15))
+	player_status_node = panel
+	parent.add_child(panel)
+
+
+func _render_actions(parent: Control) -> void:
+	var actions := VBoxContainer.new()
+	actions.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	parent.add_child(actions)
+	var basic_row := HBoxContainer.new()
+	basic_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	actions.add_child(basic_row)
+	basic_row.add_child(_action_button("普通攻击", Callable(self, "_on_attack_pressed")))
+	basic_row.add_child(_action_button("防御", Callable(self, "_on_defend_pressed")))
+	basic_row.add_child(_action_button("躲避", Callable(self, "_on_dodge_pressed")))
+	basic_row.add_child(_action_button("结束回合", Callable(self, "_on_end_turn_pressed")))
+
+	var skill_row := HBoxContainer.new()
+	skill_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	actions.add_child(skill_row)
+	for i in range(4):
+		var button := Button.new()
+		button.custom_minimum_size = Vector2(140, 48)
+		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		button.disabled = input_locked or i >= session.player["equipped_skills"].size()
+		if i < session.player["equipped_skills"].size():
+			var skill_id: String = session.player["equipped_skills"][i]
+			var skill: Dictionary = DataCatalog.SKILLS[skill_id]
+			button.text = "%s（%d）" % [skill["name"], int(skill.get("cost", 0))]
+			button.pressed.connect(func(index := i) -> void:
+				_on_skill_pressed(index)
+			)
+		else:
+			button.text = "未解锁"
+		skill_row.add_child(button)
+
+
+func _equipment_panel() -> Control:
+	var panel := PanelContainer.new()
+	panel.custom_minimum_size = Vector2(520, 0)
+	panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	var outer := VBoxContainer.new()
+	panel.add_child(outer)
+	outer.add_child(_label("装备", 22))
+	var columns := HBoxContainer.new()
+	columns.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	outer.add_child(columns)
+
+	var body_slots := VBoxContainer.new()
+	body_slots.custom_minimum_size = Vector2(230, 0)
+	columns.add_child(body_slots)
+	body_slots.add_child(_label("人体装备栏", 16))
+	for slot in ["head", "body", "waist", "legs", "hands", "leggings", "feet", "weapon", "offhand", "necklace", "ring"]:
+		body_slots.add_child(_label("%s：%s" % [_slot_label(slot), _equipped_name(slot)], 13))
+
+	var bag_scroll := ScrollContainer.new()
+	bag_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	bag_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	columns.add_child(bag_scroll)
+	var bag := VBoxContainer.new()
+	bag.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	bag_scroll.add_child(bag)
+	bag.add_child(_label("本局背包", 16))
+	if session.player["equipment_ids"].is_empty():
+		bag.add_child(_label("暂无本局装备。", 13))
+	else:
+		for item_id in session.player["equipment_ids"]:
+			var item: Dictionary = DataCatalog.EQUIPMENT[item_id]
+			bag.add_child(_label("%s\n%s  生命+%d 攻击+%d 护甲+%d" % [
+				item["name"],
+				_slot_label(item["slot"]),
+				int(item["hp"]),
+				int(item["attack"]),
+				int(item["armor"])
+			], 12))
+	return panel
+
+
+func _render_deck(parent: Control) -> void:
+	deck_node = PanelContainer.new()
+	deck_node.custom_minimum_size = Vector2(320, 96)
+	var box := VBoxContainer.new()
+	deck_node.add_child(box)
+	box.add_child(_label("卡堆", 18))
+	box.add_child(_label("回合开始从这里抽取状态卡到手牌。", 13))
+	parent.add_child(deck_node)
+	parent.add_child(_spacer_vertical())
+
+
+func _on_attack_pressed() -> void:
+	_run_action(func() -> void:
+		session.player_attack(selected_target)
+	)
+
+
+func _on_defend_pressed() -> void:
+	_run_action(func() -> void:
+		session.player_defend()
+	)
+
+
+func _on_dodge_pressed() -> void:
+	_run_action(func() -> void:
+		session.player_dodge()
+	)
+
+
+func _on_end_turn_pressed() -> void:
+	_run_action(func() -> void:
+		session.end_turn()
+	)
+
+
+func _on_skill_pressed(index: int) -> void:
+	_run_action(func() -> void:
+		session.use_skill(index, selected_target)
+	)
+
+
+func _run_action(action: Callable) -> void:
+	if input_locked:
+		return
+	input_locked = true
+	action.call()
+	_request_game_render()
+	await get_tree().process_frame
+	await _play_action_feedback()
+	input_locked = false
+	_request_game_render()
+
+
+func _play_action_feedback() -> void:
+	var events := session.last_events.duplicate(true)
+	if events.is_empty():
+		await get_tree().create_timer(0.15).timeout
+		return
+	for event in events:
+		if event.get("target", "") == "enemy":
+			var target_index := int(event.get("target_index", 0))
+			_shake_node(enemy_card_nodes.get(target_index, null))
+			_float_number(enemy_card_nodes.get(target_index, null), "-%d" % int(event.get("amount", 0)))
+		elif event.get("target", "") == "player":
+			_shake_node(player_status_node)
+			if int(event.get("amount", 0)) > 0:
+				var prefix := "+" if event.get("kind", "") in ["defense", "heal", "dodge"] else "-"
+				_float_number(player_status_node, "%s%d" % [prefix, int(event.get("amount", 0))])
+	await get_tree().create_timer(0.9).timeout
+
+
+func _shake_node(node: Variant) -> void:
+	if node == null or not (node is Control):
+		return
+	var control: Control = node
+	var tween := create_tween()
+	tween.tween_property(control, "scale", Vector2(1.05, 1.05), 0.08)
+	tween.tween_property(control, "scale", Vector2(0.97, 0.97), 0.08)
+	tween.tween_property(control, "scale", Vector2.ONE, 0.08)
+
+
+func _float_number(node: Variant, text_value: String) -> void:
+	if node == null or not (node is Control):
+		return
+	var control: Control = node
+	var label := _label(text_value, 22)
+	label.modulate = Color(1, 0.25, 0.2, 1)
+	label.z_index = 100
+	add_child(label)
+	label.global_position = control.global_position + Vector2(20, 10)
+	var tween := create_tween()
+	tween.set_parallel(true)
+	tween.tween_property(label, "global_position", label.global_position + Vector2(0, -36), 0.8)
+	tween.tween_property(label, "modulate:a", 0.0, 0.8)
+	tween.finished.connect(func() -> void:
+		if is_instance_valid(label):
+			label.queue_free()
+	)
+
+
+func _animate_draw_cards(cards: Array) -> void:
+	if deck_node == null or hand_row_node == null:
+		return
+	for i in range(cards.size()):
+		var card_id: String = cards[i]
+		var label := _label(DataCatalog.STATE_CARDS[card_id]["name"], 16)
+		label.modulate = Color(0.8, 0.95, 1.0, 1)
+		label.z_index = 100
+		add_child(label)
+		label.global_position = deck_node.global_position + Vector2(20, 20)
+		var target := hand_row_node.global_position + Vector2(20 + i * 88, 8)
+		var tween := create_tween()
+		tween.tween_property(label, "global_position", target, 0.45)
+		tween.tween_property(label, "modulate:a", 0.0, 0.2)
+		tween.finished.connect(func() -> void:
+			if is_instance_valid(label):
+				label.queue_free()
+		)
 
 
 func _render_reward() -> void:
@@ -271,6 +461,7 @@ func _action_button(text_value: String, callback: Callable) -> Button:
 	button.text = text_value
 	button.custom_minimum_size = Vector2(132, 52)
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	button.disabled = input_locked
 	button.pressed.connect(callback)
 	return button
 
@@ -298,6 +489,20 @@ func _spacer() -> Control:
 	var spacer := Control.new()
 	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	return spacer
+
+
+func _spacer_vertical() -> Control:
+	var spacer := Control.new()
+	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	return spacer
+
+
+func _equipped_name(slot: String) -> String:
+	var equipment: Dictionary = session.player.get("equipment", {})
+	if equipment.has(slot):
+		var item_id: String = equipment[slot]
+		return DataCatalog.EQUIPMENT[item_id]["name"]
+	return "空"
 
 
 func _rank_label(rank: String) -> String:

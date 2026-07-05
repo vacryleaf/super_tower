@@ -15,9 +15,9 @@ func _run() -> void:
 	_press_button(main, "开始：战士")
 	await process_frame
 	_press_button(main, "普通攻击")
-	await process_frame
+	await _wait_seconds(1.1)
 	_press_button(main, "普通攻击")
-	await process_frame
+	await _wait_seconds(1.1)
 	if failures.is_empty():
 		print("UI CLICK SMOKE TEST PASSED")
 		quit(0)
@@ -43,3 +43,13 @@ func _find_button(node: Node, text_value: String) -> Button:
 		if found != null:
 			return found
 	return null
+
+
+func _wait_seconds(seconds: float) -> void:
+	var timer := Timer.new()
+	timer.one_shot = true
+	timer.wait_time = seconds
+	root.add_child(timer)
+	timer.start()
+	await timer.timeout
+	timer.queue_free()
