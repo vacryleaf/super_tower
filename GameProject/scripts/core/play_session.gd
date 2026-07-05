@@ -16,7 +16,7 @@ var phase := "menu"
 var message := ""
 var enemies: Array[Dictionary] = []
 var current_encounter: Dictionary = {}
-var action_points := 3
+var action_points := 1
 var player_armor := 0
 var dodge_layers := 0
 var round_index := 0
@@ -49,7 +49,7 @@ func _start_current_battle() -> void:
 	last_drawn_cards.clear()
 	current_encounter = _get_current_encounter()
 	enemies = _build_enemies(current_encounter)
-	action_points = 3
+	action_points = 1
 	player_armor = 0
 	dodge_layers = 0
 	round_index = 0
@@ -92,10 +92,10 @@ func _build_enemies(encounter: Dictionary) -> Array[Dictionary]:
 
 func _begin_player_turn() -> void:
 	round_index += 1
-	action_points = 3
+	action_points = mini(round_index, 3)
 	player_armor = 0
 	used_state_cards_this_turn = 0
-	_draw_state_cards(2)
+	_draw_state_cards(1)
 
 
 func _draw_state_cards(count: int) -> void:
@@ -374,7 +374,7 @@ func _advance_after_reward() -> void:
 		battle_index = 1
 	else:
 		battle_index += 1
-	player["hp"] = mini(int(player["max_hp"]), int(player["hp"]) + maxi(4, int(round(float(player["max_hp"]) * 0.08))))
+	player["hp"] = mini(int(player["max_hp"]), int(player["hp"]) + _post_reward_heal_amount())
 	_start_current_battle()
 
 
@@ -392,6 +392,16 @@ func _unlock_next_skill() -> void:
 
 func _floor_value(base: int) -> int:
 	return base + maxi(0, int(floor(float(floor_index - 1) / 10.0)))
+
+
+func _post_reward_heal_amount() -> int:
+	var ratio := 0.08
+	var encounter_type := String(current_encounter.get("type", "normal"))
+	if encounter_type == "boss":
+		ratio = 0.35
+	elif encounter_type == "elite":
+		ratio = 0.18
+	return maxi(4, int(round(float(player["max_hp"]) * ratio)))
 
 
 func _modified_value(base: int, tag: String) -> int:

@@ -82,7 +82,7 @@ const TUTORIAL_UNLOCKS := {
 const TUTORIAL_ENCOUNTERS := [
 	{"id": "tutorial_01", "type": "normal", "name": "训练腐鼠", "units": [{"name": "训练腐鼠", "rank": "normal", "hp": 28, "attack": 8, "defense": 0, "traits": []}]},
 	{"id": "tutorial_02", "type": "normal", "name": "迟缓守卫", "units": [{"name": "迟缓守卫", "rank": "normal", "hp": 44, "attack": 15, "defense": 2, "traits": []}]},
-	{"id": "tutorial_03", "type": "normal", "name": "投石哥布林", "units": [{"name": "投石哥布林", "rank": "normal", "hp": 48, "attack": 17, "defense": 1, "traits": []}]},
+	{"id": "tutorial_03", "type": "normal", "name": "投石哥布林", "units": [{"name": "投石哥布林", "rank": "normal", "hp": 48, "attack": 13, "defense": 1, "traits": []}]},
 	{"id": "tutorial_04", "type": "elite", "name": "盾卫学徒", "units": [{"name": "盾卫学徒", "rank": "elite", "hp": 26, "attack": 5, "defense": 3, "traits": ["guard"]}]},
 	{"id": "tutorial_05", "type": "normal", "name": "哥布林二人队", "units": [{"name": "哥布林矛手", "rank": "normal", "hp": 12, "attack": 3, "defense": 0, "traits": []}, {"name": "哥布林投石手", "rank": "normal", "hp": 12, "attack": 3, "defense": 0, "traits": []}]},
 	{"id": "tutorial_06", "type": "normal", "name": "毒尾幼鼠", "units": [{"name": "毒尾幼鼠", "rank": "normal", "hp": 20, "attack": 4, "defense": 1, "traits": ["corrode"]}]},

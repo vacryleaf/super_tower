@@ -21,10 +21,10 @@ func run_battle(player: Dictionary, encounter: Dictionary, tower_floor: int, bat
 	while player["hp"] > 0 and _alive_count(enemies) > 0 and rounds < MAX_ROUNDS:
 		rounds += 1
 		player_armor = 0
-		var action_points := 3
+		var action_points: int = mini(rounds, 3)
 		var incoming := _incoming_damage(enemies, rounds)
 
-		if incoming >= int(player["defense"]) + 8 and action_points > 0:
+		if incoming >= int(player["defense"]) and action_points > 0:
 			player_armor += int(player["defense"]) + _state_bonus(player, "defense")
 			action_points -= 1
 			log.append("round_%d:defend" % rounds)
