@@ -41,8 +41,15 @@ func _request_menu_render() -> void:
 
 
 func _clear_root() -> void:
+	_clear_overlay_layers()
 	for child in root.get_children():
 		child.queue_free()
+
+
+func _clear_overlay_layers() -> void:
+	for child in get_children():
+		if child != root:
+			child.queue_free()
 
 
 func _render_menu() -> void:
@@ -164,15 +171,14 @@ func _render_battle() -> void:
 	bottom_bar.add_child(equip_button)
 	_render_actions(bottom_bar)
 
-	if equipment_open:
-		body.add_child(_equipment_panel())
-
 	var right := VBoxContainer.new()
 	right.custom_minimum_size = Vector2(340, 0)
 	right.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	body.add_child(right)
 	_render_deck(right)
 	_render_log(right)
+	if equipment_open:
+		_show_equipment_overlay()
 	if not session.last_drawn_cards.is_empty():
 		var cards := session.last_drawn_cards.duplicate()
 		session.last_drawn_cards.clear()
@@ -267,11 +273,22 @@ func _render_actions(parent: Control) -> void:
 
 func _equipment_panel() -> Control:
 	var panel := PanelContainer.new()
-	panel.custom_minimum_size = Vector2(520, 0)
-	panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	panel.custom_minimum_size = Vector2(720, 460)
 	var outer := VBoxContainer.new()
 	panel.add_child(outer)
-	outer.add_child(_label("装备", 22))
+	var header := HBoxContainer.new()
+	header.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	outer.add_child(header)
+	header.add_child(_label("装备", 22))
+	header.add_child(_spacer())
+	var close_button := Button.new()
+	close_button.text = "关闭"
+	close_button.custom_minimum_size = Vector2(84, 38)
+	close_button.pressed.connect(func() -> void:
+		equipment_open = false
+		_request_game_render()
+	)
+	header.add_child(close_button)
 	var columns := HBoxContainer.new()
 	columns.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	outer.add_child(columns)
@@ -304,6 +321,25 @@ func _equipment_panel() -> Control:
 				int(item["armor"])
 			], 12))
 	return panel
+
+
+func _show_equipment_overlay() -> void:
+	var overlay := Control.new()
+	overlay.name = "EquipmentOverlay"
+	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
+	overlay.mouse_filter = Control.MOUSE_FILTER_STOP
+	overlay.z_index = 200
+	add_child(overlay)
+
+	var shade := ColorRect.new()
+	shade.set_anchors_preset(Control.PRESET_FULL_RECT)
+	shade.color = Color(0, 0, 0, 0.45)
+	overlay.add_child(shade)
+
+	var center := CenterContainer.new()
+	center.set_anchors_preset(Control.PRESET_FULL_RECT)
+	center.add_child(_equipment_panel())
+	overlay.add_child(center)
 
 
 func _render_deck(parent: Control) -> void:
