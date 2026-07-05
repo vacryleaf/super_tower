@@ -15,7 +15,8 @@ func _ready() -> void:
 
 func _clear_root() -> void:
 	for child in root.get_children():
-		child.queue_free()
+		root.remove_child(child)
+		child.free()
 
 
 func _render_menu() -> void:
@@ -54,17 +55,18 @@ func _class_panel(class_key: String) -> Control:
 func _render_game() -> void:
 	_clear_root()
 	var top := HBoxContainer.new()
-	top.add_child(_label("第 %d 层 / 第 %d 场" % [session.floor_index, session.battle_index], 22))
+	top.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	top.add_child(_status_badge("第 %d 层" % session.floor_index, 22, Vector2(110, 42)))
+	top.add_child(_status_badge("第 %d 场" % session.battle_index, 22, Vector2(110, 42)))
 	top.add_child(_spacer())
-	top.add_child(_label("生命 %d/%d  护甲 %d  躲避 %d  行动力 %d" % [
-		int(session.player.get("hp", 0)),
-		int(session.player.get("max_hp", 0)),
-		session.player_armor,
-		session.dodge_layers,
-		session.action_points
-	], 18))
+	top.add_child(_status_badge("生命 %d/%d" % [int(session.player.get("hp", 0)), int(session.player.get("max_hp", 0))], 18, Vector2(150, 42)))
+	top.add_child(_status_badge("护甲 %d" % session.player_armor, 18, Vector2(92, 42)))
+	top.add_child(_status_badge("躲避 %d" % session.dodge_layers, 18, Vector2(92, 42)))
+	top.add_child(_status_badge("行动力 %d" % session.action_points, 18, Vector2(110, 42)))
 	root.add_child(top)
-	root.add_child(_label(session.message, 16))
+	var message_label := _label(session.message, 16)
+	message_label.custom_minimum_size = Vector2(0, 30)
+	root.add_child(message_label)
 
 	match session.phase:
 		"battle":
@@ -79,20 +81,25 @@ func _render_game() -> void:
 
 func _render_battle() -> void:
 	var body := HBoxContainer.new()
+	body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	body.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	root.add_child(body)
 
 	var left := VBoxContainer.new()
 	left.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	left.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	left.custom_minimum_size = Vector2(760, 0)
 	body.add_child(left)
-	left.add_child(_label("敌人", 20))
+	left.add_child(_label("敌人（第 1 场是单敌人教学，后续会出现多敌人编队）", 20))
 	var enemy_row := HBoxContainer.new()
+	enemy_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	left.add_child(enemy_row)
 	for i in range(session.enemies.size()):
 		enemy_row.add_child(_enemy_card(i))
 
 	left.add_child(_label("状态卡", 18))
 	var state_row := HBoxContainer.new()
+	state_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	left.add_child(state_row)
 	for i in range(session.state_cards.size()):
 		var card_id: String = session.state_cards[i]
@@ -108,6 +115,7 @@ func _render_battle() -> void:
 		left.add_child(_label("已准备：%s" % DataCatalog.STATE_CARDS[session.pending_state_card]["name"], 16))
 
 	var action_row := HBoxContainer.new()
+	action_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	left.add_child(action_row)
 	action_row.add_child(_action_button("普通攻击", func() -> void:
 		session.player_attack(selected_target)
@@ -128,6 +136,7 @@ func _render_battle() -> void:
 
 	left.add_child(_label("技能", 18))
 	var skill_row := HBoxContainer.new()
+	skill_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	left.add_child(skill_row)
 	for i in range(4):
 		var button := Button.new()
@@ -146,16 +155,25 @@ func _render_battle() -> void:
 		skill_row.add_child(button)
 
 	var right := VBoxContainer.new()
-	right.custom_minimum_size = Vector2(320, 0)
+	right.custom_minimum_size = Vector2(360, 0)
+	right.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	body.add_child(right)
-	_render_character_panel(right)
-	_render_log(right)
+	var right_scroll := ScrollContainer.new()
+	right_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	right_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	right.add_child(right_scroll)
+	var right_content := VBoxContainer.new()
+	right_content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	right_scroll.add_child(right_content)
+	_render_character_panel(right_content)
+	_render_log(right_content)
 
 
 func _enemy_card(index: int) -> Control:
 	var enemy: Dictionary = session.enemies[index]
 	var button := Button.new()
-	button.custom_minimum_size = Vector2(190, 140)
+	button.custom_minimum_size = Vector2(210, 132)
+	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var selected := ">" if index == selected_target else ""
 	button.text = "%s %s\n%s\n生命 %d/%d\n护甲 %d\n特性：%s" % [
 		selected,
@@ -201,7 +219,9 @@ func _render_end_screen(title: String, subtitle: String) -> void:
 
 func _render_character_panel(parent: Control) -> void:
 	var panel := PanelContainer.new()
+	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var box := VBoxContainer.new()
+	box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	panel.add_child(box)
 	box.add_child(_label("角色", 18))
 	box.add_child(_label("职业：%s" % DataCatalog.CLASSES[session.class_id]["name"], 14))
@@ -219,8 +239,8 @@ func _render_character_panel(parent: Control) -> void:
 func _render_log(parent: Control) -> void:
 	parent.add_child(_label("战斗日志", 18))
 	var log_text := RichTextLabel.new()
-	log_text.custom_minimum_size = Vector2(300, 180)
-	log_text.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	log_text.custom_minimum_size = Vector2(320, 180)
+	log_text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var start: int = maxi(0, session.battle_log.size() - 8)
 	var lines: Array[String] = []
 	for i in range(start, session.battle_log.size()):
@@ -232,7 +252,8 @@ func _render_log(parent: Control) -> void:
 func _action_button(text_value: String, callback: Callable) -> Button:
 	var button := Button.new()
 	button.text = text_value
-	button.custom_minimum_size = Vector2(120, 52)
+	button.custom_minimum_size = Vector2(132, 52)
+	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	button.pressed.connect(callback)
 	return button
 
@@ -241,6 +262,17 @@ func _label(text_value: String, font_size: int) -> Label:
 	var label := Label.new()
 	label.text = text_value
 	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	label.add_theme_font_size_override("font_size", font_size)
+	return label
+
+
+func _status_badge(text_value: String, font_size: int, min_size: Vector2) -> Label:
+	var label := Label.new()
+	label.text = text_value
+	label.custom_minimum_size = min_size
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	label.autowrap_mode = TextServer.AUTOWRAP_OFF
 	label.add_theme_font_size_override("font_size", font_size)
 	return label
 
