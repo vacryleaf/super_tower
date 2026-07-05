@@ -7,10 +7,25 @@ const PlaySession = preload("res://scripts/core/play_session.gd")
 
 var session := PlaySession.new()
 var selected_target := 0
+var render_queued := false
 
 
 func _ready() -> void:
 	_render_menu()
+
+
+func _request_game_render() -> void:
+	if render_queued:
+		return
+	render_queued = true
+	call_deferred("_render_game")
+
+
+func _request_menu_render() -> void:
+	if render_queued:
+		return
+	render_queued = true
+	call_deferred("_render_menu")
 
 
 func _clear_root() -> void:
@@ -20,6 +35,7 @@ func _clear_root() -> void:
 
 
 func _render_menu() -> void:
+	render_queued = false
 	_clear_root()
 	var title := _label("无限高塔", 30)
 	root.add_child(title)
@@ -45,7 +61,7 @@ func _class_panel(class_key: String) -> Control:
 	button.pressed.connect(func() -> void:
 		session.start_new_game(class_key)
 		selected_target = 0
-		_render_game()
+		_request_game_render()
 	)
 	box.add_child(button)
 	panel.add_child(box)
@@ -53,6 +69,7 @@ func _class_panel(class_key: String) -> Control:
 
 
 func _render_game() -> void:
+	render_queued = false
 	_clear_root()
 	var top := HBoxContainer.new()
 	top.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -108,7 +125,7 @@ func _render_battle() -> void:
 		button.custom_minimum_size = Vector2(130, 48)
 		button.pressed.connect(func(index := i) -> void:
 			session.use_state_card(index)
-			_render_game()
+			_request_game_render()
 		)
 		state_row.add_child(button)
 	if session.pending_state_card != "":
@@ -119,19 +136,19 @@ func _render_battle() -> void:
 	left.add_child(action_row)
 	action_row.add_child(_action_button("普通攻击", func() -> void:
 		session.player_attack(selected_target)
-		_render_game()
+		_request_game_render()
 	))
 	action_row.add_child(_action_button("防御", func() -> void:
 		session.player_defend()
-		_render_game()
+		_request_game_render()
 	))
 	action_row.add_child(_action_button("躲避", func() -> void:
 		session.player_dodge()
-		_render_game()
+		_request_game_render()
 	))
 	action_row.add_child(_action_button("结束回合", func() -> void:
 		session.end_turn()
-		_render_game()
+		_request_game_render()
 	))
 
 	left.add_child(_label("技能", 18))
@@ -147,7 +164,7 @@ func _render_battle() -> void:
 			button.text = "%s（%d 行动力）" % [skill["name"], int(skill.get("cost", 0))]
 			button.pressed.connect(func(index := i) -> void:
 				session.use_skill(index, selected_target)
-				_render_game()
+				_request_game_render()
 			)
 		else:
 			button.text = "未解锁"
@@ -187,7 +204,7 @@ func _enemy_card(index: int) -> Control:
 	button.disabled = int(enemy["hp"]) <= 0
 	button.pressed.connect(func() -> void:
 		selected_target = index
-		_render_game()
+		_request_game_render()
 	)
 	return button
 
@@ -202,7 +219,7 @@ func _render_reward() -> void:
 		button.pressed.connect(func(index := i) -> void:
 			session.choose_reward(index)
 			selected_target = 0
-			_render_game()
+			_request_game_render()
 		)
 		root.add_child(button)
 	_render_character_panel(root)
@@ -213,7 +230,7 @@ func _render_end_screen(title: String, subtitle: String) -> void:
 	root.add_child(_label(subtitle, 18))
 	root.add_child(_action_button("返回主菜单", func() -> void:
 		session = PlaySession.new()
-		_render_menu()
+		_request_menu_render()
 	))
 
 
