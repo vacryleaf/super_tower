@@ -22,6 +22,7 @@ func run_all() -> void:
 	test_state_card_weights()
 	test_skill_costs_minimum_two()
 	test_reward_attachment_flow()
+	test_save_round_trip()
 	test_block_expires_each_round()
 	test_tutorial_unlocks("warrior")
 	test_tutorial_unlocks("archer")
@@ -66,6 +67,26 @@ func test_reward_attachment_flow() -> void:
 	for attachments in session.player.get("skill_attachments", {}).values():
 		target_count += attachments.size()
 	assert_true(target_count > 0, "reward should attach to equipment or skill")
+
+
+func test_save_round_trip() -> void:
+	var session_script = load("res://scripts/core/play_session.gd")
+	var session = session_script.new()
+	session.delete_save()
+	session.start_new_game("warrior")
+	session.player_attack(0)
+	session.battle_log.append("save_marker")
+	assert_true(session.save_game(), "save should succeed")
+	var loaded = session_script.new()
+	assert_true(loaded.load_game(), "load should succeed")
+	assert_equal(loaded.phase, session.phase, "loaded phase")
+	assert_equal(loaded.class_id, session.class_id, "loaded class")
+	assert_equal(int(loaded.floor_index), int(session.floor_index), "loaded floor")
+	assert_equal(int(loaded.battle_index), int(session.battle_index), "loaded battle")
+	assert_equal(int(loaded.player["hp"]), int(session.player["hp"]), "loaded hp")
+	assert_equal(loaded.enemies.size(), session.enemies.size(), "loaded enemy count")
+	assert_true(loaded.battle_log.has("save_marker"), "loaded battle log")
+	loaded.delete_save()
 
 
 func test_block_expires_each_round() -> void:

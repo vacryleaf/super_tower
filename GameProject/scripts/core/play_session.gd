@@ -5,6 +5,8 @@ const DataCatalog = preload("res://scripts/core/data_catalog.gd")
 const CombatEngine = preload("res://scripts/core/combat_engine.gd")
 const RunSimulator = preload("res://scripts/core/run_simulator.gd")
 
+const SAVE_PATH := "user://savegame.json"
+
 var simulator := RunSimulator.new()
 var combat := CombatEngine.new()
 
@@ -38,6 +40,38 @@ func start_new_game(selected_class: String) -> void:
 	phase = "battle"
 	message = "新手引导开始。胜利后会逐步解锁基础装备。"
 	_start_current_battle()
+
+
+func has_save() -> bool:
+	return FileAccess.file_exists(SAVE_PATH)
+
+
+func save_game() -> bool:
+	if phase == "menu" or player.is_empty():
+		return false
+	var file := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
+	if file == null:
+		return false
+	file.store_string(JSON.stringify(_save_data()))
+	return true
+
+
+func load_game() -> bool:
+	if not has_save():
+		return false
+	var file := FileAccess.open(SAVE_PATH, FileAccess.READ)
+	if file == null:
+		return false
+	var json := JSON.new()
+	var error := json.parse(file.get_as_text())
+	if error != OK or typeof(json.data) != TYPE_DICTIONARY:
+		return false
+	return _load_save_data(json.data)
+
+
+func delete_save() -> void:
+	if has_save():
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(SAVE_PATH))
 
 
 func is_tutorial() -> bool:
@@ -523,6 +557,92 @@ func _has_first_strike() -> bool:
 
 func _state_name(card_id: String) -> String:
 	return DataCatalog.STATE_CARDS[card_id]["name"]
+
+
+func _save_data() -> Dictionary:
+	return {
+		"version": 1,
+		"class_id": class_id,
+		"floor_index": floor_index,
+		"battle_index": battle_index,
+		"phase": phase,
+		"message": message,
+		"player": player,
+		"current_encounter": current_encounter,
+		"enemies": enemies,
+		"action_points": action_points,
+		"max_action_points": max_action_points,
+		"player_block": player_block,
+		"dodge_layers": dodge_layers,
+		"round_index": round_index,
+		"pending_state_card": pending_state_card,
+		"state_draw_cursor": state_draw_cursor,
+		"reward_options": reward_options,
+		"pending_reward": pending_reward,
+		"reward_targets": reward_targets,
+		"battle_log": battle_log
+	}
+
+
+func _load_save_data(data: Dictionary) -> bool:
+	if int(data.get("version", 0)) != 1:
+		return false
+	var saved_player: Dictionary = _dictionary(data.get("player", {}))
+	var saved_class := String(data.get("class_id", saved_player.get("class_id", "")))
+	if saved_class == "" or not DataCatalog.CLASSES.has(saved_class):
+		return false
+	class_id = saved_class
+	player = saved_player
+	if not player.has("class_id"):
+		player["class_id"] = class_id
+	floor_index = int(data.get("floor_index", 1))
+	battle_index = int(data.get("battle_index", 1))
+	phase = String(data.get("phase", "battle"))
+	message = String(data.get("message", "继续游戏。"))
+	current_encounter = _dictionary(data.get("current_encounter", {}))
+	enemies = _dictionary_array(data.get("enemies", []))
+	action_points = int(data.get("action_points", 1))
+	max_action_points = int(data.get("max_action_points", 1))
+	player_block = int(data.get("player_block", 0))
+	dodge_layers = int(data.get("dodge_layers", 0))
+	round_index = int(data.get("round_index", 0))
+	pending_state_card = String(data.get("pending_state_card", ""))
+	state_draw_cursor = int(data.get("state_draw_cursor", 0))
+	reward_options = _dictionary_array(data.get("reward_options", []))
+	pending_reward = _dictionary(data.get("pending_reward", {}))
+	reward_targets = _dictionary_array(data.get("reward_targets", []))
+	battle_log = _string_array(data.get("battle_log", []))
+	last_events.clear()
+	if phase == "battle" and (current_encounter.is_empty() or enemies.is_empty()):
+		_start_current_battle()
+	else:
+		simulator._recalculate_player_stats(player, false)
+	return true
+
+
+func _dictionary(value: Variant) -> Dictionary:
+	if typeof(value) == TYPE_DICTIONARY:
+		return (value as Dictionary).duplicate(true)
+	return {}
+
+
+func _dictionary_array(value: Variant) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	if typeof(value) != TYPE_ARRAY:
+		return result
+	for item in value:
+		if typeof(item) == TYPE_DICTIONARY:
+			result.append((item as Dictionary).duplicate(true))
+	return result
+
+
+func _string_array(value: Variant) -> Array[String]:
+	var result: Array[String] = []
+	if typeof(value) != TYPE_ARRAY:
+		return result
+	for item in value:
+		result.append(String(item))
+	return result
 
 
 func _battle_title() -> String:

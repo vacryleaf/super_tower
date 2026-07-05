@@ -56,6 +56,17 @@ func _render_menu() -> void:
 	var title := _label("无限高塔", 30)
 	root.add_child(title)
 	root.add_child(_label("可玩版本：新手引导、手动战斗、奖励选择、装备、技能和 1-10 层流程。", 16))
+	if session.has_save():
+		var continue_button := Button.new()
+		continue_button.text = "继续游戏"
+		continue_button.custom_minimum_size = Vector2(220, 56)
+		continue_button.pressed.connect(func() -> void:
+			if session.load_game():
+				selected_target = 0
+				equipment_open = false
+				_request_game_render()
+		)
+		root.add_child(continue_button)
 	var class_row := HBoxContainer.new()
 	class_row.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	root.add_child(class_row)
@@ -76,6 +87,7 @@ func _class_panel(class_key: String) -> Control:
 	button.custom_minimum_size = Vector2(180, 56)
 	button.pressed.connect(func() -> void:
 		session.start_new_game(class_key)
+		_persist_session()
 		selected_target = 0
 		_request_game_render()
 	)
@@ -362,6 +374,7 @@ func _run_action(action: Callable) -> void:
 	action.call()
 	await _play_action_feedback()
 	input_locked = false
+	_persist_session()
 	if session.phase == "battle":
 		_refresh_battle_ui()
 	else:
@@ -450,6 +463,7 @@ func _render_reward() -> void:
 		button.custom_minimum_size = Vector2(460, 64)
 		button.pressed.connect(func(index := i) -> void:
 			session.choose_reward(index)
+			_persist_session()
 			selected_target = 0
 			_request_game_render()
 		)
@@ -479,6 +493,7 @@ func _render_reward_target() -> void:
 		button.custom_minimum_size = Vector2(500, 72)
 		button.pressed.connect(func(index := i) -> void:
 			session.choose_reward_target(index)
+			_persist_session()
 			selected_target = 0
 			_request_game_render()
 		)
@@ -585,6 +600,13 @@ func _pending_state_text() -> String:
 	if session.pending_state_card == "":
 		return "状态 Buff：无"
 	return "状态 Buff：%s" % DataCatalog.STATE_CARDS[session.pending_state_card]["name"]
+
+
+func _persist_session() -> void:
+	if session.phase == "game_over" or session.phase == "victory":
+		session.delete_save()
+	else:
+		session.save_game()
 
 
 func _action_button(text_value: String, callback: Callable) -> Button:
