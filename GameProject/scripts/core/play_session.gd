@@ -34,7 +34,7 @@ func start_new_game(selected_class: String) -> void:
 	floor_index = 1
 	battle_index = 1
 	phase = "battle"
-	message = "Tutorial begins. Win battles to unlock your base equipment."
+	message = "新手引导开始。胜利后会逐步解锁基础装备。"
 	_start_current_battle()
 
 
@@ -109,12 +109,12 @@ func use_state_card(index: int) -> void:
 	if index < 0 or index >= state_cards.size():
 		return
 	if used_state_cards_this_turn >= 2:
-		message = "Only two state cards can be used each turn."
+		message = "每回合最多使用 2 张状态卡。"
 		return
 	pending_state_card = state_cards[index]
 	state_cards.remove_at(index)
 	used_state_cards_this_turn += 1
-	message = "State card readied: %s" % _state_name(pending_state_card)
+	message = "已准备状态卡：%s" % _state_name(pending_state_card)
 
 
 func player_attack(target_index: int) -> void:
@@ -138,7 +138,7 @@ func player_defend() -> void:
 	var gained := _modified_value(int(player["defense"]), "defense")
 	player_armor += gained
 	action_points -= 1
-	battle_log.append("Defend +%d armor." % gained)
+	battle_log.append("防御：获得 %d 点护甲。" % gained)
 	_consume_pending_state()
 	_after_player_action()
 
@@ -151,7 +151,7 @@ func player_dodge() -> void:
 		gained = 2
 	dodge_layers += gained
 	action_points -= 1
-	battle_log.append("Dodge +%d." % gained)
+	battle_log.append("躲避：获得 %d 层躲避。" % gained)
 	_consume_pending_state()
 	_after_player_action()
 
@@ -160,7 +160,7 @@ func use_skill(slot_index: int, target_index: int) -> void:
 	if phase != "battle":
 		return
 	if slot_index < 0 or slot_index >= player["equipped_skills"].size():
-		message = "No skill in that slot."
+		message = "该技能槽还没有技能。"
 		return
 	var skill_id: String = player["equipped_skills"][slot_index]
 	var skill: Dictionary = DataCatalog.SKILLS[skill_id]
@@ -177,19 +177,19 @@ func use_skill(slot_index: int, target_index: int) -> void:
 	elif skill_type == "defense" or skill_type == "stance":
 		var gained := _modified_value(int(skill.get("power", 0)) + int(player["defense"]), "defense")
 		player_armor += gained
-		battle_log.append("%s +%d armor." % [skill["name"], gained])
+		battle_log.append("%s：获得 %d 点护甲。" % [skill["name"], gained])
 	elif skill_type == "dodge":
 		dodge_layers += 1
 		player_armor += int(skill.get("power", 0))
-		battle_log.append("%s grants dodge." % skill["name"])
+		battle_log.append("%s：获得躲避。" % skill["name"])
 	elif skill_type == "heal":
 		var healed := int(skill.get("power", 0))
 		player["hp"] = mini(int(player["max_hp"]), int(player["hp"]) + healed)
-		battle_log.append("%s heals %d." % [skill["name"], healed])
+		battle_log.append("%s：恢复 %d 点生命。" % [skill["name"], healed])
 	else:
 		player["attack_bonus"] += 1
 		simulator._recalculate_player_stats(player, false)
-		battle_log.append("%s improves attack." % skill["name"])
+		battle_log.append("%s：攻击提高。" % skill["name"])
 	action_points -= cost
 	_consume_pending_state()
 	_after_player_action()
@@ -201,7 +201,7 @@ func end_turn() -> void:
 	_enemy_turn()
 	if _alive_enemy_count() > 0 and int(player["hp"]) > 0:
 		_begin_player_turn()
-		message = "Your turn."
+		message = "你的回合。"
 
 
 func choose_reward(index: int) -> void:
@@ -256,7 +256,7 @@ func _enemy_attack(enemy: Dictionary, first_strike: bool) -> void:
 		damage = maxi(1, int(round(float(damage) * 0.75)))
 	if dodge_layers > 0:
 		dodge_layers -= 1
-		battle_log.append("%s attack dodged." % enemy["name"])
+		battle_log.append("躲避了 %s 的攻击。" % enemy["name"])
 		return
 	if player_armor > 0:
 		var absorbed: int = mini(player_armor, damage)
@@ -264,7 +264,7 @@ func _enemy_attack(enemy: Dictionary, first_strike: bool) -> void:
 		damage -= absorbed
 	if damage > 0:
 		player["hp"] = maxi(0, int(player["hp"]) - damage)
-	battle_log.append("%s hits for %d." % [enemy["name"], damage])
+	battle_log.append("%s 造成 %d 点伤害。" % [enemy["name"], damage])
 
 
 func _apply_damage_to_enemy(target_index: int, damage: int) -> void:
@@ -276,7 +276,7 @@ func _apply_damage_to_enemy(target_index: int, damage: int) -> void:
 		remaining -= absorbed
 	if remaining > 0:
 		enemy["hp"] = maxi(0, int(enemy["hp"]) - remaining)
-	battle_log.append("Hit %s for %d." % [enemy["name"], damage])
+	battle_log.append("命中 %s，造成 %d 点伤害。" % [enemy["name"], damage])
 
 
 func _on_victory() -> void:
@@ -289,11 +289,11 @@ func _on_defeat() -> void:
 	if is_tutorial():
 		player["tutorial_restarts"] += 1
 		player["hp"] = player["max_hp"]
-		message = "Tutorial defeat protection: battle restarted."
+		message = "新手引导失败保护：当前战斗已重开。"
 		_start_current_battle()
 	else:
 		phase = "game_over"
-		message = "Defeated on floor %d battle %d." % [floor_index, battle_index]
+		message = "你在第 %d 层第 %d 场战斗中失败。" % [floor_index, battle_index]
 
 
 func _build_reward_options() -> void:
@@ -302,36 +302,36 @@ func _build_reward_options() -> void:
 		var unlock_id: String = DataCatalog.TUTORIAL_UNLOCKS[class_id][battle_index - 1]
 		var label := ""
 		if DataCatalog.EQUIPMENT.has(unlock_id):
-			label = "Unlock equipment: %s" % DataCatalog.EQUIPMENT[unlock_id]["name"]
+			label = "解锁装备：%s" % DataCatalog.EQUIPMENT[unlock_id]["name"]
 		else:
-			label = "Unlock first skill: %s" % DataCatalog.SKILLS[unlock_id]["name"]
+			label = "解锁第一个技能：%s" % DataCatalog.SKILLS[unlock_id]["name"]
 		reward_options.append({"kind": "tutorial_unlock", "label": label, "value": 0})
-		message = "Tutorial reward unlocked."
+		message = "获得新手引导固定奖励。"
 		return
 	var encounter_type := String(current_encounter["type"])
 	if encounter_type == "normal":
 		reward_options = [
-			{"kind": "attack", "label": "Tower attachment: Attack +%d" % _floor_value(3), "value": _floor_value(3)},
-			{"kind": "defense", "label": "Tower attachment: Armor +%d" % _floor_value(3), "value": _floor_value(3)},
-			{"kind": "hp", "label": "Tower attachment: Max HP +%d" % _floor_value(6), "value": _floor_value(6)}
+			{"kind": "attack", "label": "塔内附着：攻击 +%d" % _floor_value(3), "value": _floor_value(3)},
+			{"kind": "defense", "label": "塔内附着：护甲 +%d" % _floor_value(3), "value": _floor_value(3)},
+			{"kind": "hp", "label": "塔内附着：生命上限 +%d" % _floor_value(6), "value": _floor_value(6)}
 		]
 		player["normal_rewards"] += 1
 	elif encounter_type == "elite":
 		reward_options = [
-			{"kind": "attack", "label": "Elite attachment: Attack +%d" % _floor_value(5), "value": _floor_value(5)},
-			{"kind": "defense", "label": "Elite attachment: Armor +%d" % _floor_value(5), "value": _floor_value(5)},
-			{"kind": "hp", "label": "Elite attachment: Max HP +%d" % _floor_value(10), "value": _floor_value(10)},
-			{"kind": "state", "label": "State card: critical draw +1 weight", "value": 1}
+			{"kind": "attack", "label": "精英奖励：攻击 +%d" % _floor_value(5), "value": _floor_value(5)},
+			{"kind": "defense", "label": "精英奖励：护甲 +%d" % _floor_value(5), "value": _floor_value(5)},
+			{"kind": "hp", "label": "精英奖励：生命上限 +%d" % _floor_value(10), "value": _floor_value(10)},
+			{"kind": "state", "label": "状态卡强化：暴击抽取权重 +1", "value": 1}
 		]
 		player["elite_rewards"] += 1
 	else:
 		reward_options = [
-			{"kind": "attack", "label": "Boss 5-choice card: Attack +%d" % _floor_value(8), "value": _floor_value(8)},
-			{"kind": "hp", "label": "Permanent equipment branch: Max HP +%d" % _floor_value(18), "value": _floor_value(18)},
-			{"kind": "skill", "label": "Skill branch: unlock non-duplicate skill", "value": 0}
+			{"kind": "attack", "label": "Boss 五选一卡牌：攻击 +%d" % _floor_value(8), "value": _floor_value(8)},
+			{"kind": "hp", "label": "永久装备分支：生命上限 +%d" % _floor_value(18), "value": _floor_value(18)},
+			{"kind": "skill", "label": "技能分支：解锁一个不重复技能", "value": 0}
 		]
 		player["boss_rewards"] += 1
-	message = "Choose one reward."
+	message = "选择一个奖励。"
 
 
 func _advance_after_reward() -> void:
@@ -340,13 +340,13 @@ func _advance_after_reward() -> void:
 		player["hp"] = player["max_hp"]
 		floor_index = 2
 		battle_index = 1
-		message = "Tutorial complete. Formal tower begins."
+		message = "新手引导完成，正式高塔开始。"
 		_start_current_battle()
 		return
 	if battle_index >= 10:
 		if floor_index >= 10:
 			phase = "victory"
-			message = "You cleared floor 10. MVP complete."
+			message = "你已通关第 10 层，当前版本目标完成。"
 			return
 		floor_index += 1
 		battle_index = 1
@@ -391,7 +391,7 @@ func _can_act(cost: int) -> bool:
 	if phase != "battle":
 		return false
 	if action_points < cost:
-		message = "Not enough action points."
+		message = "行动力不足。"
 		return false
 	return true
 
@@ -428,5 +428,5 @@ func _state_name(card_id: String) -> String:
 
 
 func _battle_title() -> String:
-	var label := "Tutorial" if is_tutorial() else "Tower"
-	return "%s Floor %d Battle %d: %s" % [label, floor_index, battle_index, current_encounter.get("name", current_encounter.get("id", "Encounter"))]
+	var label := "新手引导" if is_tutorial() else "高塔"
+	return "%s 第 %d 层 第 %d 场：%s" % [label, floor_index, battle_index, current_encounter.get("name", current_encounter.get("id", "战斗"))]

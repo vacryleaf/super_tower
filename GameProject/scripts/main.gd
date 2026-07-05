@@ -20,9 +20,9 @@ func _clear_root() -> void:
 
 func _render_menu() -> void:
 	_clear_root()
-	var title := _label("SUPER TOWER", 30)
+	var title := _label("无限高塔", 30)
 	root.add_child(title)
-	root.add_child(_label("Playable MVP: tutorial, manual combat, rewards, equipment, skills, and floors 1-10.", 16))
+	root.add_child(_label("可玩版本：新手引导、手动战斗、奖励选择、装备、技能和 1-10 层流程。", 16))
 	var class_row := HBoxContainer.new()
 	class_row.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	root.add_child(class_row)
@@ -36,10 +36,10 @@ func _class_panel(class_key: String) -> Control:
 	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var box := VBoxContainer.new()
 	box.add_child(_label(String(data["name"]), 24))
-	box.add_child(_label("HP %d  ATK %d  ARMOR %d" % [int(data["max_hp"]), int(data["base_attack"]), int(data["base_defense"])], 16))
-	box.add_child(_label("First skill: %s" % DataCatalog.SKILLS[data["first_skill"]]["name"], 16))
+	box.add_child(_label("生命 %d  攻击 %d  护甲 %d" % [int(data["max_hp"]), int(data["base_attack"]), int(data["base_defense"])], 16))
+	box.add_child(_label("第一个技能：%s" % DataCatalog.SKILLS[data["first_skill"]]["name"], 16))
 	var button := Button.new()
-	button.text = "Start %s" % data["name"]
+	button.text = "开始：%s" % data["name"]
 	button.custom_minimum_size = Vector2(180, 56)
 	button.pressed.connect(func() -> void:
 		session.start_new_game(class_key)
@@ -54,9 +54,9 @@ func _class_panel(class_key: String) -> Control:
 func _render_game() -> void:
 	_clear_root()
 	var top := HBoxContainer.new()
-	top.add_child(_label("Floor %d / Battle %d" % [session.floor_index, session.battle_index], 22))
+	top.add_child(_label("第 %d 层 / 第 %d 场" % [session.floor_index, session.battle_index], 22))
 	top.add_child(_spacer())
-	top.add_child(_label("HP %d/%d  Armor %d  Dodge %d  AP %d" % [
+	top.add_child(_label("生命 %d/%d  护甲 %d  躲避 %d  行动力 %d" % [
 		int(session.player.get("hp", 0)),
 		int(session.player.get("max_hp", 0)),
 		session.player_armor,
@@ -72,9 +72,9 @@ func _render_game() -> void:
 		"reward":
 			_render_reward()
 		"victory":
-			_render_end_screen("Floor 10 cleared", "You completed the playable MVP route.")
+			_render_end_screen("已通关第 10 层", "你已经完成当前可玩版本的目标。")
 		"game_over":
-			_render_end_screen("Run ended", session.message)
+			_render_end_screen("本局结束", session.message)
 
 
 func _render_battle() -> void:
@@ -85,13 +85,13 @@ func _render_battle() -> void:
 	var left := VBoxContainer.new()
 	left.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	body.add_child(left)
-	left.add_child(_label("Enemies", 20))
+	left.add_child(_label("敌人", 20))
 	var enemy_row := HBoxContainer.new()
 	left.add_child(enemy_row)
 	for i in range(session.enemies.size()):
 		enemy_row.add_child(_enemy_card(i))
 
-	left.add_child(_label("State Cards", 18))
+	left.add_child(_label("状态卡", 18))
 	var state_row := HBoxContainer.new()
 	left.add_child(state_row)
 	for i in range(session.state_cards.size()):
@@ -105,28 +105,28 @@ func _render_battle() -> void:
 		)
 		state_row.add_child(button)
 	if session.pending_state_card != "":
-		left.add_child(_label("Readied: %s" % DataCatalog.STATE_CARDS[session.pending_state_card]["name"], 16))
+		left.add_child(_label("已准备：%s" % DataCatalog.STATE_CARDS[session.pending_state_card]["name"], 16))
 
 	var action_row := HBoxContainer.new()
 	left.add_child(action_row)
-	action_row.add_child(_action_button("Attack", func() -> void:
+	action_row.add_child(_action_button("普通攻击", func() -> void:
 		session.player_attack(selected_target)
 		_render_game()
 	))
-	action_row.add_child(_action_button("Defend", func() -> void:
+	action_row.add_child(_action_button("防御", func() -> void:
 		session.player_defend()
 		_render_game()
 	))
-	action_row.add_child(_action_button("Dodge", func() -> void:
+	action_row.add_child(_action_button("躲避", func() -> void:
 		session.player_dodge()
 		_render_game()
 	))
-	action_row.add_child(_action_button("End Turn", func() -> void:
+	action_row.add_child(_action_button("结束回合", func() -> void:
 		session.end_turn()
 		_render_game()
 	))
 
-	left.add_child(_label("Skills", 18))
+	left.add_child(_label("技能", 18))
 	var skill_row := HBoxContainer.new()
 	left.add_child(skill_row)
 	for i in range(4):
@@ -135,13 +135,13 @@ func _render_battle() -> void:
 		if i < session.player["equipped_skills"].size():
 			var skill_id: String = session.player["equipped_skills"][i]
 			var skill: Dictionary = DataCatalog.SKILLS[skill_id]
-			button.text = "%s (%d AP)" % [skill["name"], int(skill.get("cost", 0))]
+			button.text = "%s（%d 行动力）" % [skill["name"], int(skill.get("cost", 0))]
 			button.pressed.connect(func(index := i) -> void:
 				session.use_skill(index, selected_target)
 				_render_game()
 			)
 		else:
-			button.text = "Locked"
+			button.text = "未解锁"
 			button.disabled = true
 		skill_row.add_child(button)
 
@@ -157,14 +157,14 @@ func _enemy_card(index: int) -> Control:
 	var button := Button.new()
 	button.custom_minimum_size = Vector2(190, 140)
 	var selected := ">" if index == selected_target else ""
-	button.text = "%s %s\n%s\nHP %d/%d\nArmor %d\nTraits: %s" % [
+	button.text = "%s %s\n%s\n生命 %d/%d\n护甲 %d\n特性：%s" % [
 		selected,
 		enemy["name"],
-		enemy["rank"],
+		_rank_label(enemy["rank"]),
 		int(enemy["hp"]),
 		int(enemy["max_hp"]),
 		int(enemy["armor"]),
-		", ".join(enemy["traits"])
+		_trait_labels(enemy["traits"])
 	]
 	button.disabled = int(enemy["hp"]) <= 0
 	button.pressed.connect(func() -> void:
@@ -175,7 +175,7 @@ func _enemy_card(index: int) -> Control:
 
 
 func _render_reward() -> void:
-	root.add_child(_label("Choose Reward", 24))
+	root.add_child(_label("选择奖励", 24))
 	for i in range(session.reward_options.size()):
 		var reward: Dictionary = session.reward_options[i]
 		var button := Button.new()
@@ -193,7 +193,7 @@ func _render_reward() -> void:
 func _render_end_screen(title: String, subtitle: String) -> void:
 	root.add_child(_label(title, 30))
 	root.add_child(_label(subtitle, 18))
-	root.add_child(_action_button("Back to Main Menu", func() -> void:
+	root.add_child(_action_button("返回主菜单", func() -> void:
 		session = PlaySession.new()
 		_render_menu()
 	))
@@ -203,21 +203,21 @@ func _render_character_panel(parent: Control) -> void:
 	var panel := PanelContainer.new()
 	var box := VBoxContainer.new()
 	panel.add_child(box)
-	box.add_child(_label("Character", 18))
-	box.add_child(_label("Class: %s" % DataCatalog.CLASSES[session.class_id]["name"], 14))
-	box.add_child(_label("ATK %d  DEF %d  Max HP %d" % [int(session.player["attack"]), int(session.player["defense"]), int(session.player["max_hp"])], 14))
-	box.add_child(_label("Equipment", 16))
+	box.add_child(_label("角色", 18))
+	box.add_child(_label("职业：%s" % DataCatalog.CLASSES[session.class_id]["name"], 14))
+	box.add_child(_label("攻击 %d  护甲 %d  生命上限 %d" % [int(session.player["attack"]), int(session.player["defense"]), int(session.player["max_hp"])], 14))
+	box.add_child(_label("装备", 16))
 	for item_id in session.player["equipment_ids"]:
 		var item: Dictionary = DataCatalog.EQUIPMENT[item_id]
-		box.add_child(_label("%s: %s  HP+%d ATK+%d ARM+%d" % [item["slot"], item["name"], int(item["hp"]), int(item["attack"]), int(item["armor"])], 12))
-	box.add_child(_label("Unlocked Skills", 16))
+		box.add_child(_label("%s：%s  生命+%d 攻击+%d 护甲+%d" % [_slot_label(item["slot"]), item["name"], int(item["hp"]), int(item["attack"]), int(item["armor"])], 12))
+	box.add_child(_label("已解锁技能", 16))
 	for skill_id in session.player["unlocked_skills"]:
 		box.add_child(_label("- %s" % DataCatalog.SKILLS[skill_id]["name"], 12))
 	parent.add_child(panel)
 
 
 func _render_log(parent: Control) -> void:
-	parent.add_child(_label("Battle Log", 18))
+	parent.add_child(_label("战斗日志", 18))
 	var log_text := RichTextLabel.new()
 	log_text.custom_minimum_size = Vector2(300, 180)
 	log_text.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -249,3 +249,61 @@ func _spacer() -> Control:
 	var spacer := Control.new()
 	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	return spacer
+
+
+func _rank_label(rank: String) -> String:
+	match rank:
+		"normal":
+			return "普通"
+		"elite":
+			return "精英"
+		"boss":
+			return "首领"
+	return rank
+
+
+func _slot_label(slot: String) -> String:
+	var labels := {
+		"head": "头部",
+		"body": "上身",
+		"waist": "腰部",
+		"legs": "下身",
+		"hands": "手部",
+		"leggings": "护腿",
+		"feet": "脚部",
+		"weapon": "武器",
+		"offhand": "副手",
+		"necklace": "项链",
+		"ring": "戒指"
+	}
+	return labels.get(slot, slot)
+
+
+func _trait_labels(traits: Array) -> String:
+	if traits.is_empty():
+		return "无"
+	var labels := {
+		"swarm": "群袭",
+		"claw": "利爪",
+		"thick_skin": "厚皮",
+		"break_armor": "破甲",
+		"first_strike": "先手",
+		"mark": "标记",
+		"curse": "诅咒",
+		"guard": "护卫",
+		"fortify": "固守",
+		"summon": "召唤",
+		"revive": "复苏",
+		"enrage": "狂暴",
+		"evade": "闪身",
+		"spell_shield": "法盾",
+		"charge": "充能",
+		"split": "裂变",
+		"corrode": "腐蚀",
+		"support": "辅助",
+		"phase": "阶段"
+	}
+	var result: Array[String] = []
+	for trait_id in traits:
+		result.append(labels.get(trait_id, trait_id))
+	return "、".join(result)

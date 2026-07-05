@@ -148,9 +148,9 @@ func _normal_encounter(tower_floor: int, battle_index: int) -> Dictionary:
 	var selector := (tower_floor + battle_index) % 5
 	if selector == 0 and tower_floor >= 3:
 		return _formation("enc_normal_goblin_team", "normal", [
-			_low_unit("Goblin Spear", 0.48, [""]),
-			_low_unit("Goblin Stone", 0.48, []),
-			_low_unit("Goblin Scout", 0.48, ["first_strike"])
+			_low_unit("哥布林矛手", 0.48, [""]),
+			_low_unit("哥布林投石手", 0.48, []),
+			_low_unit("哥布林斥候", 0.48, ["first_strike"])
 		])
 	if selector == 1 and tower_floor >= 4:
 		return _formation_from_units("enc_normal_guard_pair", "normal", [2, 3], [0.62, 0.62])
