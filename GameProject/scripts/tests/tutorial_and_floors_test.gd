@@ -23,6 +23,7 @@ func run_all() -> void:
 	test_player_armor_baseline_is_low()
 	test_block_power_is_separate_from_armor()
 	test_enemy_block_power_is_separate_from_armor()
+	test_thick_skin_always_grants_armor()
 	test_enemy_roles_include_tank_taunt_and_backline()
 	test_cunning_masks_enemy_intent()
 	test_skill_costs_minimum_two()
@@ -95,6 +96,36 @@ func test_enemy_block_power_is_separate_from_armor() -> void:
 	session._apply_damage_to_enemy(0, 30)
 	assert_true(int(session.enemies[0]["hp"]) < 100, "damage should pass after armor and block")
 	assert_true(int(session.enemies[0]["block"]) < 9, "enemy block should absorb part of incoming damage")
+
+
+func test_thick_skin_always_grants_armor() -> void:
+	var combat := CombatEngine.new()
+	var enemy := combat.scale_enemy({
+		"name": "厚皮测试",
+		"hp": 1.0,
+		"attack": 1.0,
+		"defense": 0.0,
+		"traits": ["thick_skin"]
+	}, 1, "normal", 1.0)
+	assert_true(int(enemy["armor"]) >= 1, "thick skin should grant at least one armor")
+
+	var session_script = load("res://scripts/core/play_session.gd")
+	var session = session_script.new()
+	var loaded_enemies: Array[Dictionary] = [{
+		"name": "旧存档厚皮",
+		"rank": "normal",
+		"max_hp": 10,
+		"hp": 10,
+		"attack": 1,
+		"defense": 0,
+		"armor": 0,
+		"dodge_layers": 0,
+		"taunt": 0,
+		"traits": ["thick_skin"]
+	}]
+	session.enemies = loaded_enemies
+	session._normalize_loaded_enemies()
+	assert_true(int(session.enemies[0]["armor"]) >= 1, "loaded thick skin enemy should recover armor")
 
 
 func test_enemy_roles_include_tank_taunt_and_backline() -> void:

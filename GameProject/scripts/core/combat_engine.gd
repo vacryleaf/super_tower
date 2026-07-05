@@ -93,7 +93,7 @@ func _build_enemies(encounter: Dictionary, tower_floor: int) -> Array[Dictionary
 				"hp": int(unit["hp"]),
 				"attack": int(unit["attack"]),
 				"defense": int(unit["defense"]),
-				"armor": int(unit.get("armor", 0)) + (int(unit["defense"]) if unit.get("traits", []).has("thick_skin") else 0),
+				"armor": _enemy_base_armor(unit, int(unit["defense"]), unit.get("traits", [])),
 				"block_power": maxi(1, int(unit["defense"])),
 				"block": 0,
 				"dodge_layers": 0,
@@ -134,13 +134,20 @@ func scale_enemy(unit: Dictionary, tower_floor: int, rank: String, formation_sca
 		"hp": hp,
 		"attack": attack,
 		"defense": defense,
-		"armor": int(unit.get("armor", 0)) + (defense if traits.has("thick_skin") else 0),
+		"armor": _enemy_base_armor(unit, defense, traits),
 		"block_power": maxi(1, defense),
 		"block": 0,
 		"dodge_layers": 0,
 		"taunt": 0,
 		"traits": traits
 	}
+
+
+func _enemy_base_armor(unit: Dictionary, defense: int, traits: Array) -> int:
+	var armor := int(unit.get("armor", 0))
+	if traits.has("thick_skin"):
+		armor += maxi(1, defense)
+	return armor
 
 
 func _should_use_skill(player: Dictionary, used_first_skill: bool) -> bool:

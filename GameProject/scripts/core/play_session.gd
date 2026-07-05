@@ -137,7 +137,7 @@ func _build_enemies(encounter: Dictionary) -> Array[Dictionary]:
 				"hp": int(unit["hp"]),
 				"attack": int(unit["attack"]),
 				"defense": int(unit["defense"]),
-				"armor": int(unit.get("armor", 0)) + (int(unit["defense"]) if traits.has("thick_skin") else 0),
+				"armor": _enemy_base_armor(unit, int(unit["defense"]), traits),
 				"block_power": maxi(1, int(unit["defense"])),
 				"block": 0,
 				"dodge_layers": 0,
@@ -147,6 +147,13 @@ func _build_enemies(encounter: Dictionary) -> Array[Dictionary]:
 		else:
 			result.append(combat.scale_enemy(unit, floor_index, unit.get("rank", encounter.get("type", "normal")), float(unit.get("formation_scale", 1.0))))
 	return result
+
+
+func _enemy_base_armor(unit: Dictionary, defense: int, traits: Array) -> int:
+	var armor := int(unit.get("armor", 0))
+	if traits.has("thick_skin"):
+		armor += maxi(1, defense)
+	return armor
 
 
 func _begin_player_turn() -> void:
@@ -960,6 +967,7 @@ func _load_save_data(data: Dictionary) -> bool:
 	message = String(data.get("message", "继续游戏。"))
 	current_encounter = _dictionary(data.get("current_encounter", {}))
 	enemies = _dictionary_array(data.get("enemies", []))
+	_normalize_loaded_enemies()
 	action_points = int(data.get("action_points", 1))
 	max_action_points = int(data.get("max_action_points", 1))
 	player_block = int(data.get("player_block", 0))
@@ -981,6 +989,20 @@ func _load_save_data(data: Dictionary) -> bool:
 	else:
 		simulator._recalculate_player_stats(player, false)
 	return true
+
+
+func _normalize_loaded_enemies() -> void:
+	for enemy in enemies:
+		var traits: Array = enemy.get("traits", [])
+		var defense := int(enemy.get("defense", 0))
+		if not enemy.has("block_power"):
+			enemy["block_power"] = maxi(1, defense)
+		if not enemy.has("block"):
+			enemy["block"] = 0
+		if traits.has("thick_skin") and int(enemy.get("armor", 0)) <= 0:
+			enemy["armor"] = maxi(1, defense)
+		elif not enemy.has("armor"):
+			enemy["armor"] = 0
 
 
 func _dictionary(value: Variant) -> Dictionary:
