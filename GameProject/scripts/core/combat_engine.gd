@@ -5,6 +5,7 @@ const DataCatalog = preload("res://scripts/core/data_catalog.gd")
 const Combatant = preload("res://scripts/core/combatant.gd")
 const EnemyActionRules = preload("res://scripts/core/enemy_action_rules.gd")
 const ModifierPipeline = preload("res://scripts/core/modifier_pipeline.gd")
+const CombatRules = preload("res://scripts/core/combat_rules.gd")
 
 const MAX_ROUNDS := 40
 
@@ -109,10 +110,7 @@ func run_battle(player: Dictionary, encounter: Dictionary, tower_floor: int, bat
 
 
 func _build_enemies(encounter: Dictionary, tower_floor: int) -> Array[Dictionary]:
-	var enemies: Array[Dictionary] = []
-	for unit in encounter["units"]:
-		enemies.append(Combatant.from_enemy_unit(unit, String(encounter.get("type", "normal")), tower_floor))
-	return enemies
+	return CombatRules.build_enemies(encounter, tower_floor)
 
 
 func scale_enemy(unit: Dictionary, tower_floor: int, rank: String, formation_scale: float = 1.0) -> Dictionary:
@@ -281,20 +279,15 @@ func _enemy_intent(enemy: Dictionary, round_index: int) -> String:
 
 
 func _clear_enemy_taunts(enemies: Array[Dictionary]) -> void:
-	for enemy in enemies:
-		Combatant.clear_taunt(enemy)
+	CombatRules.clear_enemy_taunts(enemies)
 
 
 func _clear_enemy_blocks(enemies: Array[Dictionary]) -> void:
-	for enemy in enemies:
-		Combatant.clear_block(enemy)
+	CombatRules.clear_enemy_blocks(enemies)
 
 
 func _active_taunt_target(enemies: Array[Dictionary]) -> int:
-	for i in range(enemies.size()):
-		if int(enemies[i]["hp"]) > 0 and int(enemies[i].get("taunt", 0)) > 0:
-			return i
-	return -1
+	return CombatRules.active_taunt_target(enemies)
 
 
 func _state_bonus(player: Dictionary, tag: String) -> int:
@@ -456,8 +449,4 @@ func _has_first_strike(enemies: Array[Dictionary]) -> bool:
 
 
 func _alive_count(enemies: Array[Dictionary]) -> int:
-	var count := 0
-	for enemy in enemies:
-		if enemy["hp"] > 0:
-			count += 1
-	return count
+	return CombatRules.alive_count(enemies)

@@ -439,6 +439,24 @@ func test_external_resource_manifests() -> void:
 	assert_true(enemy_manifest.get("boss", []).size() >= 5, "enemy manifest should include boss ids")
 
 
+func test_external_runtime_field_parity() -> void:
+	var migrated_tables := {
+		"state_cards": DataCatalog.STATE_CARDS,
+		"classes": DataCatalog.CLASSES,
+		"skills": DataCatalog.SKILLS
+	}
+	for table_name in migrated_tables.keys():
+		var external_table := DataCatalog.external_table(table_name)
+		var runtime_table: Dictionary = migrated_tables[table_name]
+		for entry_id in external_table.keys():
+			assert_true(runtime_table.has(entry_id), "%s.%s should exist in runtime catalog" % [table_name, entry_id])
+			var external_entry: Dictionary = external_table[entry_id]
+			var runtime_entry: Dictionary = runtime_table[entry_id]
+			for field in external_entry.keys():
+				assert_true(runtime_entry.has(field), "%s.%s.%s should exist in runtime catalog" % [table_name, entry_id, field])
+				_assert_catalog_value_equal(external_entry[field], runtime_entry[field], "%s.%s.%s parity" % [table_name, entry_id, field])
+
+
 func test_charge_reward_flow() -> void:
 	var session_script = load("res://scripts/core/play_session.gd")
 	var session = session_script.new()
@@ -762,6 +780,14 @@ func assert_true(value: bool, message: String) -> void:
 func assert_equal(actual, expected, message: String) -> void:
 	if actual != expected:
 		failures.append("%s: expected %s, got %s" % [message, str(expected), str(actual)])
+
+
+func _assert_catalog_value_equal(actual, expected, message: String) -> void:
+	if typeof(actual) == TYPE_FLOAT or typeof(expected) == TYPE_FLOAT:
+		if absf(float(actual) - float(expected)) > 0.001:
+			failures.append("%s: expected %s, got %s" % [message, str(expected), str(actual)])
+		return
+	assert_equal(actual, expected, message)
 
 
 func test_circus_set_juggling() -> void:

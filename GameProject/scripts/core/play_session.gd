@@ -3,7 +3,6 @@ class_name PlaySession
 
 const DataCatalog = preload("res://scripts/core/data_catalog.gd")
 const Combatant = preload("res://scripts/core/combatant.gd")
-const CombatEngine = preload("res://scripts/core/combat_engine.gd")
 const RunSimulator = preload("res://scripts/core/run_simulator.gd")
 const RewardService = preload("res://scripts/core/reward_service.gd")
 const SaveProfile = preload("res://scripts/core/save_profile.gd")
@@ -12,16 +11,16 @@ const ChargeService = preload("res://scripts/core/charge_service.gd")
 const StateBuffService = preload("res://scripts/core/state_buff_service.gd")
 const RunProgressService = preload("res://scripts/core/run_progress_service.gd")
 const RewardApplyService = preload("res://scripts/core/reward_apply_service.gd")
+const RunStateSerializer = preload("res://scripts/core/run_state_serializer.gd")
 const EnemyActionRules = preload("res://scripts/core/enemy_action_rules.gd")
 const StatusService = preload("res://scripts/core/status_service.gd")
 const DamageType = preload("res://scripts/core/damage_type.gd")
 const TriggerEvents = preload("res://scripts/core/trigger_events.gd")
-const ModifierPipeline = preload("res://scripts/core/modifier_pipeline.gd")
+const CombatRules = preload("res://scripts/core/combat_rules.gd")
 
 const MAX_CHARGES := 5
 
 var simulator := RunSimulator.new()
-var combat := CombatEngine.new()
 var rewards := RewardService.new()
 var save_profile := SaveProfile.new()
 var battle_service := BattleService.new()
@@ -29,6 +28,7 @@ var charge_service := ChargeService.new()
 var state_buffs := StateBuffService.new()
 var run_progress := RunProgressService.new()
 var reward_apply := RewardApplyService.new()
+var run_state_serializer := RunStateSerializer.new()
 var enemy_rules := EnemyActionRules.new()
 var status_service := StatusService.new()
 var rng := RandomNumberGenerator.new()
@@ -164,7 +164,6 @@ func _reset_to_camp_state() -> void:
 	pending_state_card = ""
 	state_draw_cursor = 0
 	battle_attack_multiplier = 1.0
-	player["statuses"] = []
 	enemy_attack_multiplier = 1.0
 	focus_target_index = -1
 	focus_combo_multiplier = 1.0
@@ -229,12 +228,7 @@ func _get_current_encounter() -> Dictionary:
 
 
 func _build_enemies(encounter: Dictionary) -> Array[Dictionary]:
-	var result: Array[Dictionary] = []
-	for unit in encounter["units"]:
-		var enemy := Combatant.from_enemy_unit(unit, String(encounter.get("type", "normal")), floor_index)
-		enemy["statuses"] = []
-		result.append(enemy)
-	return result
+	return CombatRules.build_enemies(encounter, floor_index)
 
 func _begin_player_turn() -> void:
 	round_index += 1
@@ -339,15 +333,11 @@ func _resolve_focus_combo(target_index: int) -> float:
 
 
 func _current_attack_value() -> int:
-	var resolved_attack := status_service.resolve_stat(player, float(player["attack"]), StatusService.STAT_ATTACK)
-	var modifiers := ModifierPipeline.collect_from_session(self, "attack", {"state_card": pending_state_card, "focus_combo_multiplier": focus_combo_multiplier})
-	return maxi(1, int(round(ModifierPipeline.resolve(resolved_attack, modifiers))))
+	return CombatRules.current_attack_value(self)
 
 
 func _defense_value() -> int:
-	var resolved_defense := status_service.resolve_stat(player, float(player["block_power"]), StatusService.STAT_DEFENSE)
-	var modifiers := ModifierPipeline.collect_from_session(self, "defense", {})
-	return maxi(1, int(round(ModifierPipeline.resolve(resolved_defense, modifiers))))
+	return CombatRules.defense_value(self)
 
 
 func _has_set_modifier(dynamic_value: String) -> bool:
@@ -358,33 +348,19 @@ func _has_set_modifier(dynamic_value: String) -> bool:
 
 
 func _skill_attack_value(skill_id: String) -> int:
-	var skill: Dictionary = DataCatalog.SKILLS[skill_id]
-	var multiplier := float(skill.get("multiplier", 1.0)) + _skill_multiplier_bonus(skill_id, "attack")
-	var resolved_attack := status_service.resolve_stat(player, float(player["attack"]), StatusService.STAT_ATTACK)
-	var modifiers := ModifierPipeline.collect_from_session(self, "attack", {"skill_id": skill_id, "skill_multiplier": multiplier})
-	return maxi(1, int(round(ModifierPipeline.resolve(resolved_attack, modifiers))))
+	return CombatRules.skill_attack_value(self, skill_id)
 
 
 func _skill_defense_value(skill_id: String) -> int:
-	var skill: Dictionary = DataCatalog.SKILLS[skill_id]
-	var multiplier := float(skill.get("multiplier", skill.get("block_multiplier", 1.0))) + _skill_multiplier_bonus(skill_id, "defense")
-	var resolved_defense := status_service.resolve_stat(player, float(player["block_power"]), StatusService.STAT_DEFENSE)
-	var modifiers := ModifierPipeline.collect_from_session(self, "defense", {"skill_id": skill_id, "skill_multiplier": multiplier})
-	return maxi(1, int(round(ModifierPipeline.resolve(resolved_defense, modifiers))))
+	return CombatRules.skill_defense_value(self, skill_id)
 
 
 func _skill_dodge_block_value(skill_id: String) -> int:
-	var skill: Dictionary = DataCatalog.SKILLS[skill_id]
-	var multiplier := float(skill.get("block_multiplier", 0.0)) + _skill_multiplier_bonus(skill_id, "defense")
-	if multiplier <= 0.0:
-		return 0
-	return maxi(1, int(round(float(player["block_power"]) * multiplier)))
+	return CombatRules.skill_dodge_block_value(self, skill_id)
 
 
 func _skill_heal_value(skill_id: String) -> int:
-	var skill: Dictionary = DataCatalog.SKILLS[skill_id]
-	var multiplier := float(skill.get("heal_multiplier", 0.0)) + _skill_multiplier_bonus(skill_id, "hp")
-	return maxi(1, int(round(float(player["max_hp"]) * multiplier)))
+	return CombatRules.skill_heal_value(self, skill_id)
 
 
 func _sync_player_combatant(combatant_unit: Dictionary) -> void:
@@ -410,13 +386,11 @@ func _enemy_turn() -> void:
 
 
 func _clear_enemy_taunts() -> void:
-	for enemy in enemies:
-		Combatant.clear_taunt(enemy)
+	CombatRules.clear_enemy_taunts(enemies)
 
 
 func _clear_enemy_blocks() -> void:
-	for enemy in enemies:
-		Combatant.clear_block(enemy)
+	CombatRules.clear_enemy_blocks(enemies)
 
 
 func _resolve_enemy_action(enemy: Dictionary, enemy_index: int) -> void:
@@ -432,17 +406,7 @@ func _enemy_attack(enemy: Dictionary, enemy_index: int, first_strike: bool) -> v
 
 
 func _enemy_attack_segments(enemy: Dictionary, first_strike: bool) -> Array[int]:
-	var segments := enemy_rules.attack_segments(enemy, round_index, first_strike)
-	var base_attack := float(enemy["attack"])
-	var resolved_attack := status_service.resolve_stat(enemy, base_attack, StatusService.STAT_ATTACK)
-	var status_ratio := resolved_attack / maxf(1.0, base_attack)
-	var total_multiplier := enemy_attack_multiplier * status_ratio
-	if abs(total_multiplier - 1.0) < 0.001:
-		return segments
-	var result: Array[int] = []
-	for damage in segments:
-		result.append(maxi(1, int(round(float(damage) * total_multiplier))))
-	return result
+	return CombatRules.enemy_attack_segments(self, enemy, first_strike)
 
 
 func _trigger_counter_attack(enemy_index: int) -> void:
@@ -688,24 +652,11 @@ func _can_act(cost: int) -> bool:
 
 
 func _valid_target(target_index: int) -> int:
-	var taunt_target := _active_taunt_target()
-	if taunt_target >= 0:
-		return taunt_target
-	if enemies.is_empty():
-		return -1
-	if target_index < 0 or target_index >= enemies.size() or int(enemies[target_index]["hp"]) <= 0:
-		for i in range(enemies.size()):
-			if int(enemies[i]["hp"]) > 0:
-				return i
-		return -1
-	return target_index
+	return CombatRules.valid_target(enemies, target_index)
 
 
 func _active_taunt_target() -> int:
-	for i in range(enemies.size()):
-		if int(enemies[i]["hp"]) > 0 and int(enemies[i].get("taunt", 0)) > 0:
-			return i
-	return -1
+	return CombatRules.active_taunt_target(enemies)
 
 
 func _enemy_intent(enemy: Dictionary) -> String:
@@ -719,11 +670,7 @@ func enemy_intent_text(index: int) -> String:
 
 
 func _alive_enemy_count() -> int:
-	var count := 0
-	for enemy in enemies:
-		if int(enemy["hp"]) > 0:
-			count += 1
-	return count
+	return CombatRules.alive_count(enemies)
 
 
 func _has_first_strike() -> bool:
@@ -735,40 +682,7 @@ func _state_name(card_id: String) -> String:
 
 
 func _save_data() -> Dictionary:
-	return {
-		"version": 1,
-		"class_id": class_id,
-		"floor_index": floor_index,
-		"battle_index": battle_index,
-		"phase": phase,
-		"message": message,
-		"player": player,
-		"current_encounter": current_encounter,
-		"enemies": enemies,
-		"action_points": action_points,
-		"max_action_points": max_action_points,
-		"player_block": player_block,
-		"dodge_layers": dodge_layers,
-		"round_index": round_index,
-		"pending_state_card": pending_state_card,
-		"state_draw_cursor": state_draw_cursor,
-		"battle_attack_multiplier": battle_attack_multiplier,
-		"enemy_attack_multiplier": enemy_attack_multiplier,
-		"focus_target_index": focus_target_index,
-		"focus_combo_multiplier": focus_combo_multiplier,
-		"counter_stance_charges": counter_stance_charges,
-		"counter_attack_multiplier": counter_attack_multiplier,
-		"dodge_streak": dodge_streak,
-		"meticulous_stacks": meticulous_stacks,
-		"seek_bloom_stacks": seek_bloom_stacks,
-		"charge_used": charge_used,
-		"charge_ready": charge_ready,
-		"pending_charge_effects": pending_charge_effects,
-		"reward_options": reward_options,
-		"pending_reward": pending_reward,
-		"reward_targets": reward_targets,
-		"battle_log": battle_log
-	}
+	return run_state_serializer.save_data(self)
 
 
 func _roster_player_or_new(selected_class: String) -> Dictionary:
@@ -794,85 +708,17 @@ func _persistent_player_snapshot(source_player: Dictionary) -> Dictionary:
 
 
 func _load_save_data(data: Dictionary) -> bool:
-	if int(data.get("version", 0)) != 1:
-		return false
-	var saved_player: Dictionary = _dictionary(data.get("player", {}))
-	var saved_class := String(data.get("class_id", saved_player.get("class_id", "")))
-	if saved_class == "" or not DataCatalog.CLASSES.has(saved_class):
-		return false
-	class_id = saved_class
-	player = saved_player
-	if not player.has("class_id"):
-		player["class_id"] = class_id
-	floor_index = int(data.get("floor_index", 1))
-	battle_index = int(data.get("battle_index", 1))
-	phase = String(data.get("phase", "battle"))
-	message = String(data.get("message", "继续游戏。"))
-	current_encounter = _dictionary(data.get("current_encounter", {}))
-	enemies = _dictionary_array(data.get("enemies", []))
-	_normalize_loaded_enemies()
-	action_points = int(data.get("action_points", 1))
-	max_action_points = int(data.get("max_action_points", 1))
-	player_block = int(data.get("player_block", 0))
-	dodge_layers = int(data.get("dodge_layers", 0))
-	round_index = int(data.get("round_index", 0))
-	pending_state_card = String(data.get("pending_state_card", ""))
-	state_draw_cursor = int(data.get("state_draw_cursor", 0))
-	battle_attack_multiplier = float(data.get("battle_attack_multiplier", 1.0))
-	enemy_attack_multiplier = float(data.get("enemy_attack_multiplier", 1.0))
-	focus_target_index = int(data.get("focus_target_index", -1))
-	focus_combo_multiplier = float(data.get("focus_combo_multiplier", 1.0))
-	counter_stance_charges = int(data.get("counter_stance_charges", 0))
-	counter_attack_multiplier = float(data.get("counter_attack_multiplier", 1.0))
-	dodge_streak = int(data.get("dodge_streak", 0))
-	meticulous_stacks = int(data.get("meticulous_stacks", 0))
-	seek_bloom_stacks = int(data.get("seek_bloom_stacks", 0))
-	charge_used = _dictionary(data.get("charge_used", {}))
-	charge_ready = _dictionary(data.get("charge_ready", {}))
-	pending_charge_effects = _dictionary(data.get("pending_charge_effects", {}))
-	_ensure_charge_effects()
-	reward_options = _dictionary_array(data.get("reward_options", []))
-	pending_reward = _dictionary(data.get("pending_reward", {}))
-	reward_targets = _dictionary_array(data.get("reward_targets", []))
-	battle_log = _string_array(data.get("battle_log", []))
-	last_events.clear()
-	if phase == "battle" and (current_encounter.is_empty() or enemies.is_empty()):
-		_start_current_battle()
-	else:
-		simulator._recalculate_player_stats(player, false)
-	return true
+	return run_state_serializer.load_save_data(self, data)
 
 
 func _normalize_loaded_enemies() -> void:
-	for enemy in enemies:
-		Combatant.normalize_enemy(enemy)
-		if not enemy.has("statuses"):
-			enemy["statuses"] = []
+	run_state_serializer._normalize_loaded_enemies(enemies)
 
 
 func _dictionary(value: Variant) -> Dictionary:
 	if typeof(value) == TYPE_DICTIONARY:
 		return (value as Dictionary).duplicate(true)
 	return {}
-
-
-func _dictionary_array(value: Variant) -> Array[Dictionary]:
-	var result: Array[Dictionary] = []
-	if typeof(value) != TYPE_ARRAY:
-		return result
-	for item in value:
-		if typeof(item) == TYPE_DICTIONARY:
-			result.append((item as Dictionary).duplicate(true))
-	return result
-
-
-func _string_array(value: Variant) -> Array[String]:
-	var result: Array[String] = []
-	if typeof(value) != TYPE_ARRAY:
-		return result
-	for item in value:
-		result.append(String(item))
-	return result
 
 
 func _battle_title() -> String:
