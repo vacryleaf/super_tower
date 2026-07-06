@@ -3,7 +3,7 @@ class_name EquipmentView
 
 const DataCatalog = preload("res://scripts/core/data_catalog.gd")
 
-const SLOTS := ["head", "body", "waist", "legs", "hands", "leggings", "feet", "weapon", "offhand", "necklace", "ring", "ring2"]
+const SLOTS := ["head", "body", "waist", "legs", "hands", "leggings", "feet", "weapon", "offhand", "shoulders", "cloak", "necklace", "ring", "ring2"]
 
 
 func panel(session: Variant, label_factory: Callable, close_callback: Callable) -> Control:
@@ -68,6 +68,8 @@ func slot_label(slot: String) -> String:
 		"feet": "脚部",
 		"weapon": "武器",
 		"offhand": "副手",
+		"shoulders": "肩部",
+		"cloak": "披风",
 		"necklace": "项链",
 		"ring": "戒指1",
 		"ring2": "戒指2"
