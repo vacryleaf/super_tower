@@ -16,11 +16,11 @@ func render(
 	if session.has_active_run():
 		var continue_button := Button.new()
 		continue_button.text = "继续当前派遣"
-		continue_button.custom_minimum_size = Vector2(220, 56)
+		continue_button.custom_minimum_size = Vector2(190, 46)
 		continue_button.pressed.connect(continue_callback)
 		root.add_child(continue_button)
 	var class_row := HBoxContainer.new()
-	class_row.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	class_row.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	root.add_child(class_row)
 	class_row.add_child(_class_panel(session, "warrior", label_factory, dispatch_callback))
 	class_row.add_child(_class_panel(session, "archer", label_factory, dispatch_callback))
@@ -29,10 +29,12 @@ func render(
 func _class_panel(session: Variant, class_key: String, label_factory: Callable, dispatch_callback: Callable) -> Control:
 	var data: Dictionary = DataCatalog.CLASSES[class_key]
 	var panel := PanelContainer.new()
+	panel.custom_minimum_size = Vector2(330, 210)
 	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	panel.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	var box := VBoxContainer.new()
 	box.add_child(label_factory.call(String(data["name"]), 24))
-	box.add_child(label_factory.call("生命 %d  攻击 %d  护甲 %d  格挡 %d" % [
+	box.add_child(label_factory.call("生命%d 攻击%d 护甲%d 格挡%d" % [
 		int(data["max_hp"]),
 		int(data["base_attack"]),
 		int(data["base_defense"]),
@@ -56,6 +58,7 @@ func _class_panel(session: Variant, class_key: String, label_factory: Callable, 
 		var selector_row := HBoxContainer.new()
 		selector_row.add_child(label_factory.call("跳关至：", 14))
 		floor_selector = OptionButton.new()
+		floor_selector.custom_minimum_size = Vector2(110, 34)
 		for f in range(2, max_skip_floor + 1):
 			floor_selector.add_item("第 %d 层" % f, f)
 		floor_selector.selected = max_skip_floor - 2
@@ -64,7 +67,7 @@ func _class_panel(session: Variant, class_key: String, label_factory: Callable, 
 
 	var button := Button.new()
 	button.text = "派遣：%s" % data["name"]
-	button.custom_minimum_size = Vector2(180, 56)
+	button.custom_minimum_size = Vector2(160, 44)
 	if floor_selector:
 		button.pressed.connect(func(): dispatch_callback.call(class_key, int(floor_selector.get_selected_id())))
 	else:

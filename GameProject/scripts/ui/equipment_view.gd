@@ -8,7 +8,7 @@ const SLOTS := ["head", "body", "waist", "legs", "hands", "leggings", "feet", "w
 
 func panel(session: Variant, label_factory: Callable, close_callback: Callable) -> Control:
 	var panel := PanelContainer.new()
-	panel.custom_minimum_size = Vector2(820, 440)
+	panel.custom_minimum_size = Vector2(740, 410)
 	var outer := VBoxContainer.new()
 	panel.add_child(outer)
 	var header := HBoxContainer.new()
@@ -29,7 +29,8 @@ func panel(session: Variant, label_factory: Callable, close_callback: Callable) 
 	outer.add_child(columns)
 	_render_body_slots(columns, session, label_factory)
 	_render_bag(columns, session, label_factory)
-	_render_set_summary(columns, session, label_factory)
+	if not session.player.get("set_counts", {}).is_empty():
+		_render_set_summary(columns, session, label_factory)
 	return panel
 
 
@@ -79,7 +80,7 @@ func slot_label(slot: String) -> String:
 
 func _render_body_slots(parent: Control, session: Variant, label_factory: Callable) -> void:
 	var body_slots := VBoxContainer.new()
-	body_slots.custom_minimum_size = Vector2(230, 0)
+	body_slots.custom_minimum_size = Vector2(205, 0)
 	parent.add_child(body_slots)
 	body_slots.add_child(label_factory.call("人体装备栏", 16))
 	for slot in SLOTS:
@@ -88,7 +89,7 @@ func _render_body_slots(parent: Control, session: Variant, label_factory: Callab
 
 func _render_bag(parent: Control, session: Variant, label_factory: Callable) -> void:
 	var bag_scroll := ScrollContainer.new()
-	bag_scroll.custom_minimum_size = Vector2(300, 0)
+	bag_scroll.custom_minimum_size = Vector2(285, 0)
 	bag_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	bag_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	parent.add_child(bag_scroll)
@@ -121,13 +122,10 @@ func _render_bag(parent: Control, session: Variant, label_factory: Callable) -> 
 
 func _render_set_summary(parent: Control, session: Variant, label_factory: Callable) -> void:
 	var set_box := VBoxContainer.new()
-	set_box.custom_minimum_size = Vector2(220, 0)
+	set_box.custom_minimum_size = Vector2(195, 0)
 	parent.add_child(set_box)
 	set_box.add_child(label_factory.call("套装", 16))
 	var set_counts: Dictionary = session.player.get("set_counts", {})
-	if set_counts.is_empty():
-		set_box.add_child(label_factory.call("暂无套装。", 13))
-		return
 	for set_id in set_counts.keys():
 		if not DataCatalog.EQUIPMENT_SETS.has(set_id):
 			continue

@@ -13,7 +13,7 @@ func enemy_card(
 ) -> Button:
 	var enemy: Dictionary = session.enemies[index]
 	var button := Button.new()
-	button.custom_minimum_size = Vector2(150, 160)
+	button.custom_minimum_size = Vector2(146, 136)
 	button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	var selected := ">" if index == selected_target else ""
 	button.text = enemy_card_text(session, index, selected, rank_label, trait_labels)
@@ -25,7 +25,7 @@ func enemy_card(
 
 func enemy_card_text(session: Variant, index: int, selected: String, rank_label: Callable, trait_labels: Callable) -> String:
 	var enemy: Dictionary = session.enemies[index]
-	return "%s %s\n%s\n生命 %d/%d\n攻击 %d  护甲 %d\n格挡 %d  格挡值 %d\n意图：%s\n特性：%s" % [
+	return "%s%s  %s\n生命 %d/%d\n攻%d 护%d  格%d/%d\n意图：%s\n特性：%s" % [
 		selected,
 		enemy["name"],
 		rank_label.call(enemy["rank"]),
@@ -42,7 +42,7 @@ func enemy_card_text(session: Variant, index: int, selected: String, rank_label:
 
 func player_status(session: Variant, class_label: String, label_factory: Callable) -> Dictionary:
 	var panel := PanelContainer.new()
-	panel.custom_minimum_size = Vector2(178, 168)
+	panel.custom_minimum_size = Vector2(170, 150)
 	panel.size_flags_vertical = Control.SIZE_SHRINK_END
 	var box := VBoxContainer.new()
 	panel.add_child(box)

@@ -9,7 +9,7 @@ func render_reward(root: Control, reward_options: Array[Dictionary], pressed_cal
 	root.add_child(reward_area)
 
 	var options := VBoxContainer.new()
-	options.custom_minimum_size = Vector2(320, 0)
+	options.custom_minimum_size = Vector2(300, 0)
 	options.alignment = BoxContainer.ALIGNMENT_CENTER
 	reward_area.add_child(options)
 	var title: Label = label_factory.call("选择奖励", 24)
@@ -19,7 +19,8 @@ func render_reward(root: Control, reward_options: Array[Dictionary], pressed_cal
 		var reward: Dictionary = reward_options[i]
 		var button := Button.new()
 		button.text = String(reward["label"]).replace("塔内附着：", "")
-		button.custom_minimum_size = Vector2(320, 64)
+		button.custom_minimum_size = Vector2(300, 48)
+		button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 		button.pressed.connect(pressed_callback.bind(i))
 		options.add_child(button)
 
@@ -39,7 +40,7 @@ func render_reward_target(
 	root.add_child(target_area)
 
 	var options := VBoxContainer.new()
-	options.custom_minimum_size = Vector2(340, 0)
+	options.custom_minimum_size = Vector2(320, 0)
 	options.alignment = BoxContainer.ALIGNMENT_CENTER
 	target_area.add_child(options)
 	var title: Label = label_factory.call("选择附着目标", 24)
@@ -55,6 +56,7 @@ func render_reward_target(
 			target_label.call(target),
 			attachment_summary.call(String(target["type"]), String(target["id"]))
 		]
-		button.custom_minimum_size = Vector2(340, 72)
+		button.custom_minimum_size = Vector2(320, 58)
+		button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 		button.pressed.connect(pressed_callback.bind(i))
 		options.add_child(button)

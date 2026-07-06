@@ -37,7 +37,7 @@ func render(
 	actions.add_child(skill_row)
 	for i in range(4):
 		var button := Button.new()
-		button.custom_minimum_size = Vector2(124, 46)
+		button.custom_minimum_size = Vector2(118, 44)
 		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		button.disabled = input_locked or i >= session.player["equipped_skills"].size()
 		if i < session.player["equipped_skills"].size():
@@ -61,7 +61,7 @@ func render(
 			var button := Button.new()
 			var charge_id := String(charge.get("charge_id", ""))
 			button.set_meta("charge_id", charge_id)
-			button.custom_minimum_size = Vector2(136, 66)
+			button.custom_minimum_size = Vector2(128, 56)
 			button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			button.text = "%s\n%s" % [_charge_button_label(charge), String(charge.get("source_label", ""))]
 			button.disabled = input_locked or bool(charge.get("used", false)) or not bool(charge.get("ready", false))
@@ -112,7 +112,7 @@ func refresh(
 func _action_button(text_value: String, callback: Callable, input_locked: bool) -> Button:
 	var button := Button.new()
 	button.text = text_value
-	button.custom_minimum_size = Vector2(118, 50)
+	button.custom_minimum_size = Vector2(112, 46)
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	button.disabled = input_locked
 	button.pressed.connect(callback)
