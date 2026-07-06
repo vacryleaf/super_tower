@@ -110,7 +110,7 @@ static func is_alive(combatant: Dictionary) -> bool:
 	return int(combatant.get("hp", 0)) > 0
 
 
-static func apply_damage(combatant: Dictionary, raw_damage: int) -> Dictionary:
+static func apply_damage(combatant: Dictionary, raw_damage: int, damage_type: String = "physical") -> Dictionary:
 	var result := {
 		"dodged": false,
 		"raw_damage": maxi(0, raw_damage),

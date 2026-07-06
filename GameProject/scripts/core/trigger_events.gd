@@ -1,0 +1,27 @@
+extends RefCounted
+class_name TriggerEvents
+
+const ON_TURN_START := "on_turn_start"
+const ON_TURN_END := "on_turn_end"
+const ON_HIT_DEALT := "on_hit_dealt"
+const ON_HIT_RECEIVED := "on_hit_received"
+const ON_DODGE := "on_dodge"
+const ON_KILL := "on_kill"
+const ON_CRITICAL := "on_critical"
+const ON_BLOCK_GAIN := "on_block_gain"
+const ON_HEAL_RECEIVED := "on_heal_received"
+const ON_BATTLE_START := "on_battle_start"
+
+const ACTION_DOT := "dot"
+const ACTION_HOT := "hot"
+const ACTION_REFLECT := "reflect"
+const ACTION_LIFESTEAL := "lifesteal"
+const ACTION_GAIN_BLOCK := "gain_block"
+const ACTION_GAIN_DODGE := "gain_dodge"
+const ACTION_HEAL := "heal"
+const ACTION_APPLY_STATUS := "apply_status"
+const ACTION_REMOVE_STATUS := "remove_status"
+const ACTION_EXTRA_DAMAGE := "extra_damage"
+const ACTION_COUNTER_ALL := "counter_all"
+const ACTION_INCREMENT_COUNTER := "increment_counter"
+const ACTION_RESET_COUNTER := "reset_counter"

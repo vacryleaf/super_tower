@@ -41,7 +41,10 @@ func create_character(class_id: String) -> Dictionary:
 
 func equip_item(player: Dictionary, item_id: String) -> void:
 	var item: Dictionary = DataCatalog.EQUIPMENT[item_id]
-	player["equipment"][item["slot"]] = item_id
+	var slot := String(item["slot"])
+	if slot == "ring" and player["equipment"].has("ring"):
+		slot = "ring2"
+	player["equipment"][slot] = item_id
 	if not player["equipment_ids"].has(item_id):
 		player["equipment_ids"].append(item_id)
 
@@ -174,12 +177,13 @@ func recalculate_player_stats(player: Dictionary, reset_hp: bool) -> void:
 	var active_set_effects := _active_set_effects(set_counts)
 	player["set_counts"] = set_counts
 	player["active_set_effects"] = active_set_effects
-	hp += int(active_set_effects.get("hp", 0))
-	attack += int(active_set_effects.get("attack", 0))
-	defense += int(active_set_effects.get("armor", active_set_effects.get("defense", 0)))
-	block_power += int(active_set_effects.get("block", 0))
-	player["state_attack_bonus"] += int(active_set_effects.get("state_attack", 0))
-	player["state_defense_bonus"] += int(active_set_effects.get("state_defense", 0))
+	var flat_stats: Dictionary = active_set_effects.get("flat_stats", {})
+	hp += int(flat_stats.get("hp", 0))
+	attack += int(flat_stats.get("attack", 0))
+	defense += int(flat_stats.get("armor", flat_stats.get("defense", 0)))
+	block_power += int(flat_stats.get("block", 0))
+	player["state_attack_bonus"] += int(flat_stats.get("state_attack", 0))
+	player["state_defense_bonus"] += int(flat_stats.get("state_defense", 0))
 	var skill_attachments: Dictionary = player.get("skill_attachments", {})
 	for skill_id in player["equipped_skills"]:
 		for attachment in skill_attachments.get(skill_id, []):
@@ -260,7 +264,12 @@ func _equipped_item_ids(player: Dictionary) -> Array[String]:
 
 
 func _active_set_effects(set_counts: Dictionary) -> Dictionary:
-	var effects := {}
+	var effects := {
+		"modifiers": [],
+		"on_battle_start": [],
+		"flat_stats": {"hp": 0, "attack": 0, "armor": 0, "defense": 0, "block": 0, "state_attack": 0, "state_defense": 0},
+		"set_requirement_delta": 0
+	}
 	var requirement_delta := 0
 	for set_id in set_counts.keys():
 		if not DataCatalog.EQUIPMENT_SETS.has(set_id):
@@ -269,6 +278,7 @@ func _active_set_effects(set_counts: Dictionary) -> Dictionary:
 		var bonuses: Dictionary = set_data.get("bonuses", {})
 		if int(set_counts[set_id]) >= 2 and bonuses.has(2):
 			requirement_delta += int((bonuses[2] as Dictionary).get("set_requirement_delta", 0))
+	effects["set_requirement_delta"] = requirement_delta
 	for set_id in set_counts.keys():
 		if not DataCatalog.EQUIPMENT_SETS.has(set_id):
 			continue
@@ -280,15 +290,25 @@ func _active_set_effects(set_counts: Dictionary) -> Dictionary:
 			if threshold >= 3:
 				adjusted_threshold = maxi(2, threshold - requirement_delta)
 			if int(set_counts[set_id]) >= adjusted_threshold:
-				_merge_set_bonus(effects, bonuses[raw_threshold])
+				_merge_set_bonus(effects, bonuses[raw_threshold], String(set_id), threshold)
 	return effects
 
 
-func _merge_set_bonus(effects: Dictionary, bonus: Dictionary) -> void:
+func _merge_set_bonus(effects: Dictionary, bonus: Dictionary, set_id: String, threshold: int) -> void:
 	for key in bonus.keys():
 		if key == "label":
 			continue
-		if key == "opening_attack_multiplier":
-			effects[key] = float(effects.get(key, 1.0)) * float(bonus[key])
+		if key == "modifiers":
+			for mod in bonus[key]:
+				var mod_copy: Dictionary = mod.duplicate(true)
+				mod_copy["source"] = "set:%s:%d" % [set_id, threshold]
+				effects["modifiers"].append(mod_copy)
+		elif key == "on_battle_start":
+			for action in bonus[key]:
+				effects["on_battle_start"].append(action.duplicate(true))
+		elif key == "set_requirement_delta":
+			pass
+		elif effects["flat_stats"].has(key):
+			effects["flat_stats"][key] = effects["flat_stats"][key] + bonus[key]
 		else:
 			effects[key] = effects.get(key, 0) + bonus[key]

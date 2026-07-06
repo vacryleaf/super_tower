@@ -51,15 +51,12 @@
       "tactical_retreat": {"name": "战术后撤", "class": "common", "type": "dodge", "cost": 2, "block_multiplier": 0.9, "dodge_layers": 1}
     },
     "equipment_sets": {
-      "iron_vanguard": {"name": "铁卫先锋", "tiers": ["2: 首回合格挡", "3: 生命与格挡值"]},
-      "gale_tracker": {"name": "疾风追猎", "tiers": ["2: 首回合躲避", "3: 攻击与状态攻击"]},
-      "moon_pair": {"name": "清辉流霜", "tiers": ["2: 其余3件套以上要求-1"]},
-      "ember_duelist": {"name": "余烬决斗", "tiers": ["2: 攻击与首回合攻击倍率"]}
+      "moon_pair": {"name": "清辉流霜", "tiers": ["2: 其余3件套以上要求-1"]}
     },
     "equipment_manifest": {
       "runtime_authority": "DataCatalog.EQUIPMENT",
       "base_equipment": ["warrior_training_helm", "warrior_old_chest", "warrior_soldier_belt", "warrior_practice_greaves", "warrior_cloth_gloves", "warrior_old_leggings", "warrior_march_boots", "warrior_training_sword", "warrior_wooden_shield", "archer_practice_hood", "archer_old_leather", "archer_hunter_belt", "archer_light_pants", "archer_bracers", "archer_soft_leggings", "archer_light_boots", "archer_practice_bow", "archer_simple_quiver"],
-      "set_equipment": ["warrior_vanguard_helm", "warrior_vanguard_chest", "warrior_vanguard_shield", "archer_gale_hood", "archer_gale_boots", "archer_gale_bow", "common_moon_necklace", "common_moon_ring", "common_ember_gloves", "common_ember_belt"]
+      "set_equipment": ["common_moon_ring", "common_moon_necklace", "sparta_damascus_sword", "sparta_shield", "sparta_chest", "sparta_helm", "sparta_greaves", "sparta_boots", "boxer_belt", "boxer_pants", "boxer_gloves"]
     },
     "enemy_unit_manifest": {
       "runtime_authority": "DataCatalog.NORMAL_UNITS / ELITE_UNITS / BOSS_UNITS",

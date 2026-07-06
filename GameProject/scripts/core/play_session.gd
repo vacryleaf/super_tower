@@ -13,6 +13,10 @@ const StateBuffService = preload("res://scripts/core/state_buff_service.gd")
 const RunProgressService = preload("res://scripts/core/run_progress_service.gd")
 const RewardApplyService = preload("res://scripts/core/reward_apply_service.gd")
 const EnemyActionRules = preload("res://scripts/core/enemy_action_rules.gd")
+const StatusService = preload("res://scripts/core/status_service.gd")
+const DamageType = preload("res://scripts/core/damage_type.gd")
+const TriggerEvents = preload("res://scripts/core/trigger_events.gd")
+const ModifierPipeline = preload("res://scripts/core/modifier_pipeline.gd")
 
 const MAX_CHARGES := 5
 
@@ -26,6 +30,7 @@ var state_buffs := StateBuffService.new()
 var run_progress := RunProgressService.new()
 var reward_apply := RewardApplyService.new()
 var enemy_rules := EnemyActionRules.new()
+var status_service := StatusService.new()
 var rng := RandomNumberGenerator.new()
 
 var player: Dictionary = {}
@@ -44,8 +49,15 @@ var round_index := 0
 var pending_state_card := ""
 var state_draw_cursor := 0
 var battle_attack_multiplier := 1.0
+var enemy_attack_multiplier := 1.0
+var focus_target_index := -1
+var focus_combo_multiplier := 1.0
 var counter_stance_charges := 0
 var counter_attack_multiplier := 1.0
+var dodge_streak := 0
+var meticulous_stacks := 0
+var seek_bloom_stacks := 0
+var attacked_this_turn := false
 var reward_options: Array[Dictionary] = []
 var pending_reward: Dictionary = {}
 var reward_targets: Array[Dictionary] = []
@@ -142,8 +154,16 @@ func _reset_to_camp_state() -> void:
 	pending_state_card = ""
 	state_draw_cursor = 0
 	battle_attack_multiplier = 1.0
+	player["statuses"] = []
+	enemy_attack_multiplier = 1.0
+	focus_target_index = -1
+	focus_combo_multiplier = 1.0
 	counter_stance_charges = 0
 	counter_attack_multiplier = 1.0
+	dodge_streak = 0
+	meticulous_stacks = 0
+	seek_bloom_stacks = 0
+	attacked_this_turn = false
 	reward_options.clear()
 	pending_reward = {}
 	reward_targets.clear()
@@ -169,16 +189,26 @@ func _start_current_battle() -> void:
 	round_index = 0
 	pending_state_card = ""
 	battle_attack_multiplier = 1.0
+	player["statuses"] = []
+	enemy_attack_multiplier = 1.0
+	focus_target_index = -1
+	focus_combo_multiplier = 1.0
 	counter_stance_charges = 0
 	counter_attack_multiplier = 1.0
+	dodge_streak = 0
+	meticulous_stacks = 0
+	seek_bloom_stacks = 0
+	attacked_this_turn = false
 	charge_used = {}
 	charge_ready = {}
 	pending_charge_effects = _empty_charge_effects()
 	battle_log.clear()
 	phase = "battle"
 	message = _battle_title()
+	_apply_opening_set_effects()
 	if _has_first_strike():
 		_enemy_attack(enemies[0], 0, true)
+	status_service.fire_trigger(player, TriggerEvents.ON_BATTLE_START, {"battle_log": battle_log, "session": self})
 	_begin_player_turn()
 
 
@@ -191,7 +221,9 @@ func _get_current_encounter() -> Dictionary:
 func _build_enemies(encounter: Dictionary) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	for unit in encounter["units"]:
-		result.append(Combatant.from_enemy_unit(unit, String(encounter.get("type", "normal")), floor_index))
+		var enemy := Combatant.from_enemy_unit(unit, String(encounter.get("type", "normal")), floor_index)
+		enemy["statuses"] = []
+		result.append(enemy)
 	return result
 
 func _begin_player_turn() -> void:
@@ -200,8 +232,13 @@ func _begin_player_turn() -> void:
 	action_points = max_action_points
 	player_block = 0
 	pending_state_card = _draw_state_buff()
-	if round_index == 1:
-		_apply_opening_set_effects()
+	status_service.tick_statuses(player)
+	status_service.fire_trigger(player, TriggerEvents.ON_TURN_START, {"battle_log": battle_log, "session": self, "not_attacked_last_turn": not attacked_this_turn})
+	for enemy in enemies:
+		if int(enemy["hp"]) > 0:
+			status_service.tick_statuses(enemy)
+			status_service.fire_trigger(enemy, TriggerEvents.ON_TURN_START, {"battle_log": battle_log, "session": self, "not_attacked_last_turn": false})
+	attacked_this_turn = false
 	var charged_label := _random_ready_charge()
 	message = "你的回合。状态 Buff：%s" % _state_name(pending_state_card)
 	if charged_label != "":
@@ -214,21 +251,33 @@ func _draw_state_buff() -> String:
 
 func _apply_opening_set_effects() -> void:
 	var set_effects: Dictionary = player.get("active_set_effects", {})
-	var opening_block := int(set_effects.get("opening_block", 0))
-	if opening_block > 0:
-		_add_player_block(opening_block)
-		battle_log.append("套装效果：首回合获得 %d 点格挡。" % opening_block)
-	var first_turn_dodge := int(set_effects.get("first_turn_dodge", 0))
-	if first_turn_dodge > 0:
-		_add_player_dodge(first_turn_dodge)
-		battle_log.append("套装效果：首回合获得 %d 层躲避。" % first_turn_dodge)
-	var opening_attack_multiplier := float(set_effects.get("opening_attack_multiplier", 1.0))
-	if opening_attack_multiplier > 1.0:
-		battle_attack_multiplier *= opening_attack_multiplier
-		battle_log.append("套装效果：首回合攻击倍率 x%.2f。" % opening_attack_multiplier)
+	for action in set_effects.get("on_battle_start", []):
+		var action_type := String(action.get("action", ""))
+		match action_type:
+			"weaken_enemies":
+				var weaken_value := float(action.get("value", 0.0))
+				if weaken_value > 0.0:
+					enemy_attack_multiplier = 1.0 - weaken_value
+					battle_log.append("套装效果：所有敌人伤害降低 %.0f%%。" % (weaken_value * 100.0))
+			"gain_block":
+				var block_value := int(action.get("value", 0))
+				if block_value > 0:
+					_add_player_block(block_value)
+					battle_log.append("套装效果：首回合获得 %d 点格挡。" % block_value)
+			"gain_dodge":
+				var dodge_value := int(action.get("value", 0))
+				if dodge_value > 0:
+					_add_player_dodge(dodge_value)
+					battle_log.append("套装效果：首回合获得 %d 层躲避。" % dodge_value)
+			"apply_status":
+				var status_to_apply: Dictionary = action.get("status", {})
+				if not status_to_apply.is_empty():
+					status_service.add_status(player, status_to_apply)
+					battle_log.append("套装效果：获得 %s。" % String(status_to_apply.get("name", "")))
 
 
 func player_attack(target_index: int) -> void:
+	attacked_this_turn = true
 	battle_service.player_attack(self, target_index)
 
 
@@ -241,6 +290,7 @@ func player_dodge() -> void:
 
 
 func use_skill(slot_index: int, target_index: int) -> void:
+	attacked_this_turn = true
 	battle_service.use_skill(self, slot_index, target_index)
 
 
@@ -267,20 +317,50 @@ func _player_combatant() -> Dictionary:
 	return Combatant.from_player(player, player_block, dodge_layers)
 
 
+func _resolve_focus_combo(target_index: int) -> float:
+	if not _has_set_modifier("dynamic:focus_combo"):
+		return 1.0
+	if focus_target_index == target_index:
+		focus_combo_multiplier *= 1.20
+	else:
+		focus_target_index = target_index
+		focus_combo_multiplier = 1.0
+	return focus_combo_multiplier
+
+
 func _current_attack_value() -> int:
-	return maxi(1, int(round(float(player["attack"]) * battle_attack_multiplier)))
+	var resolved_attack := status_service.resolve_stat(player, float(player["attack"]), StatusService.STAT_ATTACK)
+	var modifiers := ModifierPipeline.collect_from_session(self, "attack", {"state_card": pending_state_card, "focus_combo_multiplier": focus_combo_multiplier})
+	return maxi(1, int(round(ModifierPipeline.resolve(resolved_attack, modifiers))))
+
+
+func _defense_value() -> int:
+	var resolved_defense := status_service.resolve_stat(player, float(player["block_power"]), StatusService.STAT_DEFENSE)
+	var modifiers := ModifierPipeline.collect_from_session(self, "defense", {})
+	return maxi(1, int(round(ModifierPipeline.resolve(resolved_defense, modifiers))))
+
+
+func _has_set_modifier(dynamic_value: String) -> bool:
+	for mod in player.get("active_set_effects", {}).get("modifiers", []):
+		if String(mod.get("value", "")) == dynamic_value:
+			return true
+	return false
 
 
 func _skill_attack_value(skill_id: String) -> int:
 	var skill: Dictionary = DataCatalog.SKILLS[skill_id]
 	var multiplier := float(skill.get("multiplier", 1.0)) + _skill_multiplier_bonus(skill_id, "attack")
-	return maxi(1, int(round(float(player["attack"]) * battle_attack_multiplier * multiplier)))
+	var resolved_attack := status_service.resolve_stat(player, float(player["attack"]), StatusService.STAT_ATTACK)
+	var modifiers := ModifierPipeline.collect_from_session(self, "attack", {"skill_id": skill_id, "skill_multiplier": multiplier})
+	return maxi(1, int(round(ModifierPipeline.resolve(resolved_attack, modifiers))))
 
 
 func _skill_defense_value(skill_id: String) -> int:
 	var skill: Dictionary = DataCatalog.SKILLS[skill_id]
 	var multiplier := float(skill.get("multiplier", skill.get("block_multiplier", 1.0))) + _skill_multiplier_bonus(skill_id, "defense")
-	return maxi(1, int(round(float(player["block_power"]) * multiplier)))
+	var resolved_defense := status_service.resolve_stat(player, float(player["block_power"]), StatusService.STAT_DEFENSE)
+	var modifiers := ModifierPipeline.collect_from_session(self, "defense", {"skill_id": skill_id, "skill_multiplier": multiplier})
+	return maxi(1, int(round(ModifierPipeline.resolve(resolved_defense, modifiers))))
 
 
 func _skill_dodge_block_value(skill_id: String) -> int:
@@ -342,7 +422,17 @@ func _enemy_attack(enemy: Dictionary, enemy_index: int, first_strike: bool) -> v
 
 
 func _enemy_attack_segments(enemy: Dictionary, first_strike: bool) -> Array[int]:
-	return enemy_rules.attack_segments(enemy, round_index, first_strike)
+	var segments := enemy_rules.attack_segments(enemy, round_index, first_strike)
+	var base_attack := float(enemy["attack"])
+	var resolved_attack := status_service.resolve_stat(enemy, base_attack, StatusService.STAT_ATTACK)
+	var status_ratio := resolved_attack / maxf(1.0, base_attack)
+	var total_multiplier := enemy_attack_multiplier * status_ratio
+	if abs(total_multiplier - 1.0) < 0.001:
+		return segments
+	var result: Array[int] = []
+	for damage in segments:
+		result.append(maxi(1, int(round(float(damage) * total_multiplier))))
+	return result
 
 
 func _trigger_counter_attack(enemy_index: int) -> void:
@@ -354,22 +444,47 @@ func _trigger_counter_attack(enemy_index: int) -> void:
 		return
 	counter_stance_charges -= 1
 	var damage := maxi(1, int(round(float(_current_attack_value()) * counter_attack_multiplier)))
+	damage = maxi(1, int(round(float(damage) * _resolve_focus_combo(enemy_index))))
 	battle_log.append("反击架势触发，对 %s 反击 %d 点。" % [enemies[enemy_index]["name"], damage])
 	_apply_damage_to_enemy(enemy_index, damage, true)
 	if counter_stance_charges <= 0:
 		counter_attack_multiplier = 1.0
 
 
-func _apply_damage_to_enemy(target_index: int, damage: int, ignore_taunt: bool = false) -> void:
+func _check_dodge_streak() -> void:
+	dodge_streak += 1
+
+
+func get_counter(name: String) -> int:
+	match name:
+		"meticulous_stacks": return meticulous_stacks
+		"seek_bloom_stacks": return seek_bloom_stacks
+		_: return 0
+
+
+func set_counter(name: String, value: int) -> void:
+	match name:
+		"meticulous_stacks": meticulous_stacks = value
+		"seek_bloom_stacks": seek_bloom_stacks = value
+
+
+func _apply_damage_to_enemy(target_index: int, damage: int, ignore_taunt: bool = false, damage_type: String = "physical") -> void:
 	var taunt_target := _active_taunt_target()
 	if not ignore_taunt and taunt_target >= 0:
 		target_index = taunt_target
 	var enemy := enemies[target_index]
-	var marked_damage := maxi(0, int(round(float(damage) * float(enemy.get("mark_multiplier", 1.0)))))
-	var result := Combatant.apply_damage(enemy, marked_damage)
+	var damage_taken_mult := status_service.resolve_stat(enemy, 1.0, StatusService.STAT_DAMAGE_TAKEN)
+	var marked_damage := maxi(0, int(round(float(damage) * damage_taken_mult)))
+	if damage_type != DamageType.TRUE:
+		var resist_key := DamageType.resist_key(damage_type)
+		var base_resist := float(enemy.get("resistances", {}).get(damage_type, 1.0))
+		var resist_mult := status_service.resolve_stat(enemy, base_resist, resist_key)
+		marked_damage = maxi(0, int(round(float(marked_damage) * resist_mult)))
+	var result := Combatant.apply_damage(enemy, marked_damage, damage_type)
 	if bool(result["dodged"]):
 		battle_log.append("%s 闪避了这次命中。" % enemy["name"])
 		last_events.append({"kind": "dodge_enemy_attack", "target": "enemy", "target_index": target_index, "amount": 0})
+		status_service.fire_trigger(enemy, TriggerEvents.ON_DODGE, {"battle_log": battle_log, "session": self, "source": player})
 		return
 	battle_log.append("命中 %s：护甲减免 %d，格挡吸收 %d，造成 %d 点伤害。" % [
 		enemy["name"],
@@ -378,6 +493,11 @@ func _apply_damage_to_enemy(target_index: int, damage: int, ignore_taunt: bool =
 		int(result["damage"])
 	])
 	last_events.append({"kind": "damage", "target": "enemy", "target_index": target_index, "amount": int(result["damage"])})
+	var hit_context := {"battle_log": battle_log, "session": self, "source": player, "damage": int(result["damage"]), "target": enemy}
+	status_service.fire_trigger(player, TriggerEvents.ON_HIT_DEALT, hit_context)
+	status_service.fire_trigger(enemy, TriggerEvents.ON_HIT_RECEIVED, hit_context)
+	if int(enemy["hp"]) <= 0:
+		status_service.fire_trigger(player, TriggerEvents.ON_KILL, {"battle_log": battle_log, "session": self, "source": player, "target": enemy})
 
 
 func _on_victory() -> void:
@@ -623,8 +743,14 @@ func _save_data() -> Dictionary:
 		"pending_state_card": pending_state_card,
 		"state_draw_cursor": state_draw_cursor,
 		"battle_attack_multiplier": battle_attack_multiplier,
+		"enemy_attack_multiplier": enemy_attack_multiplier,
+		"focus_target_index": focus_target_index,
+		"focus_combo_multiplier": focus_combo_multiplier,
 		"counter_stance_charges": counter_stance_charges,
 		"counter_attack_multiplier": counter_attack_multiplier,
+		"dodge_streak": dodge_streak,
+		"meticulous_stacks": meticulous_stacks,
+		"seek_bloom_stacks": seek_bloom_stacks,
 		"charge_used": charge_used,
 		"charge_ready": charge_ready,
 		"pending_charge_effects": pending_charge_effects,
@@ -649,6 +775,7 @@ func _persistent_player_snapshot(source_player: Dictionary) -> Dictionary:
 	snapshot["skill_attachments"] = {}
 	snapshot["state_attack_bonus"] = 0
 	snapshot["state_defense_bonus"] = 0
+	snapshot["statuses"] = []
 	snapshot["normal_rewards"] = int(snapshot.get("normal_rewards", 0))
 	snapshot["elite_rewards"] = int(snapshot.get("elite_rewards", 0))
 	snapshot["boss_rewards"] = int(snapshot.get("boss_rewards", 0))
@@ -682,8 +809,14 @@ func _load_save_data(data: Dictionary) -> bool:
 	pending_state_card = String(data.get("pending_state_card", ""))
 	state_draw_cursor = int(data.get("state_draw_cursor", 0))
 	battle_attack_multiplier = float(data.get("battle_attack_multiplier", 1.0))
+	enemy_attack_multiplier = float(data.get("enemy_attack_multiplier", 1.0))
+	focus_target_index = int(data.get("focus_target_index", -1))
+	focus_combo_multiplier = float(data.get("focus_combo_multiplier", 1.0))
 	counter_stance_charges = int(data.get("counter_stance_charges", 0))
 	counter_attack_multiplier = float(data.get("counter_attack_multiplier", 1.0))
+	dodge_streak = int(data.get("dodge_streak", 0))
+	meticulous_stacks = int(data.get("meticulous_stacks", 0))
+	seek_bloom_stacks = int(data.get("seek_bloom_stacks", 0))
 	charge_used = _dictionary(data.get("charge_used", {}))
 	charge_ready = _dictionary(data.get("charge_ready", {}))
 	pending_charge_effects = _dictionary(data.get("pending_charge_effects", {}))
@@ -703,6 +836,8 @@ func _load_save_data(data: Dictionary) -> bool:
 func _normalize_loaded_enemies() -> void:
 	for enemy in enemies:
 		Combatant.normalize_enemy(enemy)
+		if not enemy.has("statuses"):
+			enemy["statuses"] = []
 
 
 func _dictionary(value: Variant) -> Dictionary:

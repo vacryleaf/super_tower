@@ -4,6 +4,7 @@ class_name CombatEngine
 const DataCatalog = preload("res://scripts/core/data_catalog.gd")
 const Combatant = preload("res://scripts/core/combatant.gd")
 const EnemyActionRules = preload("res://scripts/core/enemy_action_rules.gd")
+const ModifierPipeline = preload("res://scripts/core/modifier_pipeline.gd")
 
 const MAX_ROUNDS := 40
 

@@ -37,13 +37,13 @@ const CLASSES := {
 }
 
 const SKILLS := {
-	"heavy_slash": {"name": "重劈", "class": "warrior", "type": "attack", "cost": 2, "multiplier": 2.25, "hits": 1},
+	"heavy_slash": {"name": "重劈", "class": "warrior", "type": "attack", "cost": 2, "multiplier": 2.25, "hits": 1, "damage_type": "physical"},
 	"shield_wall": {"name": "盾墙", "class": "warrior", "type": "defense", "cost": 2, "multiplier": 2.40},
 	"counter_stance": {"name": "反击架势", "class": "warrior", "type": "stance", "cost": 2, "block_multiplier": 1.20, "counter_multiplier": 1.35},
 	"war_cry": {"name": "战吼", "class": "warrior", "type": "buff", "cost": 2, "attack_multiplier": 1.25},
-	"precise_shot": {"name": "精准射击", "class": "archer", "type": "attack", "cost": 2, "multiplier": 2.10, "hits": 1},
-	"quick_shot": {"name": "连珠箭", "class": "archer", "type": "attack", "cost": 2, "multiplier": 1.20, "hits": 2},
-	"hunter_mark": {"name": "猎人标记", "class": "archer", "type": "debuff", "cost": 2, "mark_multiplier": 1.35},
+	"precise_shot": {"name": "精准射击", "class": "archer", "type": "attack", "cost": 2, "multiplier": 2.10, "hits": 1, "armor_reduce": 0.30, "damage_type": "physical"},
+	"quick_shot": {"name": "连珠箭", "class": "archer", "type": "attack", "cost": 2, "multiplier": 0.60, "hits": 4, "damage_type": "physical"},
+	"hunter_mark": {"name": "猎人标记", "class": "archer", "type": "debuff", "cost": 2, "mark_multiplier": 1.35, "weaken_multiplier": 0.75},
 	"roll": {"name": "翻滚", "class": "archer", "type": "dodge", "cost": 2, "block_multiplier": 1.20, "dodge_layers": 1},
 	"first_aid": {"name": "急救", "class": "common", "type": "heal", "cost": 2, "heal_multiplier": 0.25},
 	"tactical_retreat": {"name": "战术后撤", "class": "common", "type": "dodge", "cost": 2, "block_multiplier": 0.90, "dodge_layers": 1}
@@ -68,43 +68,64 @@ const EQUIPMENT := {
 	"archer_light_boots": {"class": "archer", "slot": "feet", "name": "轻便靴", "hp": 2, "attack": 0, "armor": 0, "block": 0},
 	"archer_practice_bow": {"class": "archer", "slot": "weapon", "name": "练习弓", "hp": 0, "attack": 3, "armor": 0, "block": 0},
 	"archer_simple_quiver": {"class": "archer", "slot": "offhand", "name": "简易箭袋", "hp": 0, "attack": 2, "armor": 1, "block": 2},
-	"warrior_vanguard_helm": {"class": "warrior", "slot": "head", "name": "先锋铁额", "hp": 4, "attack": 0, "armor": 1, "block": 1, "set_id": "iron_vanguard"},
-	"warrior_vanguard_chest": {"class": "warrior", "slot": "body", "name": "先锋重甲", "hp": 6, "attack": 0, "armor": 1, "block": 2, "set_id": "iron_vanguard"},
-	"warrior_vanguard_shield": {"class": "warrior", "slot": "offhand", "name": "先锋壁盾", "hp": 2, "attack": 0, "armor": 2, "block": 2, "set_id": "iron_vanguard"},
-	"archer_gale_hood": {"class": "archer", "slot": "head", "name": "疾风兜帽", "hp": 3, "attack": 1, "armor": 0, "block": 1, "set_id": "gale_tracker"},
-	"archer_gale_boots": {"class": "archer", "slot": "feet", "name": "疾风短靴", "hp": 2, "attack": 1, "armor": 0, "block": 1, "set_id": "gale_tracker"},
-	"archer_gale_bow": {"class": "archer", "slot": "weapon", "name": "疾风猎弓", "hp": 0, "attack": 3, "armor": 0, "block": 0, "set_id": "gale_tracker"},
-	"common_moon_necklace": {"class": "common", "slot": "necklace", "name": "清辉链坠", "hp": 3, "attack": 0, "armor": 0, "block": 1, "set_id": "moon_pair"},
-	"common_moon_ring": {"class": "common", "slot": "ring", "name": "流霜戒", "hp": 2, "attack": 1, "armor": 0, "block": 1, "set_id": "moon_pair"},
-	"common_ember_gloves": {"class": "common", "slot": "hands", "name": "余烬握手", "hp": 2, "attack": 1, "armor": 0, "block": 0, "set_id": "ember_duelist"},
-	"common_ember_belt": {"class": "common", "slot": "waist", "name": "余烬束带", "hp": 3, "attack": 1, "armor": 0, "block": 1, "set_id": "ember_duelist"}
+	"common_moon_necklace": {"class": "common", "slot": "ring", "name": "清辉", "hp": 3, "attack": 0, "armor": 0, "block": 1, "set_id": "moon_pair"},
+	"common_moon_ring": {"class": "common", "slot": "ring", "name": "流霜", "hp": 2, "attack": 1, "armor": 0, "block": 1, "set_id": "moon_pair"},
+	"sparta_damascus_sword": {"class": "warrior", "slot": "weapon", "name": "大马士革钢刀", "hp": 0, "attack": 5, "armor": 0, "block": 0, "set_id": "sparta"},
+	"sparta_shield": {"class": "warrior", "slot": "offhand", "name": "斯巴达盾", "hp": 2, "attack": 0, "armor": 2, "block": 2, "set_id": "sparta"},
+	"sparta_chest": {"class": "warrior", "slot": "body", "name": "斯巴达胸甲", "hp": 8, "attack": 0, "armor": 1, "block": 2, "set_id": "sparta"},
+	"sparta_helm": {"class": "warrior", "slot": "head", "name": "斯巴达头盔", "hp": 5, "attack": 0, "armor": 1, "block": 1, "set_id": "sparta"},
+	"sparta_greaves": {"class": "warrior", "slot": "leggings", "name": "斯巴达护胫", "hp": 5, "attack": 0, "armor": 1, "block": 1, "set_id": "sparta"},
+	"sparta_boots": {"class": "warrior", "slot": "feet", "name": "斯巴达鞋", "hp": 3, "attack": 0, "armor": 0, "block": 1, "set_id": "sparta"},
+	"boxer_belt": {"class": "warrior", "slot": "waist", "name": "冠军腰带", "hp": 4, "attack": 2, "armor": 0, "block": 1, "set_id": "boxer"},
+	"boxer_pants": {"class": "warrior", "slot": "legs", "name": "拳击裤", "hp": 5, "attack": 1, "armor": 1, "block": 1, "set_id": "boxer"},
+	"boxer_gloves": {"class": "warrior", "slot": "hands", "name": "拳击手套", "hp": 2, "attack": 3, "armor": 0, "block": 0, "set_id": "boxer"},
+	"circus_whip": {"class": "common", "slot": "weapon", "name": "鞭子", "hp": 0, "attack": 4, "armor": 0, "block": 0, "set_id": "circus"},
+	"circus_torch": {"class": "common", "slot": "offhand", "name": "火把", "hp": 3, "attack": 1, "armor": 0, "block": 1, "set_id": "circus"},
+	"circus_mask": {"class": "common", "slot": "head", "name": "小丑面具", "hp": 4, "attack": 0, "armor": 1, "block": 1, "set_id": "circus"},
+	"circus_gloves": {"class": "common", "slot": "hands", "name": "杂技手套", "hp": 2, "attack": 2, "armor": 0, "block": 0, "set_id": "circus"},
+	"jungle_bow": {"class": "archer", "slot": "weapon", "name": "丛林弓", "hp": 0, "attack": 5, "armor": 0, "block": 0, "set_id": "jungle"},
+	"jungle_knife": {"class": "archer", "slot": "offhand", "name": "剥皮刀", "hp": 2, "attack": 2, "armor": 0, "block": 0, "set_id": "jungle"},
+	"jungle_hat": {"class": "archer", "slot": "head", "name": "草帽", "hp": 4, "attack": 0, "armor": 1, "block": 1, "set_id": "jungle"},
+	"jungle_vest": {"class": "archer", "slot": "body", "name": "树叶衣", "hp": 5, "attack": 0, "armor": 1, "block": 1, "set_id": "jungle"},
+	"jungle_pants": {"class": "archer", "slot": "legs", "name": "树叶裤", "hp": 5, "attack": 0, "armor": 1, "block": 1, "set_id": "jungle"},
+	"jungle_gloves": {"class": "archer", "slot": "hands", "name": "编制手套", "hp": 2, "attack": 2, "armor": 0, "block": 0, "set_id": "jungle"}
 }
 
 const EQUIPMENT_SETS := {
-	"iron_vanguard": {
-		"name": "铁卫先锋",
-		"bonuses": {
-			2: {"label": "每场战斗首回合获得 5 格挡。", "opening_block": 5},
-			3: {"label": "生命 +8，格挡值 +2。", "hp": 8, "block": 2}
-		}
-	},
-	"gale_tracker": {
-		"name": "疾风追猎",
-		"bonuses": {
-			2: {"label": "每场战斗首回合获得 1 层躲避。", "first_turn_dodge": 1},
-			3: {"label": "攻击 +2，状态 Buff 攻击效果 +1。", "attack": 2, "state_attack": 1}
-		}
-	},
 	"moon_pair": {
 		"name": "清辉流霜",
 		"bonuses": {
 			2: {"label": "其余 3 件套以上套装要求 -1。", "set_requirement_delta": 1}
 		}
 	},
-	"ember_duelist": {
-		"name": "余烬决斗",
+	"sparta": {
+		"name": "斯巴达",
 		"bonuses": {
-			2: {"label": "攻击 +1，首回合攻击倍率 x1.10。", "attack": 1, "opening_attack_multiplier": 1.10}
+			2: {"label": "斯巴达气势：结算时增加 20% 伤害。", "modifiers": [{"stat": "attack", "type": "multiply", "value": 1.20, "priority": 300}]},
+			4: {"label": "斯巴达战吼：降低所有敌人 20% 伤害，持续 3 回合。", "on_battle_start": [{"action": "weaken_enemies", "value": 0.20}]},
+			6: {"label": "狂战血统：血量越低攻击越高，满血时无加成，30% 血量时攻击翻倍。", "modifiers": [{"stat": "attack", "type": "multiply", "value": "dynamic:berserker", "priority": 300}]}
+		}
+	},
+	"boxer": {
+		"name": "拳击手",
+		"bonuses": {
+			2: {"label": "专注：连续攻击同一敌人时，每次伤害提升 20%，切换敌人重置。", "modifiers": [{"stat": "attack", "type": "multiply", "value": "dynamic:focus_combo", "priority": 300}]},
+			3: {"label": "KO：暴击 buff 下攻击造成 3 倍伤害。", "modifiers": [{"stat": "attack", "type": "multiply", "value": "dynamic:ko_critical", "priority": 300}]}
+		}
+	},
+	"circus": {
+		"name": "马戏团",
+		"bonuses": {
+			2: {"label": "杂耍：闪避成功时给攻击者追加100%攻击伤害。", "on_battle_start": [{"action": "apply_status", "status": {"id": "circus_juggling", "name": "杂耍", "kind": "buff", "duration": -1, "triggers": [{"event": "on_dodge", "actions": [{"type": "reflect", "target_stat": "attack", "target_ratio": 1.0}]}]}}]},
+			4: {"label": "表演：连续两次闪避成功时，给全部敌人追加100%攻击的伤害。", "on_battle_start": [{"action": "apply_status", "status": {"id": "circus_performance", "name": "表演", "kind": "buff", "duration": -1, "triggers": [{"event": "on_dodge", "actions": [{"type": "counter_all", "threshold": 2, "target_stat": "attack", "target_ratio": 1.0}]}]}}]}
+		}
+	},
+	"jungle": {
+		"name": "丛林",
+		"bonuses": {
+			2: {"label": "缜密：每闪避成功一次，增加10%伤害，最多增加50%伤害。", "on_battle_start": [{"action": "apply_status", "status": {"id": "jungle_meticulous", "name": "缜密", "kind": "buff", "duration": -1, "triggers": [{"event": "on_dodge", "actions": [{"type": "increment_counter", "counter": "meticulous_stacks", "max": 5}]}, {"event": "on_hit_received", "actions": [{"type": "reset_counter", "counter": "meticulous_stacks"}]}]}}], "modifiers": [{"stat": "attack", "type": "multiply", "value": "dynamic:meticulous", "priority": 300}]},
+			4: {"label": "寻绽：每个不攻击的回合增加30%伤害，最多增加90%伤害。", "on_battle_start": [{"action": "apply_status", "status": {"id": "jungle_seek_bloom", "name": "寻绽", "kind": "buff", "duration": -1, "triggers": [{"event": "on_turn_start", "condition": {"not_attacked_last_turn": true}, "actions": [{"type": "increment_counter", "counter": "seek_bloom_stacks", "max": 3}]}]}}], "modifiers": [{"stat": "attack", "type": "multiply", "value": "dynamic:seek_bloom", "priority": 300}]},
+			6: {"label": "狩猎：缜密5层后追加50%伤害，寻绽3层后追加90%伤害。造成伤害后重置。", "on_battle_start": [{"action": "apply_status", "status": {"id": "jungle_hunt", "name": "狩猎", "kind": "buff", "duration": -1, "triggers": [{"event": "on_hit_dealt", "actions": [{"type": "reset_counter", "counter": "meticulous_stacks"}, {"type": "reset_counter", "counter": "seek_bloom_stacks"}]}]}}], "modifiers": [{"stat": "attack", "type": "multiply", "value": "dynamic:hunt", "priority": 300}]}
 		}
 	}
 }

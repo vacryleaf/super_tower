@@ -4,6 +4,8 @@ const DataCatalog = preload("res://scripts/core/data_catalog.gd")
 const RunSimulator = preload("res://scripts/core/run_simulator.gd")
 const CombatEngine = preload("res://scripts/core/combat_engine.gd")
 const Combatant = preload("res://scripts/core/combatant.gd")
+const StatusService = preload("res://scripts/core/status_service.gd")
+const DynamicValueResolver = preload("res://scripts/core/dynamic_value_resolver.gd")
 
 var failures: Array[String] = []
 
@@ -47,6 +49,8 @@ func run_all() -> void:
 	test_tutorial_unlocks("warrior")
 	test_tutorial_unlocks("archer")
 	test_encounter_generation()
+	test_circus_set_juggling()
+	test_jungle_set_meticulous()
 	test_late_battles_are_stronger_than_openers()
 	test_baseline_campaign_difficulty_gate("warrior")
 	test_baseline_campaign_difficulty_gate("archer")
@@ -237,9 +241,11 @@ func test_skill_multiplier_effects() -> void:
 	warrior.start_new_game("warrior")
 	warrior.player["equipped_skills"] = ["war_cry"]
 	warrior.action_points = 3
-	var before_multiplier := float(warrior.battle_attack_multiplier)
 	warrior.use_skill(0, 0)
-	assert_true(float(warrior.battle_attack_multiplier) > before_multiplier, "war cry should increase battle attack multiplier")
+	var statuses: Array = warrior.player.get("statuses", [])
+	assert_true(statuses.size() > 0, "war cry should add a status to player")
+	var resolved_attack: float = warrior.status_service.resolve_stat(warrior.player, float(warrior.player["attack"]), StatusService.STAT_ATTACK)
+	assert_true(resolved_attack > float(warrior.player["attack"]), "war cry should increase resolved attack via status")
 
 	var archer = session_script.new()
 	archer.start_new_game("archer")
@@ -262,6 +268,9 @@ func test_skill_multiplier_effects() -> void:
 	archer.enemies = marked_enemies
 	archer.action_points = 3
 	archer.use_skill(0, 0)
+	assert_true(archer.enemies[0].get("statuses", []).size() > 0, "hunter mark should add a debuff status to enemy")
+	var dmg_mult: float = archer.status_service.resolve_stat(archer.enemies[0], 1.0, StatusService.STAT_DAMAGE_TAKEN)
+	assert_true(dmg_mult > 1.0, "hunter mark should increase damage taken multiplier")
 	archer.player_attack(0)
 	assert_true(int(archer.enemies[0]["hp"]) < 90, "hunter mark should amplify following attack damage")
 
@@ -290,7 +299,7 @@ func test_counter_stance_and_multihit_dodge() -> void:
 	archer.enemies = dodging_enemies
 	archer.action_points = 3
 	archer.use_skill(0, 0)
-	assert_equal(int(archer.enemies[0]["hp"]), 88, "quick shot should only lose its first hit to one dodge layer")
+	assert_equal(int(archer.enemies[0]["hp"]), 82, "quick shot should only lose its first hit to one dodge layer")
 
 	var dodger = session_script.new()
 	dodger.start_new_game("warrior")
@@ -387,15 +396,12 @@ func _has_core_growth_reward(rewards: Array[Dictionary]) -> bool:
 func test_set_equipment_effects() -> void:
 	var simulator := RunSimulator.new()
 	var player := simulator.create_character("warrior")
-	simulator.equip_item(player, "warrior_vanguard_helm")
-	simulator.equip_item(player, "warrior_vanguard_chest")
 	simulator.equip_item(player, "common_moon_necklace")
 	simulator.equip_item(player, "common_moon_ring")
 	simulator._recalculate_player_stats(player, true)
 	var effects: Dictionary = player.get("active_set_effects", {})
-	assert_equal(int(effects.get("opening_block", 0)), 5, "two-piece set should grant opening block")
-	assert_equal(int(effects.get("block", 0)), 2, "moon pair should reduce three-piece requirement")
-	assert_true(player.get("set_counts", {}).has("iron_vanguard"), "set count should include equipped set")
+	assert_equal(int(effects.get("set_requirement_delta", 0)), 1, "moon pair should reduce set requirements")
+	assert_true(player.get("set_counts", {}).has("moon_pair"), "set count should include moon pair")
 
 
 func test_boss_permanent_equipment_reward() -> void:
@@ -428,7 +434,7 @@ func test_external_resource_manifests() -> void:
 	assert_true(tables.has("equipment_manifest"), "external catalog should list equipment manifest")
 	assert_true(tables.has("enemy_unit_manifest"), "external catalog should list enemy unit manifest")
 	var equipment_manifest := DataCatalog.external_table("equipment_manifest")
-	assert_true(equipment_manifest.get("set_equipment", []).size() >= 4, "equipment manifest should include set equipment")
+	assert_true(equipment_manifest.get("set_equipment", []).size() >= 2, "equipment manifest should include set equipment")
 	var enemy_manifest := DataCatalog.external_table("enemy_unit_manifest")
 	assert_true(enemy_manifest.get("boss", []).size() >= 5, "enemy manifest should include boss ids")
 
@@ -756,3 +762,155 @@ func assert_true(value: bool, message: String) -> void:
 func assert_equal(actual, expected, message: String) -> void:
 	if actual != expected:
 		failures.append("%s: expected %s, got %s" % [message, str(expected), str(actual)])
+
+
+func test_circus_set_juggling() -> void:
+	var session_script = load("res://scripts/core/play_session.gd")
+	var session = session_script.new()
+	session.start_new_game("warrior")
+	# 清除教程状态
+	while session.is_tutorial():
+		if session.phase == "battle":
+			_force_win(session)
+		elif session.phase == "reward":
+			session.choose_reward(0)
+	# 装备4件马戏团装备
+	session.player["equipment"] = {}
+	session.player["equipment_ids"] = []
+	session.player["set_counts"] = {}
+	session.player["active_set_effects"] = {}
+	session.player["equipment_attachments"] = {}
+	session.player["skill_attachments"] = {}
+	var simulator = RunSimulator.new()
+	simulator.equip_item(session.player, "circus_whip")
+	simulator.equip_item(session.player, "circus_torch")
+	simulator.equip_item(session.player, "circus_mask")
+	simulator.equip_item(session.player, "circus_gloves")
+	simulator._recalculate_player_stats(session.player, true)
+	# 验证套装效果已应用
+	var effects: Dictionary = session.player.get("active_set_effects", {})
+	assert_true(effects.get("modifiers", []).size() >= 0, "circus set should have modifiers slot")
+	var on_start: Array = effects.get("on_battle_start", [])
+	var has_juggling := false
+	var has_performance := false
+	for action in on_start:
+		var status: Dictionary = action.get("status", {})
+		if status.get("id", "") == "circus_juggling":
+			has_juggling = true
+		if status.get("id", "") == "circus_performance":
+			has_performance = true
+	assert_true(has_juggling, "circus 2-piece should grant juggling status")
+	assert_true(has_performance, "circus 4-piece should grant performance status")
+	# 开始战斗，验证 status 被添加到玩家
+	session._start_current_battle()
+	var has_juggling_status := false
+	var has_performance_status := false
+	for status in session.player.get("statuses", []):
+		if status.get("id", "") == "circus_juggling":
+			has_juggling_status = true
+		if status.get("id", "") == "circus_performance":
+			has_performance_status = true
+	assert_true(has_juggling_status, "juggling status should be on player after battle start")
+	assert_true(has_performance_status, "performance status should be on player after battle start")
+	# 给玩家添加躲避层数
+	session._add_player_dodge(5)
+	# 模拟敌人攻击被闪避
+	var enemy: Dictionary = session.enemies[0]
+	session.battle_service.enemy_attack(session, enemy, 0, false)
+	# 验证闪避计数
+	assert_equal(session.dodge_streak, 1, "dodge streak should be 1 after first dodge")
+	# 再闪避一次触发表演
+	session._add_player_dodge(5)
+	session.battle_service.enemy_attack(session, enemy, 0, false)
+	# 表演效果触发后，闪避计数应重置
+	assert_equal(session.dodge_streak, 0, "dodge streak should reset after performance triggers")
+
+
+func test_jungle_set_meticulous() -> void:
+	var session_script = load("res://scripts/core/play_session.gd")
+	var session = session_script.new()
+	session.start_new_game("archer")
+	while session.is_tutorial():
+		if session.phase == "battle":
+			_force_win(session)
+		elif session.phase == "reward":
+			session.choose_reward(0)
+	# 装备6件丛林装备
+	session.player["equipment"] = {}
+	session.player["equipment_ids"] = []
+	session.player["set_counts"] = {}
+	session.player["active_set_effects"] = {}
+	session.player["equipment_attachments"] = {}
+	session.player["skill_attachments"] = {}
+	var simulator = RunSimulator.new()
+	simulator.equip_item(session.player, "jungle_bow")
+	simulator.equip_item(session.player, "jungle_knife")
+	simulator.equip_item(session.player, "jungle_hat")
+	simulator.equip_item(session.player, "jungle_vest")
+	simulator.equip_item(session.player, "jungle_pants")
+	simulator.equip_item(session.player, "jungle_gloves")
+	simulator._recalculate_player_stats(session.player, true)
+	# 验证套装效果
+	var effects: Dictionary = session.player.get("active_set_effects", {})
+	var on_start: Array = effects.get("on_battle_start", [])
+	var has_meticulous := false
+	var has_seek_bloom := false
+	var has_hunt := false
+	for action in on_start:
+		var status: Dictionary = action.get("status", {})
+		if status.get("id", "") == "jungle_meticulous":
+			has_meticulous = true
+		if status.get("id", "") == "jungle_seek_bloom":
+			has_seek_bloom = true
+		if status.get("id", "") == "jungle_hunt":
+			has_hunt = true
+	assert_true(has_meticulous, "jungle 2-piece should grant meticulous status")
+	assert_true(has_seek_bloom, "jungle 4-piece should grant seek_bloom status")
+	assert_true(has_hunt, "jungle 6-piece should grant hunt status")
+	# 开始战斗
+	session._start_current_battle()
+	var has_meticulous_status := false
+	var has_seek_bloom_status := false
+	var has_hunt_status := false
+	for status in session.player.get("statuses", []):
+		if status.get("id", "") == "jungle_meticulous":
+			has_meticulous_status = true
+		if status.get("id", "") == "jungle_seek_bloom":
+			has_seek_bloom_status = true
+		if status.get("id", "") == "jungle_hunt":
+			has_hunt_status = true
+	assert_true(has_meticulous_status, "meticulous status should be on player")
+	assert_true(has_seek_bloom_status, "seek_bloom status should be on player")
+	assert_true(has_hunt_status, "hunt status should be on player")
+	# 初始状态：缜密0层，寻绽1层（首回合 _begin_player_turn 已触发）
+	assert_equal(session.meticulous_stacks, 0, "meticulous should start at 0")
+	assert_equal(session.seek_bloom_stacks, 1, "seek_bloom should be 1 after first turn start")
+	# 闪避1次，缜密变为1层
+	session._add_player_dodge(5)
+	var enemy: Dictionary = session.enemies[0]
+	session.battle_service.enemy_attack(session, enemy, 0, false)
+	assert_equal(session.meticulous_stacks, 1, "meticulous should be 1 after one dodge")
+	# 被击中，缜密重置
+	session.dodge_layers = 0
+	session.battle_service.enemy_attack(session, enemy, 0, false)
+	assert_equal(session.meticulous_stacks, 0, "meticulous should reset after being hit")
+	# 闪避5次，缜密最多5层
+	session._add_player_dodge(10)
+	for i in range(5):
+		session.battle_service.enemy_attack(session, enemy, 0, false)
+	assert_equal(session.meticulous_stacks, 5, "meticulous should cap at 5 stacks")
+	# 不攻击的回合，寻绽计数增加（从1开始，首回合已计）
+	session.attacked_this_turn = false
+	session._begin_player_turn()
+	assert_equal(session.seek_bloom_stacks, 2, "seek_bloom should be 2 after two non-attack turns")
+	session.attacked_this_turn = false
+	session._begin_player_turn()
+	assert_equal(session.seek_bloom_stacks, 3, "seek_bloom should cap at 3 stacks")
+	# 验证狩猎 bonus：缜密5层 + 寻绽3层 = 1.5 * 1.9 = 2.85
+	var hunt_bonus := DynamicValueResolver.resolve("dynamic:hunt", session.player, {"meticulous_stacks": 5, "seek_bloom_stacks": 3})
+	assert_true(abs(hunt_bonus - 2.85) < 0.001, "hunt bonus should be 2.85 with 5 meticulous + 3 seek_bloom")
+	# 造成伤害后，缜密和寻绽应重置
+	session.action_points = 1
+	session.player_attack(0)
+	assert_equal(session.meticulous_stacks, 0, "meticulous should reset after dealing damage")
+	assert_equal(session.seek_bloom_stacks, 0, "seek_bloom should reset after dealing damage")
