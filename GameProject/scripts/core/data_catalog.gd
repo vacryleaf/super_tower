@@ -68,7 +68,7 @@ const EQUIPMENT := {
 	"archer_light_boots": {"class": "archer", "slot": "feet", "name": "轻便靴", "hp": 2, "attack": 0, "armor": 0, "block": 0},
 	"archer_practice_bow": {"class": "archer", "slot": "weapon", "name": "练习弓", "hp": 0, "attack": 3, "armor": 0, "block": 0},
 	"archer_simple_quiver": {"class": "archer", "slot": "offhand", "name": "简易箭袋", "hp": 0, "attack": 2, "armor": 1, "block": 2},
-	"common_moon_necklace": {"class": "common", "slot": "ring", "name": "清辉", "hp": 3, "attack": 0, "armor": 0, "block": 1, "set_id": "moon_pair"},
+	"common_moon_necklace": {"class": "common", "slot": "necklace", "name": "清辉", "hp": 3, "attack": 0, "armor": 0, "block": 1, "set_id": "moon_pair"},
 	"common_moon_ring": {"class": "common", "slot": "ring", "name": "流霜", "hp": 2, "attack": 1, "armor": 0, "block": 1, "set_id": "moon_pair"},
 	"sparta_damascus_sword": {"class": "warrior", "slot": "weapon", "name": "大马士革钢刀", "hp": 0, "attack": 5, "armor": 0, "block": 0, "set_id": "sparta"},
 	"sparta_shield": {"class": "warrior", "slot": "offhand", "name": "斯巴达盾", "hp": 2, "attack": 0, "armor": 2, "block": 2, "set_id": "sparta"},

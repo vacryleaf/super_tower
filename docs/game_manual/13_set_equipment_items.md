@@ -31,8 +31,8 @@
 | common_deep_lantern | 深灯 | 深灯腰带 | 腰部 | 生命 +4；攻击 +0；护甲 +1。 |
 | common_bone_charm | 骨符 | 骨符面罩 | 头部 | 生命 +4；攻击 +0；护甲 +1。 |
 | common_bone_charm | 骨符 | 骨符戒指 | 戒指 | 生命 +1；攻击 +1；护甲 +0。 |
-| common_moon_pair | 清辉/流霜 | 清辉戒指 | 戒指 | 生命 +1；攻击 +1；护甲 +0。 |
-| common_moon_pair | 清辉/流霜 | 流霜戒指 | 戒指 | 生命 +1；攻击 +1；护甲 +0。 |
+| common_moon_pair | 清辉/流霜 | 清辉项链 | 项链 | 生命 +3；攻击 +0；护甲 +0。 |
+| common_moon_pair | 清辉/流霜 | 流霜戒指 | 戒指 | 生命 +2；攻击 +1；护甲 +0。 |
 | common_scavenger | 拾荒者 | 拾荒者兜帽 | 头部 | 生命 +4；攻击 +0；护甲 +1。 |
 | common_scavenger | 拾荒者 | 拾荒者腰包 | 腰部 | 生命 +4；攻击 +0；护甲 +1。 |
 | common_scavenger | 拾荒者 | 拾荒者手套 | 手部 | 生命 +2；攻击 +1；护甲 +1。 |
