@@ -47,10 +47,28 @@ func _class_panel(session: Variant, class_key: String, label_factory: Callable, 
 			roster_player.get("equipment_ids", []).size(),
 			roster_player.get("unlocked_skills", []).size()
 		], 14))
+
+	var highest_floor := int(roster_player.get("highest_floor", 0))
+	var max_skip_floor := highest_floor - 4
+	var floor_selector: OptionButton = null
+	if max_skip_floor >= 2:
+		box.add_child(label_factory.call("最高记录：第 %d 层" % highest_floor, 14))
+		var selector_row := HBoxContainer.new()
+		selector_row.add_child(label_factory.call("跳关至：", 14))
+		floor_selector = OptionButton.new()
+		for f in range(2, max_skip_floor + 1):
+			floor_selector.add_item("第 %d 层" % f, f)
+		floor_selector.selected = max_skip_floor - 2
+		selector_row.add_child(floor_selector)
+		box.add_child(selector_row)
+
 	var button := Button.new()
 	button.text = "派遣：%s" % data["name"]
 	button.custom_minimum_size = Vector2(180, 56)
-	button.pressed.connect(dispatch_callback.bind(class_key))
+	if floor_selector:
+		button.pressed.connect(func(): dispatch_callback.call(class_key, int(floor_selector.get_selected_id())))
+	else:
+		button.pressed.connect(dispatch_callback.bind(class_key, 0))
 	box.add_child(button)
 	panel.add_child(box)
 	return panel

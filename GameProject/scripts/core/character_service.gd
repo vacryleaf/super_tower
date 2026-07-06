@@ -30,6 +30,7 @@ func create_character(class_id: String) -> Dictionary:
 		"equipped_skills": [],
 		"tutorial_completed": false,
 		"battles_completed": 0,
+		"highest_floor": 0,
 		"boss_rewards": 0,
 		"normal_rewards": 0,
 		"elite_rewards": 0,

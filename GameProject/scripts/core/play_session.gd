@@ -68,10 +68,14 @@ var charge_ready: Dictionary = {}
 var pending_charge_effects: Dictionary = {}
 
 
-func start_new_game(selected_class: String) -> void:
+func start_new_game(selected_class: String, start_floor: int = 0) -> void:
 	class_id = selected_class
 	player = _roster_player_or_new(selected_class)
-	floor_index = 2 if bool(player.get("tutorial_completed", false)) else 1
+	if start_floor >= 2:
+		player["tutorial_completed"] = true
+		floor_index = start_floor
+	else:
+		floor_index = 2 if bool(player.get("tutorial_completed", false)) else 1
 	battle_index = 1
 	phase = "battle"
 	message = "派遣%s进入高塔。" % DataCatalog.CLASSES[selected_class]["name"]
@@ -102,6 +106,9 @@ func save_game() -> bool:
 	profile["version"] = 2
 	profile["roster"] = roster
 	if phase == "game_over" or phase == "victory":
+		var current_highest := int(player.get("highest_floor", 0))
+		if floor_index > current_highest:
+			player["highest_floor"] = floor_index
 		profile["active_run"] = {}
 	else:
 		profile["active_run"] = _save_data()
@@ -115,6 +122,9 @@ func end_run_to_camp() -> bool:
 		return false
 	var profile := save_profile.read_profile(Callable(self, "_persistent_player_snapshot"))
 	var roster := _dictionary(profile.get("roster", {}))
+	var current_highest := int(player.get("highest_floor", 0))
+	if floor_index > current_highest:
+		player["highest_floor"] = floor_index
 	roster[class_id] = _persistent_player_snapshot(player)
 	profile["version"] = 2
 	profile["roster"] = roster

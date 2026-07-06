@@ -202,8 +202,8 @@ func _on_continue_pressed() -> void:
 		_request_game_render()
 
 
-func _on_class_dispatch_pressed(class_key: String) -> void:
-	session.start_new_game(class_key)
+func _on_class_dispatch_pressed(class_key: String, start_floor: int = 0) -> void:
+	session.start_new_game(class_key, start_floor)
 	_persist_session()
 	selected_target = 0
 	_request_game_render()
