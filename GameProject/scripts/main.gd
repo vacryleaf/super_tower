@@ -136,6 +136,7 @@ func _render_battle() -> void:
 	_render_player_status(bottom_bar)
 	var equip_button := _action_button("装备", Callable(self, "_on_equipment_toggle_pressed"))
 	equip_button.custom_minimum_size = Vector2(96, 92)
+	equip_button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	bottom_bar.add_child(equip_button)
 	_render_actions(bottom_bar)
 
