@@ -13,6 +13,7 @@ func create_character(class_id: String) -> Dictionary:
 	var class_data: Dictionary = DataCatalog.CLASSES[class_id]
 	var player := {
 		"class_id": class_id,
+			"side": "player",
 		"base_max_hp": int(class_data["max_hp"]),
 		"base_attack": int(class_data["base_attack"]),
 		"base_defense": int(class_data["base_defense"]),

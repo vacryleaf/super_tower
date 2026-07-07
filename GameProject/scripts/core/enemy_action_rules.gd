@@ -32,10 +32,6 @@ func intent_text(enemy: Dictionary, round_index: int) -> String:
 func attack_segments(enemy: Dictionary, round_index: int, first_strike: bool) -> Array[int]:
 	var base_damage := int(enemy["attack"])
 	var traits: Array = enemy.get("traits", [])
-	if traits.has("claw"):
-		base_damage = int(round(float(base_damage) * 1.15))
-	if traits.has("enrage") and int(enemy["hp"]) <= int(enemy["max_hp"]) * 0.4:
-		base_damage = int(round(float(base_damage) * 1.30))
 	if first_strike:
 		base_damage = maxi(1, int(round(float(base_damage) * 0.75)))
 	var segments: Array[int] = [maxi(1, base_damage)]

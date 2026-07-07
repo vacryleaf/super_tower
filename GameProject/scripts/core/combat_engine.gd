@@ -8,11 +8,15 @@ const ModifierPipeline = preload("res://scripts/core/modifier_pipeline.gd")
 const CombatRules = preload("res://scripts/core/combat_rules.gd")
 const ChargeSimulator = preload("res://scripts/core/charge_simulator.gd")
 const ChargeService = preload("res://scripts/core/charge_service.gd")
+const CharacterService = preload("res://scripts/core/character_service.gd")
+const StatusService = preload("res://scripts/core/status_service.gd")
 
 const MAX_ROUNDS := 40
 
 var enemy_rules := EnemyActionRules.new()
 var charge_sim := ChargeSimulator.new()
+var char_service := CharacterService.new()
+var status_service := StatusService.new()
 
 
 func run_battle(player: Dictionary, encounter: Dictionary, tower_floor: int, battle_index: int) -> Dictionary:
@@ -61,14 +65,14 @@ func run_battle(player: Dictionary, encounter: Dictionary, tower_floor: int, bat
 						for _hit in range(hits):
 							_damage_lowest_enemy(enemies, skill_damage, log, "skill_charge_repeat")
 			elif skill_type == "defense" or skill_type == "stance":
-				var block_gain := maxi(1, int(round(float(player.get("block_power", player.get("defense", 1))) * (float(skill.get("multiplier", skill.get("block_multiplier", 1.0))) + _skill_multiplier_bonus(player, skill_id, "defense")))))
+				var block_gain := maxi(1, int(round(float(player.get("block_power", player.get("defense", 1))) * (float(skill.get("multiplier", skill.get("block_multiplier", 1.0))) + char_service.skill_multiplier_bonus(player, skill_id, "defense")))))
 				block_gain = charge_sim.apply_defense_modifiers(block_gain, charge_state, skill_id)
 				player_block += block_gain
 				for _i in range(charge_sim.consume_repeats(charge_state, "defense", skill_id)):
 					player_block += block_gain
 				if skill_type == "stance":
 					counter_state["charges"] = int(counter_state["charges"]) + 1
-					counter_state["multiplier"] = maxf(float(counter_state["multiplier"]), float(skill.get("counter_multiplier", 1.0)) + _skill_multiplier_bonus(player, skill_id, "attack"))
+					counter_state["multiplier"] = maxf(float(counter_state["multiplier"]), float(skill.get("counter_multiplier", 1.0)) + char_service.skill_multiplier_bonus(player, skill_id, "attack"))
 			elif skill_type == "heal":
 				_skill_damage(player)
 			used_first_skill = true
@@ -132,10 +136,10 @@ func _skill_damage(player: Dictionary) -> int:
 	var skill_id: String = player["equipped_skills"][0]
 	var skill: Dictionary = DataCatalog.SKILLS[skill_id]
 	if skill.get("type", "") == "heal":
-		var healed := maxi(1, int(round(float(player["max_hp"]) * (float(skill.get("heal_multiplier", 0.0)) + _skill_multiplier_bonus(player, skill_id, "hp")))))
+		var healed := maxi(1, int(round(float(player["max_hp"]) * (float(skill.get("heal_multiplier", 0.0)) + char_service.skill_multiplier_bonus(player, skill_id, "hp")))))
 		player["hp"] = mini(int(player["max_hp"]), int(player["hp"]) + healed)
 		return 0
-	var multiplier := float(skill.get("multiplier", 1.0)) + _skill_multiplier_bonus(player, skill_id, "attack")
+	var multiplier := float(skill.get("multiplier", 1.0)) + char_service.skill_multiplier_bonus(player, skill_id, "attack")
 	return maxi(1, int(round(float(player["attack"]) * multiplier)))
 
 
@@ -205,7 +209,16 @@ func _enemy_round_damage(enemy: Dictionary, round_index: int) -> int:
 
 
 func _enemy_attack_segments(enemy: Dictionary, round_index: int, first_strike: bool) -> Array[int]:
-	return enemy_rules.attack_segments(enemy, round_index, first_strike)
+	var segments := enemy_rules.attack_segments(enemy, round_index, first_strike)
+	var base_attack := float(enemy["attack"])
+	var resolved_attack: float = status_service.resolve_stat(enemy, base_attack, StatusService.STAT_ATTACK)
+	if abs(resolved_attack - base_attack) < 0.001:
+		return segments
+	var ratio := resolved_attack / maxf(1.0, base_attack)
+	var result: Array[int] = []
+	for damage in segments:
+		result.append(maxi(1, int(round(float(damage) * ratio))))
+	return result
 
 
 func _incoming_damage(enemies: Array[Dictionary], round_index: int) -> int:
@@ -216,16 +229,14 @@ func _incoming_damage(enemies: Array[Dictionary], round_index: int) -> int:
 			continue
 		if actions >= 2:
 			break
-		var skill_id := _choose_enemy_skill(enemy, round_index)
+		var skill_id := enemy_rules.choose_skill(enemy, round_index)
 		var skill: Dictionary = DataCatalog.SKILLS.get(skill_id, DataCatalog.INNATE_SKILLS.get(skill_id, {}))
 		if skill.get("type", "") == "attack":
-			var rank_mult: float = _rank_skill_multiplier(enemy) if skill.get("class", "") == "enemy" else 1.0
 			if skill_id == "innate_attack":
 				total += _enemy_round_damage(enemy, round_index)
 			else:
-				var multiplier := float(skill.get("multiplier", 1.0))
 				var hits := maxi(1, int(skill.get("hits", 1)))
-				total += maxi(1, int(round(float(enemy["attack"]) * multiplier * rank_mult))) * hits
+				total += CombatRules.skill_attack_value_for_actor(enemy, skill_id) * hits
 		actions += 1
 	return total
 
@@ -244,7 +255,7 @@ func _apply_end_round_traits(player: Dictionary, enemies: Array[Dictionary], rou
 
 
 func _resolve_enemy_action(player: Dictionary, enemy: Dictionary, player_block: int, round_index: int, counter_state: Dictionary, log: Array[String]) -> Dictionary:
-	var skill_id := _choose_enemy_skill(enemy, round_index)
+	var skill_id := enemy_rules.choose_skill(enemy, round_index)
 	return _execute_enemy_skill_in_sim(player, enemy, skill_id, player_block, round_index, counter_state, log)
 
 
@@ -278,78 +289,18 @@ func _enemy_intent(enemy: Dictionary, round_index: int) -> String:
 	return enemy_rules.intent(enemy, round_index)
 
 
-func _rank_skill_multiplier(enemy: Dictionary) -> float:
-	var rank_mult := {"normal": 1.0, "elite": 1.20, "boss": 1.45}
-	return rank_mult.get(String(enemy.get("rank", "normal")), 1.0)
-
-
-func _choose_enemy_skill(enemy: Dictionary, round_index: int) -> String:
-	var skills: Array = enemy.get("skills", [])
-	var innate: Dictionary = enemy.get("innate_skills", {})
-	var traits: Array = enemy["traits"]
-	var hp_percent: float = float(enemy["hp"]) / float(maxi(1, enemy["max_hp"]))
-
-	if traits.has("taunt") and int(enemy.get("taunt", 0)) <= 0 and round_index % 3 == 1:
-		if skills.has("enemy_taunt"):
-			return "enemy_taunt"
-
-	if hp_percent < 0.35:
-		for skill_id in skills:
-			var skill: Dictionary = DataCatalog.SKILLS.get(skill_id, {})
-			if skill.get("type", "") == "defense":
-				return skill_id
-		for skill_id in skills:
-			var skill: Dictionary = DataCatalog.SKILLS.get(skill_id, {})
-			if skill.get("type", "") == "dodge":
-				return skill_id
-		return innate.get("defend", "innate_defend")
-
-	if (traits.has("tank") or traits.has("guard")) and round_index % 2 == 0:
-		for skill_id in skills:
-			var skill: Dictionary = DataCatalog.SKILLS.get(skill_id, {})
-			if skill.get("type", "") == "defense":
-				return skill_id
-		return innate.get("defend", "innate_defend")
-
-	if traits.has("evade") and round_index % 3 == 0:
-		for skill_id in skills:
-			var skill: Dictionary = DataCatalog.SKILLS.get(skill_id, {})
-			if skill.get("type", "") == "dodge":
-				return skill_id
-		return innate.get("dodge", "innate_dodge")
-
-	if traits.has("fortify") and round_index % 2 == 0:
-		for skill_id in skills:
-			var skill: Dictionary = DataCatalog.SKILLS.get(skill_id, {})
-			if skill.get("type", "") == "defense":
-				return skill_id
-		return innate.get("defend", "innate_defend")
-
-	for skill_id in skills:
-		var skill: Dictionary = DataCatalog.SKILLS.get(skill_id, {})
-		if skill.get("type", "") == "attack":
-			return skill_id
-
-	if not skills.is_empty():
-		for skill_id in skills:
-			if skill_id != "enemy_taunt":
-				return skill_id
-
-	return innate.get("attack", "innate_attack")
-
-
 func _execute_enemy_skill_in_sim(player: Dictionary, enemy: Dictionary, skill_id: String, player_block: int, round_index: int, counter_state: Dictionary, log: Array[String]) -> Dictionary:
 	var skill: Dictionary = DataCatalog.SKILLS.get(skill_id, DataCatalog.INNATE_SKILLS.get(skill_id, {}))
 	if skill.is_empty():
 		return {"block": player_block}
 	var skill_type := String(skill.get("type", "attack"))
-	var rank_mult: float = _rank_skill_multiplier(enemy) if skill.get("class", "") == "enemy" else 1.0
+	var rank_mult: float = CombatRules.RANK_SKILL_MULTIPLIER.get(String(enemy.get("rank", "normal")), 1.0) if skill.get("class", "") == "enemy" else 1.0
 	match skill_type:
 		"attack":
 			if skill_id == "innate_attack":
 				var result := _apply_enemy_attack(player, enemy, -1, player_block, log, false, round_index, counter_state)
 				return {"block": int(result["block"])}
-			var damage := maxi(1, int(round(float(enemy["attack"]) * float(skill.get("multiplier", 1.0)) * rank_mult)))
+			var damage := CombatRules.skill_attack_value_for_actor(enemy, skill_id)
 			var hits := maxi(1, int(skill.get("hits", 1)))
 			var was_hit := false
 			for _hit in range(hits):
@@ -360,7 +311,7 @@ func _execute_enemy_skill_in_sim(player: Dictionary, enemy: Dictionary, skill_id
 			if was_hit:
 				_trigger_counter_attack(player, enemy, -1, log, counter_state)
 		"defense", "stance":
-			Combatant.add_block(enemy, float(skill.get("multiplier", skill.get("block_multiplier", 1.0))) * rank_mult)
+			enemy["block"] = int(enemy.get("block", 0)) + CombatRules.skill_defense_value_for_actor(enemy, skill_id)
 			log.append("enemy_skill_defend:%s:%s" % [skill_id, enemy["name"]])
 		"dodge":
 			Combatant.add_dodge(enemy, int(skill.get("dodge_layers", 1)))
@@ -370,7 +321,7 @@ func _execute_enemy_skill_in_sim(player: Dictionary, enemy: Dictionary, skill_id
 			Combatant.add_block(enemy, 1.0)
 			log.append("enemy_skill_taunt:%s:%s" % [skill_id, enemy["name"]])
 		"heal":
-			var healed := maxi(1, int(round(float(enemy["max_hp"]) * float(skill.get("heal_multiplier", 0.0)))))
+			var healed := CombatRules.skill_heal_value_for_actor(enemy, skill_id)
 			enemy["hp"] = mini(int(enemy["max_hp"]), int(enemy["hp"]) + healed)
 			log.append("enemy_skill_heal:%s:%s" % [skill_id, enemy["name"]])
 		"buff":
@@ -404,16 +355,6 @@ func _state_bonus(player: Dictionary, tag: String) -> int:
 	if tag == "defense":
 		return int(player.get("state_defense_bonus", 0))
 	return 0
-
-
-func _skill_multiplier_bonus(player: Dictionary, skill_id: String, kind: String = "") -> float:
-	var total := 0.0
-	var attachments: Dictionary = player.get("skill_attachments", {})
-	for attachment in attachments.get(skill_id, []):
-		var attachment_kind := ChargeService.attachment_stat_kind(String(attachment.get("kind", "")))
-		if attachment_kind == "skill_power" or attachment_kind == kind:
-			total += ChargeService.attachment_multiplier_value(float(attachment.get("value", 0.0)))
-	return total
 
 
 func _has_first_strike(enemies: Array[Dictionary]) -> bool:

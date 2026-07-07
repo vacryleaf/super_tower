@@ -578,14 +578,7 @@ func _apply_damage_to_enemy(target_index: int, damage: int, ignore_taunt: bool =
 	if not ignore_taunt and taunt_target >= 0:
 		target_index = taunt_target
 	var enemy := enemies[target_index]
-	var damage_taken_mult := status_service.resolve_stat(enemy, 1.0, StatusService.STAT_DAMAGE_TAKEN)
-	var marked_damage := maxi(0, int(round(float(damage) * damage_taken_mult)))
-	if damage_type != DamageType.TRUE:
-		var resist_key := DamageType.resist_key(damage_type)
-		var base_resist := float(enemy.get("resistances", {}).get(damage_type, 1.0))
-		var resist_mult := status_service.resolve_stat(enemy, base_resist, resist_key)
-		marked_damage = maxi(0, int(round(float(marked_damage) * resist_mult)))
-	var result := Combatant.apply_damage(enemy, marked_damage, damage_type)
+	var result := battle_service.deal_damage_to_target(enemy, damage, damage_type, self)
 	if bool(result["dodged"]):
 		battle_log.append("%s 闪避了这次命中。" % enemy["name"])
 		last_events.append({"kind": "dodge_enemy_attack", "target": "enemy", "target_index": target_index, "amount": 0})
@@ -619,15 +612,7 @@ func deal_damage(ctx: Dictionary) -> void:
 			ctx["target_index"] = target_index
 
 	var enemy := enemies[target_index]
-	var damage_taken_mult := status_service.resolve_stat(enemy, 1.0, StatusService.STAT_DAMAGE_TAKEN)
-	var marked_damage := maxi(0, int(round(float(damage) * damage_taken_mult)))
-	if damage_type != DamageType.TRUE:
-		var resist_key := DamageType.resist_key(damage_type)
-		var base_resist := float(enemy.get("resistances", {}).get(damage_type, 1.0))
-		var resist_mult := status_service.resolve_stat(enemy, base_resist, resist_key)
-		marked_damage = maxi(0, int(round(float(marked_damage) * resist_mult)))
-
-	var result := Combatant.apply_damage(enemy, marked_damage, damage_type)
+	var result := battle_service.deal_damage_to_target(enemy, damage, damage_type, self)
 	if bool(result["dodged"]):
 		battle_log.append("%s 闪避了这次命中。" % enemy["name"])
 		last_events.append({"kind": "dodge_enemy_attack", "target": "enemy", "target_index": target_index, "amount": 0})
@@ -896,7 +881,9 @@ func _roster_player_or_new(selected_class: String) -> Dictionary:
 	var saved_player := get_roster_player(selected_class)
 	if saved_player.is_empty():
 		return simulator.create_character(selected_class)
-	simulator._recalculate_player_stats(saved_player, true)
+	if not saved_player.has("side"):
+		saved_player["side"] = "player"
+		simulator._recalculate_player_stats(saved_player, true)
 	return saved_player
 
 

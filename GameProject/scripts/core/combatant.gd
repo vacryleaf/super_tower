@@ -175,10 +175,39 @@ static func normalize_enemy(enemy: Dictionary) -> void:
 			"defend": "innate_defend",
 			"dodge": "innate_dodge"
 		}
+	if not enemy.has("statuses"):
+		enemy["statuses"] = []
+	_apply_trait_statuses(enemy)
+
+
+static func _apply_trait_statuses(enemy: Dictionary) -> void:
+	var traits: Array = enemy.get("traits", [])
+	if traits.is_empty():
+		return
+	var statuses: Array = enemy.get("statuses", [])
+
+	if traits.has("claw"):
+		statuses.append({
+			"id": "trait_claw", "name": "利爪", "kind": "buff", "stack": "replace",
+			"effects": [{"stat": "attack", "type": "multiply", "value": 1.15}],
+			"duration": -1
+		})
+
+	if traits.has("enrage"):
+		statuses.append({
+			"id": "trait_enrage", "name": "激怒", "kind": "buff", "stack": "replace",
+			"effects": [],
+			"conditional_effects": [
+				{"condition": {"hp_ratio": {"lt": 0.4}}, "effects": [{"stat": "attack", "type": "multiply", "value": 1.30}]}
+			],
+			"duration": -1
+		})
+
+	enemy["statuses"] = statuses
 
 
 static func _enemy_dictionary(unit_name: String, rank: String, hp: int, attack: int, defense: int, armor: int, traits: Array, skills: Array = []) -> Dictionary:
-	return {
+	var enemy := {
 		"name": unit_name,
 		"side": "enemy",
 		"rank": rank,
@@ -197,8 +226,11 @@ static func _enemy_dictionary(unit_name: String, rank: String, hp: int, attack: 
 			"attack": "innate_attack",
 			"defend": "innate_defend",
 			"dodge": "innate_dodge"
-		}
+		},
+		"statuses": []
 	}
+	_apply_trait_statuses(enemy)
+	return enemy
 
 
 static func _enemy_base_armor(unit: Dictionary, defense: int, traits: Array) -> int:

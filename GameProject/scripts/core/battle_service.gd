@@ -21,7 +21,10 @@ func player_attack(session: RefCounted, target_index: int) -> void:
 		return
 	session.attacked_this_turn = true
 	var skill_id: String = session.player["innate_skills"]["attack"]
-	execute_skill(session, skill_id, target, session.player, true)
+	execute_skill(session, skill_id, target, session.player)
+	session.action_points -= 1
+	session._consume_state_after_action("attack")
+	session._after_player_action()
 
 
 func player_defend(session: RefCounted) -> void:
@@ -29,7 +32,10 @@ func player_defend(session: RefCounted) -> void:
 	if not session._can_act(1):
 		return
 	var skill_id: String = session.player["innate_skills"]["defend"]
-	execute_skill(session, skill_id, -1, session.player, true)
+	execute_skill(session, skill_id, -1, session.player)
+	session.action_points -= 1
+	session._consume_state_after_action("defense")
+	session._after_player_action()
 
 
 func player_dodge(session: RefCounted) -> void:
@@ -37,7 +43,10 @@ func player_dodge(session: RefCounted) -> void:
 	if not session._can_act(1):
 		return
 	var skill_id: String = session.player["innate_skills"]["dodge"]
-	execute_skill(session, skill_id, -1, session.player, true)
+	execute_skill(session, skill_id, -1, session.player)
+	session.action_points -= 1
+	session._consume_state_after_action("dodge")
+	session._after_player_action()
 
 
 func use_skill(session: RefCounted, slot_index: int, target_index: int) -> void:
@@ -54,18 +63,22 @@ func use_skill(session: RefCounted, slot_index: int, target_index: int) -> void:
 	var cost := int(skill.get("cost", 1))
 	if not session._can_act(cost):
 		return
-	execute_skill(session, skill_id, target_index, session.player, true)
+	execute_skill(session, skill_id, target_index, session.player)
+	session.action_points -= cost
+	session._consume_state_after_action(String(skill.get("type", "attack")))
+	session._after_player_action()
 
 
-func execute_skill(session: RefCounted, skill_id: String, target_index: int, actor: Dictionary, is_player: bool) -> void:
+func execute_skill(session: RefCounted, skill_id: String, target_index: int, actor: Dictionary) -> void:
 	var skill: Dictionary = _get_skill_data(skill_id)
 	if skill.is_empty():
 		return
 	var skill_type := String(skill.get("type", "attack"))
 	var cost := int(skill.get("cost", 1))
+	var is_player_actor: bool = actor.get("side", "") == "player"
 
 	if skill_type == "attack":
-		if is_player:
+		if is_player_actor:
 			var target: int = session._valid_target(target_index)
 			if target < 0:
 				return
@@ -123,7 +136,7 @@ func execute_skill(session: RefCounted, skill_id: String, target_index: int, act
 				session._trigger_counter_attack(target_index)
 
 	elif skill_type == "defense" or skill_type == "stance":
-		if is_player:
+		if is_player_actor:
 			var gained: int = session._skill_defense_value(skill_id)
 			gained = session._apply_charge_defense_modifiers(gained, skill_id)
 			var total_gained := gained
@@ -144,7 +157,7 @@ func execute_skill(session: RefCounted, skill_id: String, target_index: int, act
 			session.last_events.append({"kind": "defense", "target": "enemy", "target_index": target_index, "source": actor["name"], "amount": gained})
 
 	elif skill_type == "dodge":
-		if is_player:
+		if is_player_actor:
 			var gained := int(skill.get("dodge_layers", 1))
 			if session.pending_state_card == "read":
 				gained *= 2
@@ -167,7 +180,7 @@ func execute_skill(session: RefCounted, skill_id: String, target_index: int, act
 		session.last_events.append({"kind": "defense", "target": "enemy", "target_index": target_index, "source": actor["name"], "amount": gained})
 
 	elif skill_type == "heal":
-		if is_player:
+		if is_player_actor:
 			var healed: int = session._skill_heal_value(skill_id)
 			actor["hp"] = mini(int(actor["max_hp"]), int(actor["hp"]) + healed)
 			session.battle_log.append("%s：恢复 %d 点生命。" % [skill["name"], healed])
@@ -179,7 +192,7 @@ func execute_skill(session: RefCounted, skill_id: String, target_index: int, act
 			session.last_events.append({"kind": "heal", "target": "enemy", "target_index": target_index, "source": actor["name"], "amount": healed})
 
 	elif skill_type == "buff":
-		if is_player:
+		if is_player_actor:
 			var bonus_multiplier: float = session._skill_multiplier_bonus(skill_id, "attack")
 			var multiplier: float = float(skill.get("attack_multiplier", 1.0)) + bonus_multiplier
 			var status := {
@@ -208,7 +221,7 @@ func execute_skill(session: RefCounted, skill_id: String, target_index: int, act
 			session.last_events.append({"kind": "buff", "target": "enemy", "target_index": target_index, "source": actor["name"], "amount": 0})
 
 	elif skill_type == "debuff":
-		if is_player:
+		if is_player_actor:
 			var target: int = session._valid_target(target_index)
 			if target < 0:
 				return
@@ -249,11 +262,6 @@ func execute_skill(session: RefCounted, skill_id: String, target_index: int, act
 		session.message = "该技能暂未实现。"
 		return
 
-	if is_player:
-		session.action_points -= cost
-		session._consume_state_after_action(skill_type)
-		session._after_player_action()
-
 
 func _get_skill_data(skill_id: String) -> Dictionary:
 	if DataCatalog.SKILLS.has(skill_id):
@@ -275,6 +283,10 @@ func end_turn(session: RefCounted) -> void:
 func enemy_turn(session: RefCounted) -> void:
 	session._clear_enemy_blocks()
 	session._clear_enemy_taunts()
+	for enemy in session.enemies:
+		if int(enemy["hp"]) <= 0:
+			continue
+		session.status_service.fire_trigger(enemy, TriggerEvents.ON_TURN_START, {"battle_log": session.battle_log, "session": session, "round_index": session.round_index})
 	var actions := 0
 	for i in range(session.enemies.size()):
 		var enemy: Dictionary = session.enemies[i]
@@ -285,13 +297,17 @@ func enemy_turn(session: RefCounted) -> void:
 			continue
 		resolve_enemy_action(session, enemy, i)
 		actions += 1
+	for enemy in session.enemies:
+		if int(enemy["hp"]) <= 0:
+			continue
+		session.status_service.fire_trigger(enemy, TriggerEvents.ON_TURN_END, {"battle_log": session.battle_log, "session": session, "round_index": session.round_index})
 	if int(session.player["hp"]) <= 0:
 		session._on_defeat()
 
 
 func resolve_enemy_action(session: RefCounted, enemy: Dictionary, enemy_index: int) -> void:
 	var skill_id: String = session._enemy_choose_skill(enemy)
-	execute_skill(session, skill_id, enemy_index, enemy, false)
+	execute_skill(session, skill_id, enemy_index, enemy)
 
 
 func enemy_defend(enemy: Dictionary, scale: float) -> int:
@@ -303,7 +319,7 @@ func enemy_attack(session: RefCounted, enemy: Dictionary, enemy_index: int, firs
 	var player_unit: Dictionary = session._player_combatant()
 	var was_hit := false
 	for damage in segments:
-		var result := Combatant.apply_damage(player_unit, damage, "physical")
+		var result := deal_damage_to_target(player_unit, damage, "physical", session)
 		session._sync_player_combatant(player_unit)
 		if bool(result["dodged"]):
 			session.battle_log.append("躲避了 %s 的一段攻击。" % enemy["name"])
@@ -344,3 +360,14 @@ func enemy_attack(session: RefCounted, enemy: Dictionary, enemy_index: int, firs
 
 func enemy_attack_segments(session: RefCounted, enemy: Dictionary, first_strike: bool) -> Array[int]:
 	return session._enemy_attack_segments(enemy, first_strike)
+
+
+func deal_damage_to_target(target: Dictionary, raw_damage: int, damage_type: String, session: RefCounted) -> Dictionary:
+	var damage_taken_mult: float = session.status_service.resolve_stat(target, 1.0, StatusService.STAT_DAMAGE_TAKEN)
+	var marked_damage := maxi(0, int(round(float(raw_damage) * damage_taken_mult)))
+	if damage_type != DamageType.TRUE:
+		var resist_key := DamageType.resist_key(damage_type)
+		var base_resist := float(target.get("resistances", {}).get(damage_type, 1.0))
+		var resist_mult: float = session.status_service.resolve_stat(target, base_resist, resist_key)
+		marked_damage = maxi(0, int(round(float(marked_damage) * resist_mult)))
+	return Combatant.apply_damage(target, marked_damage, damage_type)
