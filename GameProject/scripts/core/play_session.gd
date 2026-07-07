@@ -17,6 +17,7 @@ const StatusService = preload("res://scripts/core/status_service.gd")
 const DamageType = preload("res://scripts/core/damage_type.gd")
 const TriggerEvents = preload("res://scripts/core/trigger_events.gd")
 const CombatRules = preload("res://scripts/core/combat_rules.gd")
+const BattleState = preload("res://scripts/core/battle_state.gd")
 
 const MAX_CHARGES := 5
 
@@ -33,39 +34,173 @@ var enemy_rules := EnemyActionRules.new()
 var status_service := StatusService.new()
 var rng := RandomNumberGenerator.new()
 
-var player: Dictionary = {}
-var class_id := ""
-var floor_index := 1
-var battle_index := 1
-var phase := "menu"
-var message := ""
-var enemies: Array[Dictionary] = []
-var current_encounter: Dictionary = {}
-var action_points := 1
-var max_action_points := 1
-var player_block := 0
-var dodge_layers := 0
-var round_index := 0
-var pending_state_card := ""
-var state_draw_cursor := 0
-var battle_attack_multiplier := 1.0
-var enemy_attack_multiplier := 1.0
-var focus_target_index := -1
-var focus_combo_multiplier := 1.0
-var counter_stance_charges := 0
-var counter_attack_multiplier := 1.0
-var dodge_streak := 0
-var meticulous_stacks := 0
-var seek_bloom_stacks := 0
-var attacked_this_turn := false
-var reward_options: Array[Dictionary] = []
-var pending_reward: Dictionary = {}
-var reward_targets: Array[Dictionary] = []
-var battle_log: Array[String] = []
-var last_events: Array[Dictionary] = []
-var charge_used: Dictionary = {}
-var charge_ready: Dictionary = {}
-var pending_charge_effects: Dictionary = {}
+var battle_state := BattleState.new()
+
+var player: Dictionary:
+	get:
+		return battle_state.player
+	set(value):
+		battle_state.player = value
+var class_id: String:
+	get:
+		return battle_state.class_id
+	set(value):
+		battle_state.class_id = value
+var floor_index: int:
+	get:
+		return battle_state.floor_index
+	set(value):
+		battle_state.floor_index = value
+var battle_index: int:
+	get:
+		return battle_state.battle_index
+	set(value):
+		battle_state.battle_index = value
+var phase: String:
+	get:
+		return battle_state.phase
+	set(value):
+		battle_state.phase = value
+var message: String:
+	get:
+		return battle_state.message
+	set(value):
+		battle_state.message = value
+var enemies: Array[Dictionary]:
+	get:
+		return battle_state.enemies
+	set(value):
+		battle_state.enemies = value
+var current_encounter: Dictionary:
+	get:
+		return battle_state.current_encounter
+	set(value):
+		battle_state.current_encounter = value
+var action_points: int:
+	get:
+		return battle_state.action_points
+	set(value):
+		battle_state.action_points = value
+var max_action_points: int:
+	get:
+		return battle_state.max_action_points
+	set(value):
+		battle_state.max_action_points = value
+var player_block: int:
+	get:
+		return battle_state.player_block
+	set(value):
+		battle_state.player_block = value
+var dodge_layers: int:
+	get:
+		return battle_state.dodge_layers
+	set(value):
+		battle_state.dodge_layers = value
+var round_index: int:
+	get:
+		return battle_state.round_index
+	set(value):
+		battle_state.round_index = value
+var pending_state_card: String:
+	get:
+		return battle_state.pending_state_card
+	set(value):
+		battle_state.pending_state_card = value
+var state_draw_cursor: int:
+	get:
+		return battle_state.state_draw_cursor
+	set(value):
+		battle_state.state_draw_cursor = value
+var battle_attack_multiplier: float:
+	get:
+		return battle_state.battle_attack_multiplier
+	set(value):
+		battle_state.battle_attack_multiplier = value
+var enemy_attack_multiplier: float:
+	get:
+		return battle_state.enemy_attack_multiplier
+	set(value):
+		battle_state.enemy_attack_multiplier = value
+var focus_target_index: int:
+	get:
+		return battle_state.focus_target_index
+	set(value):
+		battle_state.focus_target_index = value
+var focus_combo_multiplier: float:
+	get:
+		return battle_state.focus_combo_multiplier
+	set(value):
+		battle_state.focus_combo_multiplier = value
+var counter_stance_charges: int:
+	get:
+		return battle_state.counter_stance_charges
+	set(value):
+		battle_state.counter_stance_charges = value
+var counter_attack_multiplier: float:
+	get:
+		return battle_state.counter_attack_multiplier
+	set(value):
+		battle_state.counter_attack_multiplier = value
+var dodge_streak: int:
+	get:
+		return battle_state.dodge_streak
+	set(value):
+		battle_state.dodge_streak = value
+var meticulous_stacks: int:
+	get:
+		return battle_state.meticulous_stacks
+	set(value):
+		battle_state.meticulous_stacks = value
+var seek_bloom_stacks: int:
+	get:
+		return battle_state.seek_bloom_stacks
+	set(value):
+		battle_state.seek_bloom_stacks = value
+var attacked_this_turn: bool:
+	get:
+		return battle_state.attacked_this_turn
+	set(value):
+		battle_state.attacked_this_turn = value
+var reward_options: Array[Dictionary]:
+	get:
+		return battle_state.reward_options
+	set(value):
+		battle_state.reward_options = value
+var pending_reward: Dictionary:
+	get:
+		return battle_state.pending_reward
+	set(value):
+		battle_state.pending_reward = value
+var reward_targets: Array[Dictionary]:
+	get:
+		return battle_state.reward_targets
+	set(value):
+		battle_state.reward_targets = value
+var battle_log: Array[String]:
+	get:
+		return battle_state.battle_log
+	set(value):
+		battle_state.battle_log = value
+var last_events: Array[Dictionary]:
+	get:
+		return battle_state.last_events
+	set(value):
+		battle_state.last_events = value
+var charge_used: Dictionary:
+	get:
+		return battle_state.charge_used
+	set(value):
+		battle_state.charge_used = value
+var charge_ready: Dictionary:
+	get:
+		return battle_state.charge_ready
+	set(value):
+		battle_state.charge_ready = value
+var pending_charge_effects: Dictionary:
+	get:
+		return battle_state.pending_charge_effects
+	set(value):
+		battle_state.pending_charge_effects = value
 
 
 func start_new_game(selected_class: String, start_floor: int = 0) -> void:
@@ -148,39 +283,7 @@ func delete_save() -> void:
 
 
 func _reset_to_camp_state() -> void:
-	player = {}
-	class_id = ""
-	floor_index = 1
-	battle_index = 1
-	phase = "menu"
-	message = "已返回塔下营地。"
-	enemies.clear()
-	current_encounter = {}
-	action_points = 1
-	max_action_points = 1
-	player_block = 0
-	dodge_layers = 0
-	round_index = 0
-	pending_state_card = ""
-	state_draw_cursor = 0
-	battle_attack_multiplier = 1.0
-	enemy_attack_multiplier = 1.0
-	focus_target_index = -1
-	focus_combo_multiplier = 1.0
-	counter_stance_charges = 0
-	counter_attack_multiplier = 1.0
-	dodge_streak = 0
-	meticulous_stacks = 0
-	seek_bloom_stacks = 0
-	attacked_this_turn = false
-	reward_options.clear()
-	pending_reward = {}
-	reward_targets.clear()
-	battle_log.clear()
-	last_events.clear()
-	charge_used = {}
-	charge_ready = {}
-	pending_charge_effects = {}
+	battle_state.reset()
 
 
 func is_tutorial() -> bool:
