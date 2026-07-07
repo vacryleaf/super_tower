@@ -269,6 +269,13 @@ func enemy_attack(session: RefCounted, enemy: Dictionary, enemy_index: int, firs
 			session.last_events.append({"kind": "dodge_enemy_attack", "target": "player", "source": enemy["name"], "amount": 0})
 			session._check_dodge_streak()
 			session.status_service.fire_trigger(session.player, TriggerEvents.ON_DODGE, {"battle_log": session.battle_log, "session": session, "source": enemy, "target": session.player})
+			if session._has_set_modifier("dynamic:ranger_return") and int(enemy["hp"]) > 0:
+				var counter_damage := maxi(1, int(round(float(session._current_attack_value()) * 0.3)))
+				for _hit in range(4):
+					if int(enemy["hp"]) <= 0:
+						break
+					session._apply_damage_to_enemy(enemy_index, counter_damage, false, "physical")
+				session.battle_log.append("折返：反击 %s，造成 4 段伤害。" % enemy["name"])
 			continue
 		was_hit = true
 		session.battle_log.append("%s 攻击：护甲减免 %d，格挡吸收 %d，造成 %d 点伤害。" % [

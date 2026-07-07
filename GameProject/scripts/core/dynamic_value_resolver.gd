@@ -23,6 +23,8 @@ static func resolve(value, subject: Dictionary, context: Dictionary) -> float:
 			return 1.0
 		"ranger_pursuit":
 			return 1.0
+		"ranger_return":
+			return 1.0
 	return float(value)
 
 
