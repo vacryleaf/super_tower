@@ -138,7 +138,7 @@ const EQUIPMENT_SETS := {
 		"name": "游侠",
 		"bonuses": {
 			2: {"label": "攻防一体：普攻变为0.3×4次攻击，每攻击4次提供1层闪避。", "modifiers": [{"stat": "attack", "type": "multiply", "value": "dynamic:ranger_attack", "priority": 300}], "on_battle_start": [{"action": "apply_status", "status": {"id": "ranger_attack_defense", "name": "攻防一体", "kind": "buff", "duration": -1, "triggers": [{"event": "on_hit_dealt", "actions": [{"type": "increment_counter", "counter": "ranger_hit_count", "max": 999}]}]}}]},
-			4: {"label": "追击：攻击结束后，追加1×攻击层数的伤害。", "modifiers": [{"stat": "attack", "type": "multiply", "value": "dynamic:ranger_pursuit", "priority": 301}], "on_battle_start": [{"action": "apply_status", "status": {"id": "ranger_pursuit", "name": "追击", "kind": "buff", "duration": -1, "triggers": [{"event": "on_hit_dealt", "actions": [{"type": "ranger_pursuit"}]}]}}]},
+			4: {"label": "追击：攻击结束后，追加1倍攻击力×攻击段数的伤害。", "modifiers": [{"stat": "attack", "type": "multiply", "value": "dynamic:ranger_pursuit", "priority": 301}]},
 			6: {"label": "折返：闪避后对进攻方进行一次普攻反击。", "on_battle_start": [{"action": "apply_status", "status": {"id": "ranger_return", "name": "折返", "kind": "buff", "duration": -1, "triggers": [{"event": "on_dodge", "actions": [{"type": "reflect", "target_stat": "attack", "target_ratio": 1.0}]}]}}]}
 		}
 	}

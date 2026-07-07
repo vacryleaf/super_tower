@@ -50,6 +50,10 @@ func player_attack(session: RefCounted, target_index: int) -> void:
 				session.battle_log.append("攻防一体：获得 1 层躲避。")
 		else:
 			session._apply_damage_to_enemy(target, damage, false, "physical")
+	if has_ranger_pursuit and session.ranger_hit_count > 0 and session._alive_enemy_count() > 0:
+		var pursuit_damage := maxi(1, int(round(float(session._current_attack_value()) * float(session.ranger_hit_count))))
+		session._apply_damage_to_enemy(target, pursuit_damage, false, "true")
+		session.battle_log.append("追击：追加 %d 点伤害。" % pursuit_damage)
 	if session.pending_state_card == "fallback":
 		session._add_player_block(maxi(1, int(round(float(session.player["block_power"]) * 0.5))))
 	session.action_points -= 1

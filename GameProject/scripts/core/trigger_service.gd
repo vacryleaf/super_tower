@@ -97,14 +97,6 @@ func _execute_action(target: Dictionary, action: Dictionary, context: Dictionary
 			var counter_name := String(action.get("counter", ""))
 			if counter_name != "" and session != null:
 				session.set_counter(counter_name, 0)
-		TriggerEvents.ACTION_RANGER_PURSUIT:
-			if session != null:
-				var hit_count := int(session.get_counter("ranger_hit_count"))
-				if hit_count > 0 and not context.get("target", {}).is_empty():
-					var enemy_target: Dictionary = context.get("target", {})
-					if int(enemy_target.get("hp", 0)) > 0:
-						var result := Combatant.apply_damage(enemy_target, hit_count, "true")
-						battle_log.append("追击：追加 %d 点伤害。" % int(result["damage"]))
 
 
 func _resolve_action_value(action: Dictionary, context: Dictionary) -> int:
