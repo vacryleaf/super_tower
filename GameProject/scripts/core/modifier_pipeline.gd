@@ -88,11 +88,11 @@ static func _collect_set_modifiers(modifiers: Array, player: Dictionary, stat_ke
 		var raw_value = set_mod["value"]
 		if typeof(raw_value) == TYPE_STRING and raw_value == "dynamic:focus_combo":
 			continue
-		if is_skill and typeof(raw_value) == TYPE_STRING and raw_value.begins_with("dynamic:"):
-			continue
 		var ctx_with_counters := context.duplicate()
 		ctx_with_counters["meticulous_stacks"] = session.meticulous_stacks if session else 0
 		ctx_with_counters["seek_bloom_stacks"] = session.seek_bloom_stacks if session else 0
+		ctx_with_counters["state_card"] = session.pending_state_card if session else ""
+		ctx_with_counters["focus_combo_multiplier"] = session.focus_combo_multiplier if session else 1.0
 		var resolved_value = DynamicValueResolver.resolve(raw_value, player, ctx_with_counters)
 		if typeof(resolved_value) == TYPE_FLOAT and abs(resolved_value - 1.0) < 0.0001:
 			continue
