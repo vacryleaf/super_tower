@@ -28,8 +28,6 @@ func choose_reward(session: Variant, index: int) -> void:
 			apply_tutorial_unlock(session)
 		"heal":
 			session.player["hp"] = mini(int(session.player["max_hp"]), int(session.player["hp"]) + int(reward["value"]))
-		"skill":
-			unlock_next_skill(session)
 		"permanent_equipment":
 			apply_permanent_equipment(session, reward)
 	session.simulator._recalculate_player_stats(session.player, false)
@@ -76,7 +74,6 @@ func build_reward_options(session: Variant) -> void:
 	else:
 		session.reward_options = session.rewards.random_options("boss", 3, session.floor_index, session.available_charges().size())
 		session.reward_options.append(session.rewards.permanent_equipment_reward(session.player, session.class_id, session.floor_index))
-		session.reward_options.append(session.rewards.skill_branch_reward(session.player, session.class_id))
 		session.reward_options = session.rewards.sample_rewards(session.reward_options, session.reward_options.size())
 		session.player["boss_rewards"] += 1
 	session.message = "选择一个奖励。"

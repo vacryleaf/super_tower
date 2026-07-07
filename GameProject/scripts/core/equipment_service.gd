@@ -28,11 +28,6 @@ func unlock_next_skill(player: Dictionary) -> void:
 		if skill.get("class", "") == class_id and not player["unlocked_skills"].has(skill_id):
 			unlock_skill(player, skill_id, player["equipped_skills"].size() < 4)
 			return
-	for skill_id in DataCatalog.SKILLS.keys():
-		var skill: Dictionary = DataCatalog.SKILLS[skill_id]
-		if skill.get("class", "") == "common" and not player["unlocked_skills"].has(skill_id):
-			unlock_skill(player, skill_id, player["equipped_skills"].size() < 4)
-			return
 
 
 func equipment_target_by_slot(player: Dictionary, slot: String) -> Dictionary:

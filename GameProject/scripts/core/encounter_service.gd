@@ -85,7 +85,8 @@ func prepare_unit(source: Dictionary, rank: String, scale: float) -> Dictionary:
 		"attack": source.get("attack", 1.0),
 		"defense": source.get("defense", 1.0),
 		"formation_scale": scale,
-		"traits": source.get("traits", [])
+		"traits": source.get("traits", []),
+		"skills": source.get("skills", [])
 	}
 
 
@@ -97,7 +98,8 @@ func low_unit(unit_name: String, scale: float, traits: Array) -> Dictionary:
 		"attack": 0.75,
 		"defense": 0.35,
 		"formation_scale": scale,
-		"traits": traits.filter(func(value): return value != "")
+		"traits": traits.filter(func(value): return value != ""),
+		"skills": []
 	}
 
 

@@ -6,6 +6,13 @@ const BattleView = preload("res://scripts/ui/battle_view.gd")
 const RewardView = preload("res://scripts/ui/reward_view.gd")
 const EquipmentOverlay = preload("res://scripts/ui/equipment_overlay.gd")
 const CampView = preload("res://scripts/ui/camp_view.gd")
+const SkillShopView = preload("res://scripts/ui/skill_shop_view.gd")
+const SkillManageView = preload("res://scripts/ui/skill_manage_view.gd")
+const EquipmentManageView = preload("res://scripts/ui/equipment_manage_view.gd")
+const ItemCollectionView = preload("res://scripts/ui/item_collection_view.gd")
+const EncyclopediaView = preload("res://scripts/ui/encyclopedia_view.gd")
+const ClassDetailView = preload("res://scripts/ui/class_detail_view.gd")
+const PreRunView = preload("res://scripts/ui/pre_run_view.gd")
 const ActionBarView = preload("res://scripts/ui/action_bar_view.gd")
 const CombatLogView = preload("res://scripts/ui/combat_log_view.gd")
 const EquipmentView = preload("res://scripts/ui/equipment_view.gd")
@@ -23,6 +30,15 @@ var battle_view: BattleView = BattleView.new()
 var reward_view: RewardView = RewardView.new()
 var equipment_overlay: EquipmentOverlay = EquipmentOverlay.new()
 var camp_view: CampView = CampView.new()
+var skill_shop_view: SkillShopView = SkillShopView.new()
+var skill_manage_view: SkillManageView = SkillManageView.new()
+var equipment_manage_view: EquipmentManageView = EquipmentManageView.new()
+var item_collection_view: ItemCollectionView = ItemCollectionView.new()
+var encyclopedia_view: EncyclopediaView = EncyclopediaView.new()
+var class_detail_view: ClassDetailView = ClassDetailView.new()
+var pre_run_view: PreRunView = PreRunView.new()
+var camp_screen := ""
+var selected_class_key := ""
 var action_bar_view: ActionBarView = ActionBarView.new()
 var combat_log_view: CombatLogView = CombatLogView.new()
 var equipment_view: EquipmentView = EquipmentView.new()
@@ -77,7 +93,10 @@ func _clear_overlay_layers() -> void:
 func _render_menu() -> void:
 	render_queued = false
 	_clear_root()
-	camp_view.render(root, session, Callable(self, "_label"), Callable(self, "_on_continue_pressed"), Callable(self, "_on_class_dispatch_pressed"))
+	if camp_screen != "":
+		_render_camp_screen()
+		return
+	camp_view.render(root, session, Callable(self, "_label"), Callable(self, "_on_continue_pressed"), Callable(self, "_on_shop_pressed"), Callable(self, "_on_encyclopedia_pressed"), Callable(self, "_on_class_detail"), Callable(self, "_on_pre_run_pressed"))
 
 
 func _render_game() -> void:
@@ -96,6 +115,8 @@ func _render_game() -> void:
 			_render_reward()
 		"reward_target":
 			_render_reward_target()
+		"skill_shop":
+			_render_skill_shop()
 		"victory":
 			_render_end_screen("已通关第 10 层", "你已经完成当前可玩版本的目标。")
 		"game_over":
@@ -205,11 +226,10 @@ func _on_continue_pressed() -> void:
 		_request_game_render()
 
 
-func _on_class_dispatch_pressed(class_key: String, start_floor: int = 0) -> void:
-	session.start_new_game(class_key, start_floor)
-	_persist_session()
-	selected_target = 0
-	_request_game_render()
+func _on_class_detail(class_key: String) -> void:
+	camp_screen = "class_detail:" + class_key
+	selected_class_key = class_key
+	_request_menu_render()
 
 
 func _on_end_run_to_camp_pressed() -> void:
@@ -413,6 +433,146 @@ func _rank_label(rank: String) -> String:
 		"boss":
 			return "首领"
 	return rank
+
+func _on_shop_pressed() -> void:
+	session.phase = "skill_shop"
+	_request_game_render()
+
+
+func _render_skill_shop() -> void:
+	skill_shop_view.render(root, session, Callable(self, "_label"), Callable(self, "_on_buy_skill"), Callable(self, "_on_skill_shop_back"))
+
+
+func _on_buy_skill(skill_id: String) -> void:
+	session.buy_common_skill(skill_id)
+	_clear_root()
+	_render_skill_shop()
+
+
+func _on_skill_shop_back() -> void:
+	_request_menu_render()
+
+
+func _render_camp_screen() -> void:
+	var parts := camp_screen.split(":")
+	var screen_type := parts[0]
+	var class_key := parts[1] if parts.size() > 1 else ""
+	var roster_player := _get_roster_player(class_key) if class_key != "" else {}
+	match screen_type:
+		"class_detail":
+			class_detail_view.render(root, class_key, roster_player, Callable(self, "_label"), Callable(self, "_on_manage_action"), Callable(self, "_on_manage_close"))
+		"skill_manage":
+			skill_manage_view.render(root, class_key, roster_player, Callable(self, "_label"), Callable(self, "_on_skill_toggle"), Callable(self, "_on_manage_close"))
+		"equipment_manage":
+			equipment_manage_view.render(root, class_key, roster_player, Callable(self, "_label"), Callable(self, "_on_equipment_swap"), Callable(self, "_on_manage_close"))
+		"item_collection":
+			item_collection_view.render(root, class_key, roster_player, Callable(self, "_label"), Callable(self, "_on_manage_close"))
+		"encyclopedia":
+			encyclopedia_view.render(root, Callable(self, "_label"), Callable(self, "_on_manage_close"))
+		"pre_run":
+			pre_run_view.render(root, session, Callable(self, "_label"), Callable(self, "_on_pre_run_action"), Callable(self, "_on_manage_close"))
+
+
+func _on_manage_action(action: String, class_key: String) -> void:
+	camp_screen = action + ":" + class_key
+	selected_class_key = class_key
+	equipment_manage_view.selected_slot = ""
+	_request_menu_render()
+
+
+func _on_pre_run_pressed() -> void:
+	pre_run_view.reset()
+	camp_screen = "pre_run"
+	_request_menu_render()
+
+
+func _on_pre_run_action(action: String, arg: String) -> void:
+	match action:
+		"select_class":
+			pre_run_view.selected_class = arg
+			pre_run_view.step = 1
+		"next_step":
+			pre_run_view.step = mini(4, pre_run_view.step + 1)
+		"prev_step":
+			pre_run_view.step = maxi(0, pre_run_view.step - 1)
+			if pre_run_view.step == 0:
+				pre_run_view.selected_class = ""
+		"start_game":
+			session.start_new_game(pre_run_view.selected_class, pre_run_view.start_floor)
+			pre_run_view.reset()
+			camp_screen = ""
+			_persist_session()
+			selected_target = 0
+			_request_game_render()
+			return
+	_request_menu_render()
+
+
+func _on_encyclopedia_pressed() -> void:
+	camp_screen = "encyclopedia"
+	_request_menu_render()
+
+
+func _on_manage_close() -> void:
+	camp_screen = ""
+	equipment_manage_view.selected_slot = ""
+	pre_run_view.reset()
+	_request_menu_render()
+
+
+func _on_skill_toggle(class_key: String, skill_id: String) -> void:
+	var profile := session.save_profile.read_profile(Callable(session, "_persistent_player_snapshot"))
+	var roster: Dictionary = profile.get("roster", {})
+	if not roster.has(class_key):
+		return
+	var player: Dictionary = roster[class_key]
+	var equipped: Array = player.get("equipped_skills", [])
+	if equipped.has(skill_id):
+		equipped.erase(skill_id)
+	elif equipped.size() < 4:
+		equipped.append(skill_id)
+	player["equipped_skills"] = equipped
+	roster[class_key] = player
+	profile["roster"] = roster
+	session.save_profile.write_profile(profile)
+	_render_camp_screen()
+
+
+func _on_equipment_swap(class_key: String, slot: String, item_id: String) -> void:
+	var profile := session.save_profile.read_profile(Callable(session, "_persistent_player_snapshot"))
+	var roster: Dictionary = profile.get("roster", {})
+	if not roster.has(class_key):
+		return
+	var player: Dictionary = roster[class_key]
+	var equipment: Dictionary = player.get("equipment", {})
+	var item: Dictionary = DataCatalog.EQUIPMENT[item_id]
+	var item_slot := String(item.get("slot", ""))
+	var target_slot := slot
+	if item_slot == "ring" and slot == "ring" and equipment.has("ring"):
+		target_slot = "ring2"
+	var previous := String(equipment.get(target_slot, ""))
+	var displaced_slot := ""
+	for existing_slot in equipment.keys():
+		if String(equipment[existing_slot]) == item_id:
+			displaced_slot = existing_slot
+			break
+	if displaced_slot != "":
+		if previous != "":
+			equipment[displaced_slot] = previous
+		else:
+			equipment.erase(displaced_slot)
+	else:
+		equipment[target_slot] = item_id
+	player["equipment"] = equipment
+	roster[class_key] = player
+	profile["roster"] = roster
+	session.save_profile.write_profile(profile)
+	_render_camp_screen()
+
+
+func _get_roster_player(class_key: String) -> Dictionary:
+	return session.get_roster_player(class_key)
+
 
 
 func _attachment_summary(target_type: String, target_id: String) -> String:

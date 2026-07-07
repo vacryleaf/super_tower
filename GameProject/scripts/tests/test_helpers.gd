@@ -17,7 +17,13 @@ static func test_enemy(enemy_name: String, hp: int, attack: int, traits: Array) 
 		"block": 0,
 		"dodge_layers": 0,
 		"taunt": 0,
-		"traits": traits
+		"traits": traits,
+		"skills": [],
+		"innate_skills": {
+			"attack": "innate_attack",
+			"defend": "innate_defend",
+			"dodge": "innate_dodge"
+		}
 	}
 
 

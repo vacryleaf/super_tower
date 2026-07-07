@@ -16,6 +16,10 @@ func run() -> void:
 	test_skill_multiplier_effects()
 	test_counter_stance_and_multihit_dodge()
 	test_block_expires_each_round()
+	test_enemy_skill_execution()
+	test_enemy_ai_skill_selection()
+	test_enemy_taunt_skill()
+	test_rank_skill_multiplier()
 
 
 func test_block_power_is_separate_from_armor() -> void:
@@ -196,3 +200,192 @@ func test_block_expires_each_round() -> void:
 	session.player_block = 999
 	session.end_turn()
 	assert_equal(int(session.player_block), 0, "block should expire when next player turn begins")
+
+func test_enemy_skill_execution() -> void:
+	var session_script = load("res://scripts/core/play_session.gd")
+	var session = session_script.new()
+	session.start_new_game("warrior")
+	session.player["hp"] = 200
+	var enemy := {
+		"name": "技能测试敌人",
+		"rank": "normal",
+		"max_hp": 100,
+		"hp": 100,
+		"attack": 10,
+		"defense": 3,
+		"armor": 0,
+		"block_power": 3,
+		"block": 0,
+		"dodge_layers": 0,
+		"taunt": 0,
+		"traits": [],
+		"skills": ["enemy_heavy_strike"],
+		"innate_skills": {"attack": "innate_attack", "defend": "innate_defend", "dodge": "innate_dodge"}
+	}
+	session.enemies = [enemy] as Array[Dictionary]
+	session.end_turn()
+	var used_skill := false
+	for entry in session.battle_log:
+		if "重击" in entry:
+			used_skill = true
+			break
+	assert_true(used_skill, "enemy with heavy strike skill should use it during its turn")
+
+	session = session_script.new()
+	session.start_new_game("warrior")
+	session.player["hp"] = 200
+	var defend_enemy := {
+		"name": "防御技能敌人",
+		"rank": "normal",
+		"max_hp": 100,
+		"hp": 100,
+		"attack": 10,
+		"defense": 3,
+		"armor": 0,
+		"block_power": 3,
+		"block": 0,
+		"dodge_layers": 0,
+		"taunt": 0,
+		"traits": [],
+		"skills": ["enemy_fortify"],
+		"innate_skills": {"attack": "innate_attack", "defend": "innate_defend", "dodge": "innate_dodge"}
+	}
+	session.enemies = [defend_enemy] as Array[Dictionary]
+	session.end_turn()
+	var used_defend := false
+	for entry in session.battle_log:
+		if "固守" in entry:
+			used_defend = true
+			break
+	assert_true(used_defend, "enemy with fortify skill should use it")
+	assert_true(int(defend_enemy["block"]) > 0, "enemy should gain block from fortify skill")
+
+
+func test_enemy_ai_skill_selection() -> void:
+	var EnemyActionRules = preload("res://scripts/core/enemy_action_rules.gd")
+	var rules = EnemyActionRules.new()
+
+	var enemy := {
+		"name": "AI测试敌人",
+		"rank": "normal",
+		"max_hp": 100,
+		"hp": 100,
+		"attack": 10,
+		"defense": 3,
+		"armor": 0,
+		"block_power": 3,
+		"block": 0,
+		"dodge_layers": 0,
+		"taunt": 0,
+		"traits": [],
+		"skills": ["enemy_heavy_strike", "enemy_fortify"],
+		"innate_skills": {"attack": "innate_attack", "defend": "innate_defend", "dodge": "innate_dodge"}
+	}
+	assert_equal(rules.choose_skill(enemy, 1), "enemy_heavy_strike", "should choose attack skill when healthy")
+
+	enemy["hp"] = 20
+	var chosen := rules.choose_skill(enemy, 1)
+	assert_equal(chosen, "enemy_fortify", "should choose defense skill when low HP")
+
+	var tank_enemy := {
+		"name": "坦克AI",
+		"rank": "normal",
+		"max_hp": 100,
+		"hp": 100,
+		"attack": 10,
+		"defense": 5,
+		"armor": 0,
+		"block_power": 5,
+		"block": 0,
+		"dodge_layers": 0,
+		"taunt": 0,
+		"traits": ["tank"],
+		"skills": ["enemy_heavy_strike", "enemy_fortify"],
+		"innate_skills": {"attack": "innate_attack", "defend": "innate_defend", "dodge": "innate_dodge"}
+	}
+	assert_equal(rules.choose_skill(tank_enemy, 2), "enemy_fortify", "tank should prefer defense on even rounds")
+
+	var no_skills_enemy := {
+		"name": "无技能敌人",
+		"rank": "normal",
+		"max_hp": 50,
+		"hp": 50,
+		"attack": 5,
+		"defense": 0,
+		"armor": 0,
+		"block_power": 1,
+		"block": 0,
+		"dodge_layers": 0,
+		"taunt": 0,
+		"traits": [],
+		"skills": [],
+		"innate_skills": {"attack": "innate_attack", "defend": "innate_defend", "dodge": "innate_dodge"}
+	}
+	assert_equal(rules.choose_skill(no_skills_enemy, 1), "innate_attack", "enemy with no skills should fallback to innate attack")
+
+
+func test_enemy_taunt_skill() -> void:
+	var EnemyActionRules = preload("res://scripts/core/enemy_action_rules.gd")
+	var rules = EnemyActionRules.new()
+
+	var taunt_enemy := {
+		"name": "嘲讽测试敌人",
+		"rank": "normal",
+		"max_hp": 100,
+		"hp": 100,
+		"attack": 10,
+		"defense": 3,
+		"armor": 0,
+		"block_power": 3,
+		"block": 0,
+		"dodge_layers": 0,
+		"taunt": 0,
+		"traits": ["taunt"],
+		"skills": ["enemy_taunt"],
+		"innate_skills": {"attack": "innate_attack", "defend": "innate_defend", "dodge": "innate_dodge"}
+	}
+	assert_equal(rules.choose_skill(taunt_enemy, 1), "enemy_taunt", "taunt enemy should use taunt skill on round 1")
+	assert_equal(rules.choose_skill(taunt_enemy, 2), "innate_attack", "taunt enemy should use innate attack on round 2")
+
+	taunt_enemy["taunt"] = 1
+	assert_equal(rules.choose_skill(taunt_enemy, 4), "innate_attack", "taunt enemy with active taunt should not taunt again on round 4")
+
+
+func test_rank_skill_multiplier() -> void:
+	var CombatRules = preload("res://scripts/core/combat_rules.gd")
+
+	var normal_enemy := {
+		"name": "普通敌人",
+		"rank": "normal",
+		"attack": 10,
+		"block_power": 5,
+		"max_hp": 100
+	}
+	var elite_enemy := {
+		"name": "精英敌人",
+		"rank": "elite",
+		"attack": 10,
+		"block_power": 5,
+		"max_hp": 100
+	}
+	var boss_enemy := {
+		"name": "Boss敌人",
+		"rank": "boss",
+		"attack": 10,
+		"block_power": 5,
+		"max_hp": 100
+	}
+
+	var normal_dmg := CombatRules.skill_attack_value_for_actor(normal_enemy, "enemy_heavy_strike")
+	var elite_dmg := CombatRules.skill_attack_value_for_actor(elite_enemy, "enemy_heavy_strike")
+	var boss_dmg := CombatRules.skill_attack_value_for_actor(boss_enemy, "enemy_heavy_strike")
+
+	assert_equal(normal_dmg, 15, "normal rank should use base 1.50 multiplier")
+	assert_equal(elite_dmg, 18, "elite rank should apply 1.20 rank multiplier")
+	assert_equal(boss_dmg, 22, "boss rank should apply 1.45 rank multiplier")
+
+	var normal_block := CombatRules.skill_defense_value_for_actor(normal_enemy, "enemy_fortify")
+	var elite_block := CombatRules.skill_defense_value_for_actor(elite_enemy, "enemy_fortify")
+
+	assert_equal(normal_block, 8, "normal defense should use base multiplier")
+	assert_equal(elite_block, 9, "elite defense should apply rank multiplier")

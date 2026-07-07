@@ -216,8 +216,16 @@ func _incoming_damage(enemies: Array[Dictionary], round_index: int) -> int:
 			continue
 		if actions >= 2:
 			break
-		if _enemy_intent(enemy, round_index) == "attack":
-			total += _enemy_round_damage(enemy, round_index)
+		var skill_id := _choose_enemy_skill(enemy, round_index)
+		var skill: Dictionary = DataCatalog.SKILLS.get(skill_id, DataCatalog.INNATE_SKILLS.get(skill_id, {}))
+		if skill.get("type", "") == "attack":
+			var rank_mult: float = _rank_skill_multiplier(enemy) if skill.get("class", "") == "enemy" else 1.0
+			if skill_id == "innate_attack":
+				total += _enemy_round_damage(enemy, round_index)
+			else:
+				var multiplier := float(skill.get("multiplier", 1.0))
+				var hits := maxi(1, int(skill.get("hits", 1)))
+				total += maxi(1, int(round(float(enemy["attack"]) * multiplier * rank_mult))) * hits
 		actions += 1
 	return total
 
@@ -236,19 +244,8 @@ func _apply_end_round_traits(player: Dictionary, enemies: Array[Dictionary], rou
 
 
 func _resolve_enemy_action(player: Dictionary, enemy: Dictionary, player_block: int, round_index: int, counter_state: Dictionary, log: Array[String]) -> Dictionary:
-	var intent := _enemy_intent(enemy, round_index)
-	match intent:
-		"taunt":
-			enemy["taunt"] = 1
-			_enemy_defend(enemy, 1.0)
-		"defend":
-			_enemy_defend(enemy, 1.0)
-		"dodge":
-			Combatant.add_dodge(enemy, 1)
-		_:
-			var result := _apply_enemy_attack(player, enemy, -1, player_block, log, false, round_index, counter_state)
-			player_block = int(result["block"])
-	return {"block": player_block}
+	var skill_id := _choose_enemy_skill(enemy, round_index)
+	return _execute_enemy_skill_in_sim(player, enemy, skill_id, player_block, round_index, counter_state, log)
 
 
 func _trigger_counter_attack(player: Dictionary, enemy: Dictionary, enemy_index: int, log: Array[String], counter_state: Dictionary) -> void:
@@ -279,6 +276,114 @@ func _enemy_defend(enemy: Dictionary, scale: float) -> void:
 
 func _enemy_intent(enemy: Dictionary, round_index: int) -> String:
 	return enemy_rules.intent(enemy, round_index)
+
+
+func _rank_skill_multiplier(enemy: Dictionary) -> float:
+	var rank_mult := {"normal": 1.0, "elite": 1.20, "boss": 1.45}
+	return rank_mult.get(String(enemy.get("rank", "normal")), 1.0)
+
+
+func _choose_enemy_skill(enemy: Dictionary, round_index: int) -> String:
+	var skills: Array = enemy.get("skills", [])
+	var innate: Dictionary = enemy.get("innate_skills", {})
+	var traits: Array = enemy["traits"]
+	var hp_percent: float = float(enemy["hp"]) / float(maxi(1, enemy["max_hp"]))
+
+	if traits.has("taunt") and int(enemy.get("taunt", 0)) <= 0 and round_index % 3 == 1:
+		if skills.has("enemy_taunt"):
+			return "enemy_taunt"
+
+	if hp_percent < 0.35:
+		for skill_id in skills:
+			var skill: Dictionary = DataCatalog.SKILLS.get(skill_id, {})
+			if skill.get("type", "") == "defense":
+				return skill_id
+		for skill_id in skills:
+			var skill: Dictionary = DataCatalog.SKILLS.get(skill_id, {})
+			if skill.get("type", "") == "dodge":
+				return skill_id
+		return innate.get("defend", "innate_defend")
+
+	if (traits.has("tank") or traits.has("guard")) and round_index % 2 == 0:
+		for skill_id in skills:
+			var skill: Dictionary = DataCatalog.SKILLS.get(skill_id, {})
+			if skill.get("type", "") == "defense":
+				return skill_id
+		return innate.get("defend", "innate_defend")
+
+	if traits.has("evade") and round_index % 3 == 0:
+		for skill_id in skills:
+			var skill: Dictionary = DataCatalog.SKILLS.get(skill_id, {})
+			if skill.get("type", "") == "dodge":
+				return skill_id
+		return innate.get("dodge", "innate_dodge")
+
+	if traits.has("fortify") and round_index % 2 == 0:
+		for skill_id in skills:
+			var skill: Dictionary = DataCatalog.SKILLS.get(skill_id, {})
+			if skill.get("type", "") == "defense":
+				return skill_id
+		return innate.get("defend", "innate_defend")
+
+	for skill_id in skills:
+		var skill: Dictionary = DataCatalog.SKILLS.get(skill_id, {})
+		if skill.get("type", "") == "attack":
+			return skill_id
+
+	if not skills.is_empty():
+		for skill_id in skills:
+			if skill_id != "enemy_taunt":
+				return skill_id
+
+	return innate.get("attack", "innate_attack")
+
+
+func _execute_enemy_skill_in_sim(player: Dictionary, enemy: Dictionary, skill_id: String, player_block: int, round_index: int, counter_state: Dictionary, log: Array[String]) -> Dictionary:
+	var skill: Dictionary = DataCatalog.SKILLS.get(skill_id, DataCatalog.INNATE_SKILLS.get(skill_id, {}))
+	if skill.is_empty():
+		return {"block": player_block}
+	var skill_type := String(skill.get("type", "attack"))
+	var rank_mult: float = _rank_skill_multiplier(enemy) if skill.get("class", "") == "enemy" else 1.0
+	match skill_type:
+		"attack":
+			if skill_id == "innate_attack":
+				var result := _apply_enemy_attack(player, enemy, -1, player_block, log, false, round_index, counter_state)
+				return {"block": int(result["block"])}
+			var damage := maxi(1, int(round(float(enemy["attack"]) * float(skill.get("multiplier", 1.0)) * rank_mult)))
+			var hits := maxi(1, int(skill.get("hits", 1)))
+			var was_hit := false
+			for _hit in range(hits):
+				var result := _apply_damage_to_player(player, player_block, damage)
+				player_block = int(result["block"])
+				was_hit = was_hit or bool(result["hit"])
+				log.append("enemy_skill:%s:%s:%d" % [skill_id, enemy["name"], damage])
+			if was_hit:
+				_trigger_counter_attack(player, enemy, -1, log, counter_state)
+		"defense", "stance":
+			Combatant.add_block(enemy, float(skill.get("multiplier", skill.get("block_multiplier", 1.0))) * rank_mult)
+			log.append("enemy_skill_defend:%s:%s" % [skill_id, enemy["name"]])
+		"dodge":
+			Combatant.add_dodge(enemy, int(skill.get("dodge_layers", 1)))
+			log.append("enemy_skill_dodge:%s:%s" % [skill_id, enemy["name"]])
+		"taunt":
+			enemy["taunt"] = int(skill.get("taunt_duration", 1))
+			Combatant.add_block(enemy, 1.0)
+			log.append("enemy_skill_taunt:%s:%s" % [skill_id, enemy["name"]])
+		"heal":
+			var healed := maxi(1, int(round(float(enemy["max_hp"]) * float(skill.get("heal_multiplier", 0.0)))))
+			enemy["hp"] = mini(int(enemy["max_hp"]), int(enemy["hp"]) + healed)
+			log.append("enemy_skill_heal:%s:%s" % [skill_id, enemy["name"]])
+		"buff":
+			var attack_mult := float(skill.get("attack_multiplier", 1.0))
+			if attack_mult != 1.0:
+				enemy["attack"] = maxi(1, int(round(float(enemy["attack"]) * attack_mult)))
+			log.append("enemy_skill_buff:%s:%s" % [skill_id, enemy["name"]])
+		"debuff":
+			var weaken := float(skill.get("weaken_multiplier", 1.0))
+			if weaken < 1.0:
+				player["attack"] = maxi(1, int(round(float(player["attack"]) * weaken)))
+			log.append("enemy_skill_debuff:%s:%s" % [skill_id, enemy["name"]])
+	return {"block": player_block}
 
 
 func _clear_enemy_taunts(enemies: Array[Dictionary]) -> void:

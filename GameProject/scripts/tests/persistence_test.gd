@@ -8,6 +8,7 @@ func run() -> void:
 	test_save_round_trip()
 	test_end_run_to_camp_clears_active_run()
 	test_profile_keeps_multiple_classes()
+	test_tower_coins_persist()
 
 
 func test_save_round_trip() -> void:
@@ -82,3 +83,20 @@ func test_profile_keeps_multiple_classes() -> void:
 	assert_equal(warrior.get("class_id", ""), "warrior", "warrior roster class")
 	assert_equal(archer.get("class_id", ""), "archer", "archer roster class")
 	profile_session.delete_save()
+
+func test_tower_coins_persist() -> void:
+	var session_script = load("res://scripts/core/play_session.gd")
+	var session = session_script.new()
+	session.delete_save()
+	session.start_new_game("warrior")
+	while session.is_tutorial():
+		if session.phase == "battle":
+			TestHelpers.force_win(session)
+		elif session.phase == "reward":
+			session.choose_reward(0)
+	session.tower_coins = 42
+	assert_true(session.save_game(), "save should persist tower_coins")
+	var loaded = session_script.new()
+	loaded._load_account()
+	assert_equal(loaded.tower_coins, 42, "tower_coins should persist across sessions")
+	session.delete_save()

@@ -3,6 +3,8 @@ class_name TriggerService
 
 const TriggerEvents = preload("res://scripts/core/trigger_events.gd")
 const Combatant = preload("res://scripts/core/combatant.gd")
+const ActionSource = preload("res://scripts/core/action_source.gd")
+const ActionContext = preload("res://scripts/core/action_context.gd")
 
 var status_service = null
 
@@ -74,25 +76,43 @@ func _execute_action(target: Dictionary, action: Dictionary, context: Dictionary
 			var extra_value := _resolve_action_value(action, context)
 			if extra_value > 0 and session != null:
 				var dmg_type := String(action.get("damage_type", "physical"))
-				var result := Combatant.apply_damage(target, extra_value, dmg_type)
-				battle_log.append("%s 受到 %d 点额外伤害。" % [String(target.get("name", "")), int(result["damage"])])
+				var enemy_idx: int = session.find_enemy_index(target)
+				if enemy_idx >= 0:
+					var extra_ctx := ActionContext.create_trigger(ActionSource.TRIGGER_EFFECT, enemy_idx, extra_value, dmg_type)
+					session.deal_damage(extra_ctx)
+				else:
+					for i in range(session.enemies.size()):
+						var enemy: Dictionary = session.enemies[i]
+						if int(enemy.get("hp", 0)) <= 0:
+							continue
+						var extra_ctx := ActionContext.create_trigger(ActionSource.TRIGGER_EFFECT, i, extra_value, dmg_type)
+						session.deal_damage(extra_ctx)
 		TriggerEvents.ACTION_COUNTER_ALL:
 			var threshold := int(action.get("threshold", 2))
 			if session != null and int(session.dodge_streak) >= threshold:
 				session.dodge_streak = 0
 				var dmg_value := _resolve_action_value(action, context)
 				if dmg_value > 0:
-					for enemy in session.enemies:
+					for i in range(session.enemies.size()):
+						var enemy: Dictionary = session.enemies[i]
 						if int(enemy.get("hp", 0)) <= 0:
 							continue
-						var result := Combatant.apply_damage(enemy, dmg_value, "physical")
-						battle_log.append("%s 受到 %d 点表演伤害。" % [String(enemy.get("name", "")), int(result["damage"])])
+						var counter_ctx := ActionContext.create_trigger(ActionSource.TRIGGER_EFFECT, i, dmg_value, "physical")
+						session.deal_damage(counter_ctx)
 		TriggerEvents.ACTION_INCREMENT_COUNTER:
 			var counter_name := String(action.get("counter", ""))
 			var max_val := int(action.get("max", 999))
+			var threshold := int(action.get("threshold", 0))
+			var threshold_actions: Array = action.get("threshold_actions", [])
 			if counter_name != "" and session != null:
 				var current := int(session.get_counter(counter_name))
-				session.set_counter(counter_name, mini(current + 1, max_val))
+				var new_val := mini(current + 1, max_val)
+				session.set_counter(counter_name, new_val)
+				if threshold > 0 and new_val >= threshold and not threshold_actions.is_empty():
+					while int(session.get_counter(counter_name)) >= threshold:
+						session.set_counter(counter_name, int(session.get_counter(counter_name)) - threshold)
+						for ta in threshold_actions:
+							_execute_action(target, ta, context)
 		TriggerEvents.ACTION_RESET_COUNTER:
 			var counter_name := String(action.get("counter", ""))
 			if counter_name != "" and session != null:
@@ -105,11 +125,19 @@ func _resolve_action_value(action: Dictionary, context: Dictionary) -> int:
 	var source_stat := String(action.get("source_stat", ""))
 	var source_ratio := float(action.get("source_ratio", 0.0))
 	var source: Dictionary = context.get("source", {})
+	var base_value := 0
 	if source_stat != "" and source_ratio > 0.0 and not source.is_empty():
-		return maxi(1, int(round(float(source.get(source_stat, 0)) * source_ratio)))
-	var target_stat := String(action.get("target_stat", ""))
-	var target_ratio := float(action.get("target_ratio", 0.0))
-	var ctx_target: Dictionary = context.get("target", {})
-	if target_stat != "" and target_ratio > 0.0 and not ctx_target.is_empty():
-		return maxi(1, int(round(float(ctx_target.get(target_stat, 0)) * target_ratio)))
-	return 0
+		base_value = maxi(1, int(round(float(source.get(source_stat, 0)) * source_ratio)))
+	else:
+		var target_stat := String(action.get("target_stat", ""))
+		var target_ratio := float(action.get("target_ratio", 0.0))
+		var ctx_target: Dictionary = context.get("target", {})
+		if target_stat != "" and target_ratio > 0.0 and not ctx_target.is_empty():
+			base_value = maxi(1, int(round(float(ctx_target.get(target_stat, 0)) * target_ratio)))
+	var counter_name := String(action.get("counter", ""))
+	if counter_name != "" and base_value > 0:
+		var session = context.get("session")
+		if session != null:
+			var counter_value := int(session.get_counter(counter_name))
+			base_value = maxi(1, int(round(float(base_value) * float(counter_value))))
+	return base_value

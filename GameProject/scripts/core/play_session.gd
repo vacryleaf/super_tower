@@ -18,6 +18,9 @@ const DamageType = preload("res://scripts/core/damage_type.gd")
 const TriggerEvents = preload("res://scripts/core/trigger_events.gd")
 const CombatRules = preload("res://scripts/core/combat_rules.gd")
 const BattleState = preload("res://scripts/core/battle_state.gd")
+const ActionSource = preload("res://scripts/core/action_source.gd")
+const ActionContext = preload("res://scripts/core/action_context.gd")
+const ActionPipeline = preload("res://scripts/core/action_pipeline.gd")
 
 const MAX_CHARGES := 5
 
@@ -35,6 +38,8 @@ var status_service := StatusService.new()
 var rng := RandomNumberGenerator.new()
 
 var battle_state := BattleState.new()
+
+var tower_coins := 0
 
 var player: Dictionary:
 	get:
@@ -208,8 +213,14 @@ var pending_charge_effects: Dictionary:
 		battle_state.pending_charge_effects = value
 
 
+func _load_account() -> void:
+	var profile := save_profile.read_profile(Callable(self, "_persistent_player_snapshot"))
+	tower_coins = int(profile.get("tower_coins", 0))
+
+
 func start_new_game(selected_class: String, start_floor: int = 0) -> void:
 	class_id = selected_class
+	_load_account()
 	player = _roster_player_or_new(selected_class)
 	if start_floor >= 2:
 		player["tutorial_completed"] = true
@@ -245,6 +256,7 @@ func save_game() -> bool:
 	roster[class_id] = _persistent_player_snapshot(player)
 	profile["version"] = 2
 	profile["roster"] = roster
+	profile["tower_coins"] = tower_coins
 	if phase == "game_over" or phase == "victory":
 		var current_highest := int(player.get("highest_floor", 0))
 		if floor_index > current_highest:
@@ -268,6 +280,7 @@ func end_run_to_camp() -> bool:
 	roster[class_id] = _persistent_player_snapshot(player)
 	profile["version"] = 2
 	profile["roster"] = roster
+	profile["tower_coins"] = tower_coins
 	profile["active_run"] = {}
 	if not save_profile.write_profile(profile):
 		return false
@@ -387,6 +400,11 @@ func _apply_opening_set_effects() -> void:
 				if not status_to_apply.is_empty():
 					status_service.add_status(player, status_to_apply)
 					battle_log.append("套装效果：获得 %s。" % String(status_to_apply.get("name", "")))
+			"set_innate_skill":
+				var slot := String(action.get("slot", ""))
+				var new_skill_id := String(action.get("skill_id", ""))
+				if slot != "" and new_skill_id != "" and player["innate_skills"].has(slot):
+					player["innate_skills"][slot] = new_skill_id
 
 
 func player_attack(target_index: int) -> void:
@@ -441,8 +459,8 @@ func _resolve_focus_combo(target_index: int) -> float:
 	return focus_combo_multiplier
 
 
-func _current_attack_value() -> int:
-	return CombatRules.current_attack_value(self)
+func _current_attack_value(action_source: String = "") -> int:
+	return CombatRules.current_attack_value(self, action_source)
 
 
 func _defense_value() -> int:
@@ -456,8 +474,8 @@ func _has_set_modifier(dynamic_value: String) -> bool:
 	return false
 
 
-func _skill_attack_value(skill_id: String) -> int:
-	return CombatRules.skill_attack_value(self, skill_id)
+func _skill_attack_value(skill_id: String, action_source: String = "") -> int:
+	return CombatRules.skill_attack_value(self, skill_id, action_source)
 
 
 func _skill_defense_value(skill_id: String) -> int:
@@ -526,10 +544,12 @@ func _trigger_counter_attack(enemy_index: int) -> void:
 	if int(enemies[enemy_index]["hp"]) <= 0:
 		return
 	counter_stance_charges -= 1
-	var damage := maxi(1, int(round(float(_current_attack_value()) * counter_attack_multiplier)))
+	var damage := maxi(1, int(round(float(_current_attack_value(ActionSource.COUNTER_ATTACK)) * counter_attack_multiplier)))
 	damage = maxi(1, int(round(float(damage) * _resolve_focus_combo(enemy_index))))
 	battle_log.append("反击架势触发，对 %s 反击 %d 点。" % [enemies[enemy_index]["name"], damage])
-	_apply_damage_to_enemy(enemy_index, damage, true)
+	var counter_ctx := ActionContext.create_attack(ActionSource.COUNTER_ATTACK, enemy_index, "", "physical", 1)
+	counter_ctx["final_damage"] = damage
+	deal_damage(counter_ctx)
 	if counter_stance_charges <= 0:
 		counter_attack_multiplier = 1.0
 
@@ -585,6 +605,51 @@ func _apply_damage_to_enemy(target_index: int, damage: int, ignore_taunt: bool =
 		status_service.fire_trigger(player, TriggerEvents.ON_KILL, {"battle_log": battle_log, "session": self, "source": player, "target": enemy})
 
 
+func deal_damage(ctx: Dictionary) -> void:
+	var source := String(ctx.get("source", ""))
+	var target_index := int(ctx.get("target_index", 0))
+	var damage := int(ctx.get("final_damage", 0))
+	var damage_type := String(ctx.get("damage_type", "physical"))
+	var ignore_taunt := not ActionSource.is_interactive(source)
+
+	if not ignore_taunt:
+		var taunt_target := _active_taunt_target()
+		if taunt_target >= 0:
+			target_index = taunt_target
+			ctx["target_index"] = target_index
+
+	var enemy := enemies[target_index]
+	var damage_taken_mult := status_service.resolve_stat(enemy, 1.0, StatusService.STAT_DAMAGE_TAKEN)
+	var marked_damage := maxi(0, int(round(float(damage) * damage_taken_mult)))
+	if damage_type != DamageType.TRUE:
+		var resist_key := DamageType.resist_key(damage_type)
+		var base_resist := float(enemy.get("resistances", {}).get(damage_type, 1.0))
+		var resist_mult := status_service.resolve_stat(enemy, base_resist, resist_key)
+		marked_damage = maxi(0, int(round(float(marked_damage) * resist_mult)))
+
+	var result := Combatant.apply_damage(enemy, marked_damage, damage_type)
+	if bool(result["dodged"]):
+		battle_log.append("%s 闪避了这次命中。" % enemy["name"])
+		last_events.append({"kind": "dodge_enemy_attack", "target": "enemy", "target_index": target_index, "amount": 0})
+		status_service.fire_trigger(enemy, TriggerEvents.ON_DODGE, {"battle_log": battle_log, "session": self, "source": player})
+		return
+
+	battle_log.append("命中 %s：护甲减免 %d，格挡吸收 %d，造成 %d 点伤害。" % [
+		enemy["name"],
+		int(result["armor_reduced"]),
+		int(result["block_absorbed"]),
+		int(result["damage"])
+	])
+	last_events.append({"kind": "damage", "target": "enemy", "target_index": target_index, "amount": int(result["damage"])})
+
+	if ActionSource.is_interactive(source):
+		var hit_context := {"battle_log": battle_log, "session": self, "source": player, "damage": int(result["damage"]), "target": enemy}
+		status_service.fire_trigger(player, TriggerEvents.ON_HIT_DEALT, hit_context)
+		status_service.fire_trigger(enemy, TriggerEvents.ON_HIT_RECEIVED, hit_context)
+		if int(enemy["hp"]) <= 0:
+			status_service.fire_trigger(player, TriggerEvents.ON_KILL, {"battle_log": battle_log, "session": self, "source": player, "target": enemy})
+
+
 func _on_victory() -> void:
 	run_progress.on_victory(self)
 
@@ -592,6 +657,26 @@ func _on_victory() -> void:
 func _on_defeat() -> void:
 	run_progress.on_defeat(self)
 
+
+func _unlock_next_class_skill() -> void:
+	simulator._unlock_next_skill(player)
+
+func buy_common_skill(skill_id: String) -> bool:
+	if tower_coins < 15:
+		return false
+	var profile := save_profile.read_profile(Callable(self, "_persistent_player_snapshot"))
+	var roster: Dictionary = profile.get("roster", {})
+	for class_key in roster.keys():
+		if roster[class_key].get("unlocked_skills", []).has(skill_id):
+			return false
+	tower_coins -= 15
+	for class_key in roster.keys():
+		var class_player: Dictionary = roster[class_key]
+		simulator.unlock_skill(class_player, skill_id, class_player["equipped_skills"].size() < 4)
+	profile["roster"] = roster
+	profile["tower_coins"] = tower_coins
+	save_profile.write_profile(profile)
+	return true
 
 func _build_reward_options() -> void:
 	reward_apply.build_reward_options(self)
@@ -770,8 +855,19 @@ func _active_taunt_target() -> int:
 	return CombatRules.active_taunt_target(enemies)
 
 
+func find_enemy_index(enemy: Dictionary) -> int:
+	for i in range(enemies.size()):
+		if enemies[i] == enemy:
+			return i
+	return -1
+
+
 func _enemy_intent(enemy: Dictionary) -> String:
 	return enemy_rules.intent(enemy, round_index)
+
+
+func _enemy_choose_skill(enemy: Dictionary) -> String:
+	return enemy_rules.choose_skill(enemy, round_index)
 
 
 func enemy_intent_text(index: int) -> String:

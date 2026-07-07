@@ -26,6 +26,8 @@ func read_profile(persistent_snapshot: Callable) -> Dictionary:
 			data["roster"] = {}
 		if not data.has("active_run"):
 			data["active_run"] = {}
+		if not data.has("tower_coins"):
+			data["tower_coins"] = 0
 		return data
 	if int(data.get("version", 0)) == 1:
 		return profile_from_legacy_run(data, persistent_snapshot)
@@ -49,7 +51,8 @@ func empty_profile() -> Dictionary:
 	return {
 		"version": 2,
 		"roster": {},
-		"active_run": {}
+		"active_run": {},
+		"tower_coins": 0
 	}
 
 

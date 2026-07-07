@@ -11,6 +11,7 @@ const ON_CRITICAL := "on_critical"
 const ON_BLOCK_GAIN := "on_block_gain"
 const ON_HEAL_RECEIVED := "on_heal_received"
 const ON_BATTLE_START := "on_battle_start"
+const ON_ATTACK_COMPLETE := "on_attack_complete"
 
 const ACTION_DOT := "dot"
 const ACTION_HOT := "hot"

@@ -13,7 +13,7 @@ const PRIORITY_CHARGE := 500
 const PRIORITY_FINAL  := 700
 
 
-static func collect_from_session(session, stat_key: String, context: Dictionary = {}) -> Array[Dictionary]:
+static func collect_from_session(session, stat_key: String, context: Dictionary = {}, action_source: String = "") -> Array[Dictionary]:
 	var modifiers: Array[Dictionary] = []
 	var player: Dictionary = session.player
 	var skill_id: String = context.get("skill_id", "")
@@ -40,7 +40,7 @@ static func collect_from_session(session, stat_key: String, context: Dictionary 
 					"priority": PRIORITY_STATE
 				})
 
-			_collect_set_modifiers(modifiers, player, "attack", context, is_skill, session)
+			_collect_set_modifiers(modifiers, player, "attack", context, is_skill, session, action_source)
 
 			if is_skill:
 				var skill_multiplier := float(context.get("skill_multiplier", 1.0))
@@ -64,7 +64,7 @@ static func collect_from_session(session, stat_key: String, context: Dictionary 
 					"priority": PRIORITY_STATE
 				})
 
-			_collect_set_modifiers(modifiers, player, "defense", context, is_skill, session)
+			_collect_set_modifiers(modifiers, player, "defense", context, is_skill, session, action_source)
 
 			if is_skill:
 				var skill_multiplier := float(context.get("skill_multiplier", 1.0))
@@ -80,10 +80,13 @@ static func collect_from_session(session, stat_key: String, context: Dictionary 
 	return modifiers
 
 
-static func _collect_set_modifiers(modifiers: Array, player: Dictionary, stat_key: String, context: Dictionary, is_skill: bool, session = null) -> void:
+static func _collect_set_modifiers(modifiers: Array, player: Dictionary, stat_key: String, context: Dictionary, is_skill: bool, session = null, action_source: String = "") -> void:
 	var set_effects: Dictionary = player.get("active_set_effects", {})
 	for set_mod in set_effects.get("modifiers", []):
 		if String(set_mod.get("stat", "")) != stat_key:
+			continue
+		var mod_action_source := String(set_mod.get("action_source", ""))
+		if mod_action_source != "" and mod_action_source != action_source:
 			continue
 		var raw_value = set_mod["value"]
 		if typeof(raw_value) == TYPE_STRING and raw_value == "dynamic:focus_combo":

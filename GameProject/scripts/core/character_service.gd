@@ -24,6 +24,7 @@ func create_character(class_id: String) -> Dictionary:
 		"skill_bonus": 0,
 		"state_attack_bonus": 0,
 		"state_defense_bonus": 0,
+		"extra_hits": 0,
 		"set_counts": {},
 		"active_set_effects": {},
 		"equipment_attachments": {},
@@ -32,6 +33,11 @@ func create_character(class_id: String) -> Dictionary:
 		"equipment_ids": [],
 		"unlocked_skills": [],
 		"equipped_skills": [],
+		"innate_skills": {
+			"attack": "innate_attack",
+			"defend": "innate_defend",
+			"dodge": "innate_dodge"
+		},
 		"tutorial_completed": false,
 		"battles_completed": 0,
 		"highest_floor": 0,
@@ -152,6 +158,12 @@ func recalculate_player_stats(player: Dictionary, reset_hp: bool) -> void:
 	var block_power := int(player["base_block"]) + int(player["block_bonus"])
 	player["state_attack_bonus"] = 0
 	player["state_defense_bonus"] = 0
+	player["extra_hits"] = 0
+	player["innate_skills"] = {
+		"attack": "innate_attack",
+		"defend": "innate_defend",
+		"dodge": "innate_dodge"
+	}
 	var set_counts := _equipment_set_counts(player)
 	var equipment_attachments: Dictionary = player.get("equipment_attachments", {})
 	var equipped_ids := _equipped_item_ids(player)
@@ -173,6 +185,8 @@ func recalculate_player_stats(player: Dictionary, reset_hp: bool) -> void:
 					player["state_attack_bonus"] += int(attachment.get("value", 0))
 				"state_defense":
 					player["state_defense_bonus"] += int(attachment.get("value", 0))
+				"extra_hits":
+					player["extra_hits"] += int(attachment.get("value", 0))
 	var active_set_effects := _active_set_effects(set_counts)
 	player["set_counts"] = set_counts
 	player["active_set_effects"] = active_set_effects
@@ -183,6 +197,7 @@ func recalculate_player_stats(player: Dictionary, reset_hp: bool) -> void:
 	block_power += int(flat_stats.get("block", 0))
 	player["state_attack_bonus"] += int(flat_stats.get("state_attack", 0))
 	player["state_defense_bonus"] += int(flat_stats.get("state_defense", 0))
+	player["extra_hits"] += int(flat_stats.get("extra_hits", 0))
 	var skill_attachments: Dictionary = player.get("skill_attachments", {})
 	for skill_id in player["equipped_skills"]:
 		for attachment in skill_attachments.get(skill_id, []):
@@ -229,7 +244,7 @@ func _active_set_effects(set_counts: Dictionary) -> Dictionary:
 	var effects := {
 		"modifiers": [],
 		"on_battle_start": [],
-		"flat_stats": {"hp": 0, "attack": 0, "armor": 0, "defense": 0, "block": 0, "state_attack": 0, "state_defense": 0},
+		"flat_stats": {"hp": 0, "attack": 0, "armor": 0, "defense": 0, "block": 0, "state_attack": 0, "state_defense": 0, "extra_hits": 0},
 		"set_requirement_delta": 0
 	}
 	var requirement_delta := 0

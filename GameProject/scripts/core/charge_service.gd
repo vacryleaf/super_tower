@@ -239,4 +239,6 @@ static func attachment_stat_kind(kind: String) -> String:
 			return "state_attack"
 		"state_defense":
 			return "state_defense"
+		"extra_hits":
+			return "extra_hits"
 	return kind

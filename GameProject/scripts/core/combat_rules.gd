@@ -6,6 +6,12 @@ const Combatant = preload("res://scripts/core/combatant.gd")
 const StatusService = preload("res://scripts/core/status_service.gd")
 const ModifierPipeline = preload("res://scripts/core/modifier_pipeline.gd")
 
+const RANK_SKILL_MULTIPLIER := {
+	"normal": 1.0,
+	"elite": 1.20,
+	"boss": 1.45
+}
+
 
 static func build_enemies(encounter: Dictionary, tower_floor: int, include_statuses: bool = true) -> Array[Dictionary]:
 	var enemies: Array[Dictionary] = []
@@ -56,12 +62,12 @@ static func clear_enemy_blocks(enemies: Array[Dictionary]) -> void:
 		Combatant.clear_block(enemy)
 
 
-static func current_attack_value(session: RefCounted) -> int:
+static func current_attack_value(session: RefCounted, action_source: String = "") -> int:
 	var resolved_attack: float = session.status_service.resolve_stat(session.player, float(session.player["attack"]), StatusService.STAT_ATTACK)
 	var modifiers: Array = ModifierPipeline.collect_from_session(session, "attack", {
 		"state_card": session.pending_state_card,
 		"focus_combo_multiplier": session.focus_combo_multiplier
-	})
+	}, action_source)
 	return maxi(1, int(round(ModifierPipeline.resolve(resolved_attack, modifiers))))
 
 
@@ -71,16 +77,24 @@ static func defense_value(session: RefCounted) -> int:
 	return maxi(1, int(round(ModifierPipeline.resolve(resolved_defense, modifiers))))
 
 
-static func skill_attack_value(session: RefCounted, skill_id: String) -> int:
-	var skill: Dictionary = DataCatalog.SKILLS[skill_id]
+static func _get_skill(skill_id: String) -> Dictionary:
+	if DataCatalog.SKILLS.has(skill_id):
+		return DataCatalog.SKILLS[skill_id]
+	if DataCatalog.INNATE_SKILLS.has(skill_id):
+		return DataCatalog.INNATE_SKILLS[skill_id]
+	return {}
+
+
+static func skill_attack_value(session: RefCounted, skill_id: String, action_source: String = "") -> int:
+	var skill: Dictionary = _get_skill(skill_id)
 	var multiplier: float = float(skill.get("multiplier", 1.0)) + session._skill_multiplier_bonus(skill_id, "attack")
 	var resolved_attack: float = session.status_service.resolve_stat(session.player, float(session.player["attack"]), StatusService.STAT_ATTACK)
-	var modifiers: Array = ModifierPipeline.collect_from_session(session, "attack", {"skill_id": skill_id, "skill_multiplier": multiplier})
+	var modifiers: Array = ModifierPipeline.collect_from_session(session, "attack", {"skill_id": skill_id, "skill_multiplier": multiplier}, action_source)
 	return maxi(1, int(round(ModifierPipeline.resolve(resolved_attack, modifiers))))
 
 
 static func skill_defense_value(session: RefCounted, skill_id: String) -> int:
-	var skill: Dictionary = DataCatalog.SKILLS[skill_id]
+	var skill: Dictionary = _get_skill(skill_id)
 	var multiplier: float = float(skill.get("multiplier", skill.get("block_multiplier", 1.0))) + session._skill_multiplier_bonus(skill_id, "defense")
 	var resolved_defense: float = session.status_service.resolve_stat(session.player, float(session.player["block_power"]), StatusService.STAT_DEFENSE)
 	var modifiers: Array = ModifierPipeline.collect_from_session(session, "defense", {"skill_id": skill_id, "skill_multiplier": multiplier})
@@ -88,7 +102,7 @@ static func skill_defense_value(session: RefCounted, skill_id: String) -> int:
 
 
 static func skill_dodge_block_value(session: RefCounted, skill_id: String) -> int:
-	var skill: Dictionary = DataCatalog.SKILLS[skill_id]
+	var skill: Dictionary = _get_skill(skill_id)
 	var multiplier: float = float(skill.get("block_multiplier", 0.0)) + session._skill_multiplier_bonus(skill_id, "defense")
 	if multiplier <= 0.0:
 		return 0
@@ -96,9 +110,35 @@ static func skill_dodge_block_value(session: RefCounted, skill_id: String) -> in
 
 
 static func skill_heal_value(session: RefCounted, skill_id: String) -> int:
-	var skill: Dictionary = DataCatalog.SKILLS[skill_id]
+	var skill: Dictionary = _get_skill(skill_id)
 	var multiplier: float = float(skill.get("heal_multiplier", 0.0)) + session._skill_multiplier_bonus(skill_id, "hp")
 	return maxi(1, int(round(float(session.player["max_hp"]) * multiplier)))
+
+
+static func skill_attack_value_for_actor(actor: Dictionary, skill_id: String) -> int:
+	var skill: Dictionary = _get_skill(skill_id)
+	var multiplier: float = float(skill.get("multiplier", 1.0))
+	var base_attack: float = float(actor["attack"])
+	var rank_mult: float = _rank_skill_multiplier(actor) if skill.get("class", "") == "enemy" else 1.0
+	return maxi(1, int(round(base_attack * multiplier * rank_mult)))
+
+
+static func skill_defense_value_for_actor(actor: Dictionary, skill_id: String) -> int:
+	var skill: Dictionary = _get_skill(skill_id)
+	var multiplier: float = float(skill.get("multiplier", skill.get("block_multiplier", 1.0)))
+	var base_defense: float = float(actor.get("block_power", actor.get("defense", 1)))
+	var rank_mult: float = _rank_skill_multiplier(actor) if skill.get("class", "") == "enemy" else 1.0
+	return maxi(1, int(round(base_defense * multiplier * rank_mult)))
+
+
+static func skill_heal_value_for_actor(actor: Dictionary, skill_id: String) -> int:
+	var skill: Dictionary = _get_skill(skill_id)
+	var multiplier: float = float(skill.get("heal_multiplier", 0.0))
+	return maxi(1, int(round(float(actor["max_hp"]) * multiplier)))
+
+
+static func _rank_skill_multiplier(actor: Dictionary) -> float:
+	return RANK_SKILL_MULTIPLIER.get(String(actor.get("rank", "normal")), 1.0)
 
 
 static func enemy_attack_segments(session: RefCounted, enemy: Dictionary, first_strike: bool) -> Array[int]:

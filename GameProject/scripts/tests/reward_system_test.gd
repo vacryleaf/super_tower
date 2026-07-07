@@ -13,6 +13,9 @@ func run() -> void:
 	test_charge_reward_flow()
 	test_skill_bound_charge_only_triggers_on_that_skill()
 	test_charge_limit()
+	test_boss_auto_unlocks_skill()
+	test_boss_grants_tower_coins()
+	test_skill_shop_purchase()
 
 
 func test_reward_attachment_flow() -> void:
@@ -62,12 +65,8 @@ func test_random_reward_pool_counts() -> void:
 
 	session.current_encounter = {"type": "boss"}
 	session._build_reward_options()
-	assert_equal(session.reward_options.size(), 5, "boss rewards should show five options")
+	assert_equal(session.reward_options.size(), 4, "boss rewards should show four options")
 	assert_true(TestHelpers.has_core_growth_reward(session.reward_options), "boss rewards should include at least one core growth option")
-	var has_skill := false
-	for reward in session.reward_options:
-		has_skill = has_skill or String(reward.get("kind", "")) == "skill"
-	assert_true(has_skill, "boss rewards should keep a skill branch while randomizing the other options")
 
 
 func test_set_equipment_effects() -> void:
@@ -214,3 +213,62 @@ func test_charge_limit() -> void:
 			"value": i + 1
 		})
 	assert_equal(session.available_charges().size(), 5, "player should hold at most five charges")
+
+func test_boss_auto_unlocks_skill() -> void:
+	var session_script = load("res://scripts/core/play_session.gd")
+	var session = session_script.new()
+	session.start_new_game("warrior")
+	while session.is_tutorial():
+		if session.phase == "battle":
+			TestHelpers.force_win(session)
+		elif session.phase == "reward":
+			session.choose_reward(0)
+	var skill_count_before: int = session.player["unlocked_skills"].size()
+	session.current_encounter = {"type": "boss"}
+	session.floor_index = 5
+	TestHelpers.force_win(session)
+	assert_equal(session.phase, "reward", "boss victory should enter reward phase")
+	assert_equal(session.player["unlocked_skills"].size(), skill_count_before + 1, "boss victory should auto-unlock next class skill")
+
+
+func test_boss_grants_tower_coins() -> void:
+	var session_script = load("res://scripts/core/play_session.gd")
+	var session = session_script.new()
+	session.delete_save()
+	session.start_new_game("warrior")
+	while session.is_tutorial():
+		if session.phase == "battle":
+			TestHelpers.force_win(session)
+		elif session.phase == "reward":
+			session.choose_reward(0)
+	var coins_before: int = session.tower_coins
+	session.current_encounter = {"type": "boss"}
+	session.floor_index = 5
+	TestHelpers.force_win(session)
+	assert_equal(session.tower_coins, coins_before + 5, "boss victory should grant tower_coins = floor_index")
+	session.save_game()
+	session.delete_save()
+
+
+func test_skill_shop_purchase() -> void:
+	var session_script = load("res://scripts/core/play_session.gd")
+	var session = session_script.new()
+	session.delete_save()
+	session.start_new_game("warrior")
+	while session.is_tutorial():
+		if session.phase == "battle":
+			TestHelpers.force_win(session)
+		elif session.phase == "reward":
+			session.choose_reward(0)
+	session.tower_coins = 30
+	session.save_game()
+	var result: bool = session.buy_common_skill("first_aid")
+	assert_true(result, "purchase should succeed with enough coins")
+	assert_equal(session.tower_coins, 15, "tower_coins should decrease by 15")
+	var profile = session.save_profile.read_profile(Callable(session, "_persistent_player_snapshot"))
+	var roster: Dictionary = profile.get("roster", {})
+	var warrior: Dictionary = roster.get("warrior", {})
+	assert_true(warrior.get("unlocked_skills", []).has("first_aid"), "warrior should have first_aid unlocked")
+	var dup_result: bool = session.buy_common_skill("first_aid")
+	assert_true(not dup_result, "duplicate purchase should fail")
+	session.delete_save()

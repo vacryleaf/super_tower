@@ -35,6 +35,7 @@ static func sync_to_player(combatant: Dictionary, player: Dictionary) -> Diction
 static func from_enemy_unit(unit: Dictionary, encounter_type: String, tower_floor: int) -> Dictionary:
 	var rank := String(unit.get("rank", encounter_type))
 	var traits: Array = unit.get("traits", [])
+	var skills: Array = unit.get("skills", [])
 	if unit.has("hp") and typeof(unit["hp"]) == TYPE_INT:
 		var fixed_defense := int(unit.get("defense", 0))
 		return _enemy_dictionary(
@@ -44,7 +45,8 @@ static func from_enemy_unit(unit: Dictionary, encounter_type: String, tower_floo
 			int(unit.get("attack", 1)),
 			fixed_defense,
 			_enemy_base_armor(unit, fixed_defense, traits),
-			traits
+			traits,
+			skills
 		)
 	return scaled_enemy(unit, tower_floor, rank, float(unit.get("formation_scale", 1.0)))
 
@@ -75,6 +77,7 @@ static func scaled_enemy(unit: Dictionary, tower_floor: int, rank: String, forma
 	var attack := maxi(1, int(round(base_attack * growth * float(unit.get("attack", 1.0)) * rank_attack * formation_scale)))
 	var defense := maxi(0, int(round(base_defense * growth * float(unit.get("defense", 1.0)) * rank_defense * formation_scale)))
 	var traits: Array = unit.get("traits", [])
+	var skills: Array = unit.get("skills", [])
 	return _enemy_dictionary(
 		String(unit.get("name", unit.get("id", "enemy"))),
 		rank,
@@ -82,7 +85,8 @@ static func scaled_enemy(unit: Dictionary, tower_floor: int, rank: String, forma
 		attack,
 		defense,
 		_enemy_base_armor(unit, defense, traits),
-		traits
+		traits,
+		skills
 	)
 
 
@@ -163,9 +167,17 @@ static func normalize_enemy(enemy: Dictionary) -> void:
 		enemy["armor"] = maxi(1, defense)
 	elif not enemy.has("armor"):
 		enemy["armor"] = 0
+	if not enemy.has("skills"):
+		enemy["skills"] = []
+	if not enemy.has("innate_skills"):
+		enemy["innate_skills"] = {
+			"attack": "innate_attack",
+			"defend": "innate_defend",
+			"dodge": "innate_dodge"
+		}
 
 
-static func _enemy_dictionary(unit_name: String, rank: String, hp: int, attack: int, defense: int, armor: int, traits: Array) -> Dictionary:
+static func _enemy_dictionary(unit_name: String, rank: String, hp: int, attack: int, defense: int, armor: int, traits: Array, skills: Array = []) -> Dictionary:
 	return {
 		"name": unit_name,
 		"side": "enemy",
@@ -179,7 +191,13 @@ static func _enemy_dictionary(unit_name: String, rank: String, hp: int, attack: 
 		"block": 0,
 		"dodge_layers": 0,
 		"taunt": 0,
-		"traits": traits
+		"traits": traits,
+		"skills": skills.duplicate(),
+		"innate_skills": {
+			"attack": "innate_attack",
+			"defend": "innate_defend",
+			"dodge": "innate_dodge"
+		}
 	}
 
 

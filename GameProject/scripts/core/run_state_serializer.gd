@@ -7,7 +7,7 @@ const Combatant = preload("res://scripts/core/combatant.gd")
 
 func save_data(session: RefCounted) -> Dictionary:
 	return {
-		"version": 1,
+		"version": 2,
 		"class_id": session.class_id,
 		"floor_index": session.floor_index,
 		"battle_index": session.battle_index,
@@ -43,7 +43,7 @@ func save_data(session: RefCounted) -> Dictionary:
 
 
 func load_save_data(session: RefCounted, data: Dictionary) -> bool:
-	if int(data.get("version", 0)) != 1:
+	if int(data.get("version", 0)) < 1:
 		return false
 	var saved_player: Dictionary = _dictionary(data.get("player", {}))
 	var saved_class := String(data.get("class_id", saved_player.get("class_id", "")))

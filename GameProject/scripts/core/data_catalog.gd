@@ -46,7 +46,22 @@ const SKILLS := {
 	"hunter_mark": {"name": "猎人标记", "class": "archer", "type": "debuff", "cost": 2, "mark_multiplier": 1.35, "weaken_multiplier": 0.75},
 	"roll": {"name": "翻滚", "class": "archer", "type": "dodge", "cost": 2, "block_multiplier": 1.20, "dodge_layers": 1},
 	"first_aid": {"name": "急救", "class": "common", "type": "heal", "cost": 2, "heal_multiplier": 0.25},
-	"tactical_retreat": {"name": "战术后撤", "class": "common", "type": "dodge", "cost": 2, "block_multiplier": 0.90, "dodge_layers": 1}
+	"tactical_retreat": {"name": "战术后撤", "class": "common", "type": "dodge", "cost": 2, "block_multiplier": 0.90, "dodge_layers": 1},
+	"enemy_heavy_strike": {"name": "重击", "class": "enemy", "type": "attack", "cost": 1, "multiplier": 1.50, "hits": 1, "damage_type": "physical"},
+	"enemy_rend": {"name": "撕裂", "class": "enemy", "type": "attack", "cost": 1, "multiplier": 0.70, "hits": 2, "damage_type": "physical"},
+	"enemy_fortify": {"name": "固守", "class": "enemy", "type": "defense", "cost": 1, "multiplier": 1.50},
+	"enemy_enrage": {"name": "狂怒", "class": "enemy", "type": "buff", "cost": 1, "attack_multiplier": 1.30},
+	"enemy_weaken": {"name": "虚弱凝视", "class": "enemy", "type": "debuff", "cost": 1, "weaken_multiplier": 0.80},
+	"enemy_quick_evade": {"name": "迅捷闪避", "class": "enemy", "type": "dodge", "cost": 1, "dodge_layers": 1},
+	"enemy_dark_bolt": {"name": "暗影弹", "class": "enemy", "type": "attack", "cost": 1, "multiplier": 1.20, "hits": 1, "damage_type": "shadow"},
+		"enemy_taunt": {"name": "嘲讽", "class": "enemy", "type": "taunt", "cost": 1, "taunt_duration": 1}
+}
+
+const INNATE_SKILLS := {
+	"innate_attack": {"name": "普通攻击", "type": "attack", "cost": 1, "multiplier": 1.0, "hits": 1, "damage_type": "physical"},
+	"innate_defend": {"name": "防御", "type": "defense", "cost": 1, "multiplier": 1.0},
+	"innate_dodge": {"name": "闪避", "type": "dodge", "cost": 1, "dodge_layers": 1},
+	"ranger_flurry": {"name": "游侠连击", "type": "attack", "cost": 1, "multiplier": 0.3, "hits": 4, "damage_type": "physical"}
 }
 
 const EQUIPMENT := {
@@ -137,9 +152,9 @@ const EQUIPMENT_SETS := {
 	"ranger": {
 		"name": "游侠",
 		"bonuses": {
-			2: {"label": "攻防一体：普攻变为0.3×4次攻击，每攻击4次提供1层闪避。", "modifiers": [{"stat": "attack", "type": "multiply", "value": "dynamic:ranger_attack", "priority": 300}], "on_battle_start": [{"action": "apply_status", "status": {"id": "ranger_attack_defense", "name": "攻防一体", "kind": "buff", "duration": -1, "triggers": [{"event": "on_hit_dealt", "actions": [{"type": "increment_counter", "counter": "ranger_hit_count", "max": 999}]}]}}]},
-			4: {"label": "追击：攻击结束后，追加1倍攻击力×攻击段数的伤害。", "modifiers": [{"stat": "attack", "type": "multiply", "value": "dynamic:ranger_pursuit", "priority": 301}]},
-			6: {"label": "折返：闪避后对进攻方进行一次普攻反击（0.3×4段）。", "modifiers": [{"stat": "attack", "type": "multiply", "value": "dynamic:ranger_return", "priority": 302}]}
+			2: {"label": "攻防一体：普攻变为0.3×4次攻击，每攻击4次提供1层闪避。", "on_battle_start": [{"action": "set_innate_skill", "slot": "attack", "skill_id": "ranger_flurry"}, {"action": "apply_status", "status": {"id": "ranger_attack_defense", "name": "攻防一体", "kind": "buff", "duration": -1, "triggers": [{"event": "on_hit_dealt", "actions": [{"type": "increment_counter", "counter": "ranger_hit_count", "max": 999, "threshold": 4, "threshold_actions": [{"type": "gain_dodge", "value": 1}]}]}]}}]},
+			4: {"label": "追击：攻击结束后，追加1倍攻击力×攻击段数的伤害。", "on_battle_start": [{"action": "apply_status", "status": {"id": "ranger_pursuit", "name": "追击", "kind": "buff", "duration": -1, "triggers": [{"event": "on_attack_complete", "actions": [{"type": "extra_damage", "source_stat": "attack", "source_ratio": 1.0, "counter": "ranger_hit_count", "damage_type": "true"}]}]}}]},
+			6: {"label": "折返：闪避后对进攻方进行一次普攻反击（0.3×4段）。", "modifiers": [{"stat": "attack", "type": "multiply", "value": "dynamic:ranger_return", "priority": 302, "action_source": "counter_attack"}]}
 		}
 	}
 }
@@ -171,30 +186,30 @@ const TUTORIAL_ENCOUNTERS := [
 ]
 
 const NORMAL_UNITS := [
-	{"id": "normal_rat_01", "name": "腐鼠", "hp": 0.75, "attack": 0.90, "defense": 0.60, "traits": ["swarm"]},
-	{"id": "normal_rat_02", "name": "尖牙鼠", "hp": 0.80, "attack": 1.05, "defense": 0.60, "traits": ["claw"]},
-	{"id": "normal_guard_01", "name": "生锈守卫", "hp": 1.10, "attack": 0.75, "defense": 1.30, "traits": ["thick_skin", "tank", "taunt"]},
-	{"id": "normal_guard_03", "name": "矛卫", "hp": 0.95, "attack": 1.00, "defense": 1.10, "traits": ["break_armor", "tank"]},
-	{"id": "normal_shadow_01", "name": "影贼", "hp": 0.75, "attack": 1.05, "defense": 0.70, "traits": ["first_strike", "evade", "cunning"]},
-	{"id": "normal_shadow_02", "name": "暗弩手", "hp": 0.80, "attack": 1.15, "defense": 0.70, "traits": ["mark", "backline", "cunning"]},
-	{"id": "normal_caster_01", "name": "学徒术士", "hp": 0.80, "attack": 0.90, "defense": 0.80, "traits": ["curse"]},
-	{"id": "normal_mutant_02", "name": "晶刺兽", "hp": 0.95, "attack": 1.05, "defense": 0.95, "traits": ["break_armor"]}
+	{"id": "normal_rat_01", "name": "腐鼠", "hp": 0.75, "attack": 0.90, "defense": 0.60, "traits": ["swarm"], "skills": ["enemy_rend", "enemy_enrage"]},
+	{"id": "normal_rat_02", "name": "尖牙鼠", "hp": 0.80, "attack": 1.05, "defense": 0.60, "traits": ["claw"], "skills": ["enemy_heavy_strike", "enemy_rend"]},
+	{"id": "normal_guard_01", "name": "生锈守卫", "hp": 1.10, "attack": 0.75, "defense": 1.30, "traits": ["thick_skin", "tank", "taunt"], "skills": ["enemy_fortify", "enemy_taunt"]},
+	{"id": "normal_guard_03", "name": "矛卫", "hp": 0.95, "attack": 1.00, "defense": 1.10, "traits": ["break_armor", "tank"], "skills": ["enemy_heavy_strike", "enemy_fortify"]},
+	{"id": "normal_shadow_01", "name": "影贼", "hp": 0.75, "attack": 1.05, "defense": 0.70, "traits": ["first_strike", "evade", "cunning"], "skills": ["enemy_quick_evade", "enemy_rend"]},
+	{"id": "normal_shadow_02", "name": "暗弩手", "hp": 0.80, "attack": 1.15, "defense": 0.70, "traits": ["mark", "backline", "cunning"], "skills": ["enemy_dark_bolt", "enemy_weaken"]},
+	{"id": "normal_caster_01", "name": "学徒术士", "hp": 0.80, "attack": 0.90, "defense": 0.80, "traits": ["curse"], "skills": ["enemy_weaken", "enemy_dark_bolt"]},
+	{"id": "normal_mutant_02", "name": "晶刺兽", "hp": 0.95, "attack": 1.05, "defense": 0.95, "traits": ["break_armor"], "skills": ["enemy_rend", "enemy_enrage"]}
 ]
 
 const ELITE_UNITS := [
-	{"id": "elite_rat_01", "name": "鼠群头目", "hp": 0.95, "attack": 1.05, "defense": 0.80, "traits": ["swarm", "summon"]},
-	{"id": "elite_guard_01", "name": "铁甲队长", "hp": 1.20, "attack": 0.95, "defense": 1.50, "traits": ["guard", "fortify", "tank", "taunt"]},
-	{"id": "elite_shadow_01", "name": "暗影猎长", "hp": 0.90, "attack": 1.25, "defense": 0.90, "traits": ["first_strike", "mark", "cunning"]},
-	{"id": "elite_caster_01", "name": "深塔祭司", "hp": 1.00, "attack": 1.00, "defense": 1.00, "traits": ["curse", "summon"]},
-	{"id": "elite_mutant_01", "name": "裂塔巨兽", "hp": 1.35, "attack": 1.00, "defense": 1.25, "traits": ["thick_skin", "revive"]}
+	{"id": "elite_rat_01", "name": "鼠群头目", "hp": 0.95, "attack": 1.05, "defense": 0.80, "traits": ["swarm", "summon"], "skills": ["enemy_rend", "enemy_enrage"]},
+	{"id": "elite_guard_01", "name": "铁甲队长", "hp": 1.20, "attack": 0.95, "defense": 1.50, "traits": ["guard", "fortify", "tank", "taunt"], "skills": ["enemy_fortify", "enemy_heavy_strike", "enemy_taunt"]},
+	{"id": "elite_shadow_01", "name": "暗影猎长", "hp": 0.90, "attack": 1.25, "defense": 0.90, "traits": ["first_strike", "mark", "cunning"], "skills": ["enemy_dark_bolt", "enemy_quick_evade"]},
+	{"id": "elite_caster_01", "name": "深塔祭司", "hp": 1.00, "attack": 1.00, "defense": 1.00, "traits": ["curse", "summon"], "skills": ["enemy_weaken", "enemy_dark_bolt"]},
+	{"id": "elite_mutant_01", "name": "裂塔巨兽", "hp": 1.35, "attack": 1.00, "defense": 1.25, "traits": ["thick_skin", "revive"], "skills": ["enemy_heavy_strike", "enemy_enrage"]}
 ]
 
 const BOSS_UNITS := [
-	{"id": "boss_rat_king", "name": "腐巢鼠王", "hp": 1.00, "attack": 1.10, "defense": 0.90, "traits": ["swarm", "summon", "enrage"]},
-	{"id": "boss_iron_warden", "name": "铁狱典狱长", "hp": 1.25, "attack": 1.00, "defense": 1.45, "traits": ["thick_skin", "guard", "fortify"]},
-	{"id": "boss_shadow_duke", "name": "夜幕公爵", "hp": 0.95, "attack": 1.30, "defense": 1.00, "traits": ["first_strike", "evade", "mark", "cunning"]},
-	{"id": "boss_deep_oracle", "name": "深塔预言者", "hp": 1.05, "attack": 1.10, "defense": 1.20, "traits": ["curse", "spell_shield", "summon"]},
-	{"id": "boss_tower_core", "name": "裂塔核心", "hp": 1.20, "attack": 1.20, "defense": 1.20, "traits": ["revive", "charge", "split"]}
+	{"id": "boss_rat_king", "name": "腐巢鼠王", "hp": 1.00, "attack": 1.10, "defense": 0.90, "traits": ["swarm", "summon", "enrage"], "skills": ["enemy_rend", "enemy_enrage", "enemy_heavy_strike"]},
+	{"id": "boss_iron_warden", "name": "铁狱典狱长", "hp": 1.25, "attack": 1.00, "defense": 1.45, "traits": ["thick_skin", "guard", "fortify"], "skills": ["enemy_fortify", "enemy_heavy_strike", "enemy_enrage"]},
+	{"id": "boss_shadow_duke", "name": "夜幕公爵", "hp": 0.95, "attack": 1.30, "defense": 1.00, "traits": ["first_strike", "evade", "mark", "cunning"], "skills": ["enemy_dark_bolt", "enemy_quick_evade", "enemy_weaken"]},
+	{"id": "boss_deep_oracle", "name": "深塔预言者", "hp": 1.05, "attack": 1.10, "defense": 1.20, "traits": ["curse", "spell_shield", "summon"], "skills": ["enemy_weaken", "enemy_dark_bolt", "enemy_fortify"]},
+	{"id": "boss_tower_core", "name": "裂塔核心", "hp": 1.20, "attack": 1.20, "defense": 1.20, "traits": ["revive", "charge", "split"], "skills": ["enemy_heavy_strike", "enemy_enrage", "enemy_rend"]}
 ]
 
 

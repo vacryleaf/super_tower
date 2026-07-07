@@ -159,17 +159,12 @@ func permanent_equipment_reward(player: Dictionary, class_id: String, floor_inde
 	}
 
 
-func skill_branch_reward(player: Dictionary, class_id: String) -> Dictionary:
-	if _has_unlocked_all_permanent_skills(player, class_id):
-		return {"kind": "skill_power", "label": "塔内技能强化：技能倍率 +0.10", "value": 0.10}
-	return {"kind": "skill", "label": "技能分支：解锁一个不重复技能", "value": 0}
 
 
-func _has_unlocked_all_permanent_skills(player: Dictionary, class_id: String) -> bool:
+func _has_unlocked_all_class_skills(player: Dictionary, class_id: String) -> bool:
 	for skill_id in DataCatalog.SKILLS.keys():
 		var skill: Dictionary = DataCatalog.SKILLS[skill_id]
-		var skill_class := String(skill.get("class", ""))
-		if skill_class == class_id or skill_class == "common":
+		if String(skill.get("class", "")) == class_id:
 			if not player.get("unlocked_skills", []).has(skill_id):
 				return false
 	return true

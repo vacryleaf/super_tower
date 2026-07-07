@@ -97,8 +97,11 @@ func test_cunning_masks_enemy_intent() -> void:
 
 func test_skill_costs_minimum_two() -> void:
 	for skill_id in DataCatalog.SKILLS.keys():
-		assert_true(int(DataCatalog.SKILLS[skill_id].get("cost", 0)) >= 2, "%s skill cost minimum two" % skill_id)
-		assert_true(not DataCatalog.SKILLS[skill_id].has("power"), "%s skill should use multipliers instead of flat power" % skill_id)
+		var skill: Dictionary = DataCatalog.SKILLS[skill_id]
+		if String(skill.get("class", "")) == "enemy":
+			continue
+		assert_true(int(skill.get("cost", 0)) >= 2, "%s skill cost minimum two" % skill_id)
+		assert_true(not skill.has("power"), "%s skill should use multipliers instead of flat power" % skill_id)
 
 
 func test_external_resource_manifests() -> void:
