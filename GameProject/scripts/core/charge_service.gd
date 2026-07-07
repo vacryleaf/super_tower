@@ -203,3 +203,40 @@ func empty_charge_values() -> Dictionary:
 		"repeat_attack": 0,
 		"repeat_defense": 0
 	}
+
+
+static func charge_count(player: Dictionary) -> int:
+	var total := 0
+	for groups in [player.get("equipment_attachments", {}), player.get("skill_attachments", {})]:
+		for attachments in groups.values():
+			for attachment in attachments:
+				if is_charge_kind(String(attachment.get("kind", ""))):
+					total += 1
+	return total
+
+
+static func is_charge_kind(kind: String) -> bool:
+	return kind.begins_with("charge_")
+
+
+static func attachment_multiplier_value(value: float) -> float:
+	if absf(value) >= 1.0:
+		return value * 0.05
+	return value
+
+
+static func attachment_stat_kind(kind: String) -> String:
+	match kind:
+		"attack":
+			return "attack"
+		"skill_power":
+			return "skill_power"
+		"defense":
+			return "defense"
+		"hp":
+			return "hp"
+		"state":
+			return "state_attack"
+		"state_defense":
+			return "state_defense"
+	return kind

@@ -2,7 +2,11 @@ extends RefCounted
 class_name CharacterService
 
 const DataCatalog = preload("res://scripts/core/data_catalog.gd")
+const ChargeService = preload("res://scripts/core/charge_service.gd")
+const EquipmentService = preload("res://scripts/core/equipment_service.gd")
 const MAX_CHARGES := 5
+
+var equipment := EquipmentService.new()
 
 
 func create_character(class_id: String) -> Dictionary:
@@ -41,40 +45,25 @@ func create_character(class_id: String) -> Dictionary:
 
 
 func equip_item(player: Dictionary, item_id: String) -> void:
-	var item: Dictionary = DataCatalog.EQUIPMENT[item_id]
-	var slot := String(item["slot"])
-	if slot == "ring" and player["equipment"].has("ring"):
-		slot = "ring2"
-	player["equipment"][slot] = item_id
-	if not player["equipment_ids"].has(item_id):
-		player["equipment_ids"].append(item_id)
+	equipment.equip_item(player, item_id)
 
 
 func unlock_skill(player: Dictionary, skill_id: String, equip_now: bool) -> void:
-	if not player["unlocked_skills"].has(skill_id):
-		player["unlocked_skills"].append(skill_id)
-	if equip_now and not player["equipped_skills"].has(skill_id) and player["equipped_skills"].size() < 4:
-		player["equipped_skills"].append(skill_id)
+	equipment.unlock_skill(player, skill_id, equip_now)
 
 
 func unlock_next_skill(player: Dictionary) -> void:
-	var class_id: String = player["class_id"]
-	for skill_id in DataCatalog.SKILLS.keys():
-		var skill: Dictionary = DataCatalog.SKILLS[skill_id]
-		if skill.get("class", "") == class_id and not player["unlocked_skills"].has(skill_id):
-			unlock_skill(player, skill_id, player["equipped_skills"].size() < 4)
-			return
-	for skill_id in DataCatalog.SKILLS.keys():
-		var skill: Dictionary = DataCatalog.SKILLS[skill_id]
-		if skill.get("class", "") == "common" and not player["unlocked_skills"].has(skill_id):
-			unlock_skill(player, skill_id, player["equipped_skills"].size() < 4)
-			return
+	equipment.unlock_next_skill(player)
+
+
+func equipment_target_by_slot(player: Dictionary, slot: String) -> Dictionary:
+	return equipment.equipment_target_by_slot(player, slot)
 
 
 func attach_reward(player: Dictionary, target: Dictionary, reward: Dictionary) -> void:
 	if target.is_empty():
 		return
-	if is_charge_kind(String(reward.get("kind", ""))) and charge_count(player) >= MAX_CHARGES:
+	if ChargeService.is_charge_kind(String(reward.get("kind", ""))) and ChargeService.charge_count(player) >= MAX_CHARGES:
 		return
 	var target_type := String(target.get("type", ""))
 	var target_id := String(target.get("id", ""))
@@ -116,18 +105,11 @@ func preferred_attachment_target(player: Dictionary, reward_kind: String) -> Dic
 	return {}
 
 
-func equipment_target_by_slot(player: Dictionary, slot: String) -> Dictionary:
-	var equipment: Dictionary = player.get("equipment", {})
-	if equipment.has(slot):
-		return {"type": "equipment", "id": String(equipment[slot])}
-	return {}
-
-
 func skill_attachment_bonus(player: Dictionary, skill_id: String, kind: String) -> int:
 	var total := 0
 	var attachments: Dictionary = player.get("skill_attachments", {})
 	for attachment in attachments.get(skill_id, []):
-		if attachment_stat_kind(String(attachment.get("kind", ""))) == kind:
+		if ChargeService.attachment_stat_kind(String(attachment.get("kind", ""))) == kind:
 			total += int(attachment.get("value", 0))
 	return total
 
@@ -136,10 +118,26 @@ func skill_multiplier_bonus(player: Dictionary, skill_id: String, kind: String =
 	var total := 0.0
 	var attachments: Dictionary = player.get("skill_attachments", {})
 	for attachment in attachments.get(skill_id, []):
-		var attachment_kind := attachment_stat_kind(String(attachment.get("kind", "")))
+		var attachment_kind := ChargeService.attachment_stat_kind(String(attachment.get("kind", "")))
 		if attachment_kind == "skill_power" or attachment_kind == kind:
-			total += attachment_multiplier_value(float(attachment.get("value", 0.0)))
+			total += ChargeService.attachment_multiplier_value(float(attachment.get("value", 0.0)))
 	return total
+
+
+func charge_count(player: Dictionary) -> int:
+	return ChargeService.charge_count(player)
+
+
+func is_charge_kind(kind: String) -> bool:
+	return ChargeService.is_charge_kind(kind)
+
+
+func attachment_multiplier_value(value: float) -> float:
+	return ChargeService.attachment_multiplier_value(value)
+
+
+func attachment_stat_kind(kind: String) -> String:
+	return ChargeService.attachment_stat_kind(kind)
 
 
 func recalculate_player_stats(player: Dictionary, reset_hp: bool) -> void:
@@ -164,7 +162,7 @@ func recalculate_player_stats(player: Dictionary, reset_hp: bool) -> void:
 		defense += int(item["armor"])
 		block_power += int(item.get("block", 0))
 		for attachment in equipment_attachments.get(item_id, []):
-			match attachment_stat_kind(String(attachment.get("kind", ""))):
+			match ChargeService.attachment_stat_kind(String(attachment.get("kind", ""))):
 				"attack":
 					attack += int(attachment.get("value", 0))
 				"defense":
@@ -188,7 +186,7 @@ func recalculate_player_stats(player: Dictionary, reset_hp: bool) -> void:
 	var skill_attachments: Dictionary = player.get("skill_attachments", {})
 	for skill_id in player["equipped_skills"]:
 		for attachment in skill_attachments.get(skill_id, []):
-			match attachment_stat_kind(String(attachment.get("kind", ""))):
+			match ChargeService.attachment_stat_kind(String(attachment.get("kind", ""))):
 				"hp":
 					hp += int(attachment.get("value", 0))
 				"state_attack":
@@ -204,43 +202,6 @@ func recalculate_player_stats(player: Dictionary, reset_hp: bool) -> void:
 		player["hp"] = hp
 	else:
 		player["hp"] = mini(hp, int(player["hp"]) + maxi(0, hp - old_max))
-
-
-func charge_count(player: Dictionary) -> int:
-	var total := 0
-	for groups in [player.get("equipment_attachments", {}), player.get("skill_attachments", {})]:
-		for attachments in groups.values():
-			for attachment in attachments:
-				if is_charge_kind(String(attachment.get("kind", ""))):
-					total += 1
-	return total
-
-
-func is_charge_kind(kind: String) -> bool:
-	return kind.begins_with("charge_")
-
-
-func attachment_multiplier_value(value: float) -> float:
-	if absf(value) >= 1.0:
-		return value * 0.05
-	return value
-
-
-func attachment_stat_kind(kind: String) -> String:
-	match kind:
-		"attack":
-			return "attack"
-		"skill_power":
-			return "skill_power"
-		"defense":
-			return "defense"
-		"hp":
-			return "hp"
-		"state":
-			return "state_attack"
-		"state_defense":
-			return "state_defense"
-	return kind
 
 
 func _equipment_set_counts(player: Dictionary) -> Dictionary:
