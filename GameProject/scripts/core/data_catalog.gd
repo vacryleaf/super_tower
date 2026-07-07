@@ -88,7 +88,13 @@ const EQUIPMENT := {
 	"jungle_hat": {"class": "archer", "slot": "head", "name": "草帽", "hp": 4, "attack": 0, "armor": 1, "block": 1, "set_id": "jungle"},
 	"jungle_vest": {"class": "archer", "slot": "body", "name": "树叶衣", "hp": 5, "attack": 0, "armor": 1, "block": 1, "set_id": "jungle"},
 	"jungle_pants": {"class": "archer", "slot": "legs", "name": "树叶裤", "hp": 5, "attack": 0, "armor": 1, "block": 1, "set_id": "jungle"},
-	"jungle_gloves": {"class": "archer", "slot": "hands", "name": "编制手套", "hp": 2, "attack": 2, "armor": 0, "block": 0, "set_id": "jungle"}
+	"jungle_gloves": {"class": "archer", "slot": "hands", "name": "编制手套", "hp": 2, "attack": 2, "armor": 0, "block": 0, "set_id": "jungle"},
+	"ranger_hat": {"class": "archer", "slot": "head", "name": "游侠帽", "hp": 4, "attack": 0, "armor": 1, "block": 1, "set_id": "ranger"},
+	"ranger_cape": {"class": "archer", "slot": "cape", "name": "游侠披风", "hp": 3, "attack": 0, "armor": 0, "block": 1, "set_id": "ranger"},
+	"ranger_vest": {"class": "archer", "slot": "body", "name": "游侠紧身衣", "hp": 5, "attack": 0, "armor": 1, "block": 1, "set_id": "ranger"},
+	"ranger_shoulder": {"class": "archer", "slot": "shoulder", "name": "游侠护肩", "hp": 3, "attack": 0, "armor": 1, "block": 1, "set_id": "ranger"},
+	"ranger_belt": {"class": "archer", "slot": "waist", "name": "游侠腰带", "hp": 4, "attack": 0, "armor": 0, "block": 1, "set_id": "ranger"},
+	"ranger_gloves": {"class": "archer", "slot": "hands", "name": "游侠护手", "hp": 2, "attack": 2, "armor": 0, "block": 0, "set_id": "ranger"}
 }
 
 const EQUIPMENT_SETS := {
@@ -126,6 +132,14 @@ const EQUIPMENT_SETS := {
 			2: {"label": "缜密：每闪避成功一次，增加10%伤害，最多增加50%伤害。", "on_battle_start": [{"action": "apply_status", "status": {"id": "jungle_meticulous", "name": "缜密", "kind": "buff", "duration": -1, "triggers": [{"event": "on_dodge", "actions": [{"type": "increment_counter", "counter": "meticulous_stacks", "max": 5}]}, {"event": "on_hit_received", "actions": [{"type": "reset_counter", "counter": "meticulous_stacks"}]}]}}], "modifiers": [{"stat": "attack", "type": "multiply", "value": "dynamic:meticulous", "priority": 300}]},
 			4: {"label": "寻绽：每个不攻击的回合增加30%伤害，最多增加90%伤害。", "on_battle_start": [{"action": "apply_status", "status": {"id": "jungle_seek_bloom", "name": "寻绽", "kind": "buff", "duration": -1, "triggers": [{"event": "on_turn_start", "condition": {"not_attacked_last_turn": true}, "actions": [{"type": "increment_counter", "counter": "seek_bloom_stacks", "max": 3}]}]}}], "modifiers": [{"stat": "attack", "type": "multiply", "value": "dynamic:seek_bloom", "priority": 300}]},
 			6: {"label": "狩猎：缜密5层后追加50%伤害，寻绽3层后追加90%伤害。造成伤害后重置。", "on_battle_start": [{"action": "apply_status", "status": {"id": "jungle_hunt", "name": "狩猎", "kind": "buff", "duration": -1, "triggers": [{"event": "on_hit_dealt", "actions": [{"type": "reset_counter", "counter": "meticulous_stacks"}, {"type": "reset_counter", "counter": "seek_bloom_stacks"}]}]}}], "modifiers": [{"stat": "attack", "type": "multiply", "value": "dynamic:hunt", "priority": 300}]}
+		}
+	},
+	"ranger": {
+		"name": "游侠",
+		"bonuses": {
+			2: {"label": "攻防一体：普攻变为0.3×4次攻击，每攻击4次提供1层闪避。", "modifiers": [{"stat": "attack", "type": "multiply", "value": "dynamic:ranger_attack", "priority": 300}], "on_battle_start": [{"action": "apply_status", "status": {"id": "ranger_attack_defense", "name": "攻防一体", "kind": "buff", "duration": -1, "triggers": [{"event": "on_hit_dealt", "actions": [{"type": "increment_counter", "counter": "ranger_hit_count", "max": 999}]}]}}]},
+			4: {"label": "追击：攻击结束后，追加1×攻击层数的伤害。", "modifiers": [{"stat": "attack", "type": "multiply", "value": "dynamic:ranger_pursuit", "priority": 301}], "on_battle_start": [{"action": "apply_status", "status": {"id": "ranger_pursuit", "name": "追击", "kind": "buff", "duration": -1, "triggers": [{"event": "on_hit_dealt", "actions": [{"type": "ranger_pursuit"}]}]}}]},
+			6: {"label": "折返：闪避后对进攻方进行一次普攻反击。", "on_battle_start": [{"action": "apply_status", "status": {"id": "ranger_return", "name": "折返", "kind": "buff", "duration": -1, "triggers": [{"event": "on_dodge", "actions": [{"type": "reflect", "target_stat": "attack", "target_ratio": 1.0}]}]}}]}
 		}
 	}
 }

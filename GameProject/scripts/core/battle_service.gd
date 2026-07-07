@@ -18,12 +18,38 @@ func player_attack(session: RefCounted, target_index: int) -> void:
 	var damage: int = session._current_attack_value()
 	damage = session._apply_charge_attack_modifiers(damage)
 	damage = maxi(1, int(round(float(damage) * session._resolve_focus_combo(target))))
-	session._apply_damage_to_enemy(target, damage, false, "physical")
+	var has_ranger_attack: bool = session._has_set_modifier("dynamic:ranger_attack")
+	var has_ranger_pursuit: bool = session._has_set_modifier("dynamic:ranger_pursuit")
+	if has_ranger_attack:
+		var hit_damage := maxi(1, int(round(float(damage) * 0.3)))
+		for _hit in range(4):
+			if session._alive_enemy_count() <= 0:
+				break
+			session._apply_damage_to_enemy(target, hit_damage, false, "physical")
+			session.ranger_hit_count += 1
+		while session.ranger_hit_count >= 4:
+			session.ranger_hit_count -= 4
+			session._add_player_dodge(1)
+			session.battle_log.append("攻防一体：获得 1 层躲避。")
+	else:
+		session._apply_damage_to_enemy(target, damage, false, "physical")
 	var repeats: int = session._consume_charge_repeat("attack")
 	for _i in range(repeats):
 		if session._alive_enemy_count() <= 0:
 			break
-		session._apply_damage_to_enemy(target, damage, false, "physical")
+		if has_ranger_attack:
+			var hit_damage := maxi(1, int(round(float(damage) * 0.3)))
+			for _hit in range(4):
+				if session._alive_enemy_count() <= 0:
+					break
+				session._apply_damage_to_enemy(target, hit_damage, false, "physical")
+				session.ranger_hit_count += 1
+			while session.ranger_hit_count >= 4:
+				session.ranger_hit_count -= 4
+				session._add_player_dodge(1)
+				session.battle_log.append("攻防一体：获得 1 层躲避。")
+		else:
+			session._apply_damage_to_enemy(target, damage, false, "physical")
 	if session.pending_state_card == "fallback":
 		session._add_player_block(maxi(1, int(round(float(session.player["block_power"]) * 0.5))))
 	session.action_points -= 1

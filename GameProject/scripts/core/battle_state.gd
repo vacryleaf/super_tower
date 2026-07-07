@@ -25,6 +25,7 @@ var counter_attack_multiplier := 1.0
 var dodge_streak := 0
 var meticulous_stacks := 0
 var seek_bloom_stacks := 0
+var ranger_hit_count := 0
 var attacked_this_turn := false
 var reward_options: Array[Dictionary] = []
 var pending_reward: Dictionary = {}
@@ -61,6 +62,7 @@ func reset() -> void:
 	dodge_streak = 0
 	meticulous_stacks = 0
 	seek_bloom_stacks = 0
+	ranger_hit_count = 0
 	attacked_this_turn = false
 	reward_options.clear()
 	pending_reward = {}

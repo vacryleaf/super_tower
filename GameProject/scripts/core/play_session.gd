@@ -156,6 +156,11 @@ var seek_bloom_stacks: int:
 		return battle_state.seek_bloom_stacks
 	set(value):
 		battle_state.seek_bloom_stacks = value
+var ranger_hit_count: int:
+	get:
+		return battle_state.ranger_hit_count
+	set(value):
+		battle_state.ranger_hit_count = value
 var attacked_this_turn: bool:
 	get:
 		return battle_state.attacked_this_turn
@@ -346,6 +351,7 @@ func _begin_player_turn() -> void:
 			status_service.tick_statuses(enemy)
 			status_service.fire_trigger(enemy, TriggerEvents.ON_TURN_START, {"battle_log": battle_log, "session": self, "not_attacked_last_turn": false})
 	attacked_this_turn = false
+	ranger_hit_count = 0
 	var charged_label := _random_ready_charge()
 	message = "你的回合。状态 Buff：%s" % _state_name(pending_state_card)
 	if charged_label != "":
@@ -536,6 +542,7 @@ func get_counter(name: String) -> int:
 	match name:
 		"meticulous_stacks": return meticulous_stacks
 		"seek_bloom_stacks": return seek_bloom_stacks
+		"ranger_hit_count": return ranger_hit_count
 		_: return 0
 
 
@@ -543,6 +550,7 @@ func set_counter(name: String, value: int) -> void:
 	match name:
 		"meticulous_stacks": meticulous_stacks = value
 		"seek_bloom_stacks": seek_bloom_stacks = value
+		"ranger_hit_count": ranger_hit_count = value
 
 
 func _apply_damage_to_enemy(target_index: int, damage: int, ignore_taunt: bool = false, damage_type: String = "physical") -> void:
