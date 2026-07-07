@@ -270,11 +270,15 @@ func enemy_attack(session: RefCounted, enemy: Dictionary, enemy_index: int, firs
 			session._check_dodge_streak()
 			session.status_service.fire_trigger(session.player, TriggerEvents.ON_DODGE, {"battle_log": session.battle_log, "session": session, "source": enemy, "target": session.player})
 			if session._has_set_modifier("dynamic:ranger_return") and int(enemy["hp"]) > 0:
-				var counter_damage := maxi(1, int(round(float(session._current_attack_value()) * 0.3)))
+				var counter_attack: int = session._current_attack_value()
+				counter_attack = maxi(1, int(round(float(counter_attack) * session._resolve_focus_combo(enemy_index))))
+				var counter_hit := maxi(1, int(round(float(counter_attack) * 0.3)))
+				var saved_hit_count: int = session.ranger_hit_count
 				for _hit in range(4):
 					if int(enemy["hp"]) <= 0:
 						break
-					session._apply_damage_to_enemy(enemy_index, counter_damage, false, "physical")
+					session._apply_damage_to_enemy(enemy_index, counter_hit, false, "physical")
+				session.ranger_hit_count = saved_hit_count
 				session.battle_log.append("折返：反击 %s，造成 4 段伤害。" % enemy["name"])
 			continue
 		was_hit = true
