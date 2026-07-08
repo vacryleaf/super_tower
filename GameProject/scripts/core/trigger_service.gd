@@ -76,14 +76,15 @@ func _execute_action(target: Dictionary, action: Dictionary, context: Dictionary
 			var extra_value := _resolve_action_value(action, context, target)
 			if extra_value > 0 and session != null:
 				var dmg_type := String(action.get("damage_type", "physical"))
+				var opposing: Array[Dictionary] = session._opposing_units(target)
 				var enemy_idx: int = session.find_enemy_index(target)
 				if enemy_idx >= 0:
 					var extra_ctx := ActionContext.create_trigger(ActionSource.TRIGGER_EFFECT, enemy_idx, extra_value, dmg_type)
 					session.deal_damage(extra_ctx)
 				else:
-					for i in range(session.enemies.size()):
-						var enemy: Dictionary = session.enemies[i]
-						if int(enemy.get("hp", 0)) <= 0:
+					for i in range(opposing.size()):
+						var unit: Dictionary = opposing[i]
+						if int(unit.get("hp", 0)) <= 0:
 							continue
 						var extra_ctx := ActionContext.create_trigger(ActionSource.TRIGGER_EFFECT, i, extra_value, dmg_type)
 						session.deal_damage(extra_ctx)
@@ -93,9 +94,10 @@ func _execute_action(target: Dictionary, action: Dictionary, context: Dictionary
 				session.dodge_streak = 0
 				var dmg_value := _resolve_action_value(action, context, target)
 				if dmg_value > 0:
-					for i in range(session.enemies.size()):
-						var enemy: Dictionary = session.enemies[i]
-						if int(enemy.get("hp", 0)) <= 0:
+					var opposing: Array[Dictionary] = session._opposing_units(target)
+					for i in range(opposing.size()):
+						var unit: Dictionary = opposing[i]
+						if int(unit.get("hp", 0)) <= 0:
 							continue
 						var counter_ctx := ActionContext.create_trigger(ActionSource.TRIGGER_EFFECT, i, dmg_value, "physical")
 						session.deal_damage(counter_ctx)

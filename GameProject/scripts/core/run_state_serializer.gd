@@ -16,6 +16,7 @@ func save_data(session: RefCounted) -> Dictionary:
 		"player": session.player,
 		"current_encounter": session.current_encounter,
 		"enemies": session.enemies,
+		"allies": session.allies,
 		"action_points": session.action_points,
 		"max_action_points": session.max_action_points,
 		"player_block": session.player_block,
@@ -60,6 +61,8 @@ func load_save_data(session: RefCounted, data: Dictionary) -> bool:
 	session.current_encounter = _dictionary(data.get("current_encounter", {}))
 	session.enemies = _dictionary_array(data.get("enemies", []))
 	_normalize_loaded_enemies(session.enemies)
+	session.allies = _dictionary_array(data.get("allies", []))
+	_normalize_loaded_allies(session.allies)
 	session.action_points = int(data.get("action_points", 1))
 	session.max_action_points = int(data.get("max_action_points", 1))
 	session.player_block = int(data.get("player_block", 0))
@@ -97,6 +100,13 @@ func _normalize_loaded_enemies(enemies: Array[Dictionary]) -> void:
 		Combatant.normalize_enemy(enemy)
 		if not enemy.has("statuses"):
 			enemy["statuses"] = []
+
+
+func _normalize_loaded_allies(allies: Array[Dictionary]) -> void:
+	for ally in allies:
+		Combatant.normalize_enemy(ally)
+		if not ally.has("statuses"):
+			ally["statuses"] = []
 
 
 func _dictionary(value: Variant) -> Dictionary:
