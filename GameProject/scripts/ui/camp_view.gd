@@ -79,9 +79,6 @@ func render(
 	pre_run_button.pressed.connect(pre_run_callback)
 	bottom_row.add_child(pre_run_button)
 
-	if not _class_keys.is_empty():
-		_select_class(_class_keys[0])
-
 
 func _render_class_list(parent: Control) -> void:
 	var left := VBoxContainer.new()
