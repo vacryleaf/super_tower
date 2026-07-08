@@ -11,6 +11,7 @@ var _left_container: Control
 var _class_section: Control
 var _class_buttons: Array[Button] = []
 var _class_keys: Array[String] = []
+var _encyclopedia_callback: Callable
 var _class_visible := false
 var _profession_button: Button
 
@@ -28,6 +29,7 @@ func render(
 ) -> void:
 	_label_factory = label_factory
 	_manage_callback = manage_callback
+	_encyclopedia_callback = encyclopedia_callback
 	_session = session
 	_class_buttons.clear()
 	_class_keys.clear()
@@ -72,11 +74,6 @@ func render(
 		shop_button.custom_minimum_size = Vector2(160, 44)
 		shop_button.pressed.connect(shop_callback)
 		util_row.add_child(shop_button)
-	var encyclopedia_button := Button.new()
-	encyclopedia_button.text = "百科"
-	encyclopedia_button.custom_minimum_size = Vector2(160, 44)
-	encyclopedia_button.pressed.connect(encyclopedia_callback)
-	util_row.add_child(encyclopedia_button)
 
 	var pre_run_button := Button.new()
 	pre_run_button.text = "爬塔"
@@ -100,6 +97,13 @@ func _render_left_panel(parent: Control) -> void:
 
 	_class_section = VBoxContainer.new()
 	_left_container.add_child(_class_section)
+
+	var encyclopedia_button := Button.new()
+	encyclopedia_button.text = "百科"
+	encyclopedia_button.custom_minimum_size = Vector2(120, 40)
+	encyclopedia_button.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	encyclopedia_button.pressed.connect(_encyclopedia_callback)
+	_left_container.add_child(encyclopedia_button)
 
 
 func _toggle_class_list() -> void:
