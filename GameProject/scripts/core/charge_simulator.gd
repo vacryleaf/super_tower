@@ -1,6 +1,7 @@
 extends RefCounted
 class_name ChargeSimulator
 
+const ChargeService = preload("res://scripts/core/charge_service.gd")
 const MAX_CHARGES := 5
 
 
@@ -62,22 +63,12 @@ func _apply_charged_effect(state: Dictionary, charge: Dictionary) -> void:
 			}
 		state["skills"] = skills
 		bucket = skills[target_id]
-	match String(charge.get("kind", "")):
-		"charge_attack_multiplier":
-			bucket["attack_multiplier"] = float(bucket["attack_multiplier"]) * float(charge.get("value", 1.0))
-		"charge_defense_multiplier":
-			bucket["defense_multiplier"] = float(bucket["defense_multiplier"]) * float(charge.get("value", 1.0))
-		"charge_bonus_damage":
-			bucket["bonus_damage"] = int(bucket["bonus_damage"]) + int(charge.get("value", 0))
-		"charge_repeat_attack":
-			bucket["repeat_attack"] = int(bucket["repeat_attack"]) + maxi(1, int(charge.get("value", 1)))
-		"charge_repeat_defense":
-			bucket["repeat_defense"] = int(bucket["repeat_defense"]) + maxi(1, int(charge.get("value", 1)))
+	ChargeService.apply_charge_to_bucket(bucket, charge)
 
 
 func apply_attack_modifiers(base: int, state: Dictionary, skill_id: String = "") -> int:
 	var effects := _merged_charge_state(state, skill_id)
-	var result := int(round(float(base) * float(effects.get("attack_multiplier", 1.0)))) + int(effects.get("bonus_damage", 0))
+	var result := ChargeService.compute_charge_attack(base, effects)
 	state["attack_multiplier"] = 1.0
 	state["bonus_damage"] = 0
 	if skill_id != "":
@@ -85,39 +76,32 @@ func apply_attack_modifiers(base: int, state: Dictionary, skill_id: String = "")
 		if skills.has(skill_id):
 			skills[skill_id]["attack_multiplier"] = 1.0
 			skills[skill_id]["bonus_damage"] = 0
-	return maxi(1, result)
+	return result
 
 
 func apply_defense_modifiers(base: int, state: Dictionary, skill_id: String = "") -> int:
 	var effects := _merged_charge_state(state, skill_id)
-	var result := int(round(float(base) * float(effects.get("defense_multiplier", 1.0))))
+	var result := ChargeService.compute_charge_defense(base, effects)
 	state["defense_multiplier"] = 1.0
 	if skill_id != "":
 		var skills: Dictionary = state.get("skills", {})
 		if skills.has(skill_id):
 			skills[skill_id]["defense_multiplier"] = 1.0
-	return maxi(1, result)
+	return result
 
 
 func consume_repeats(state: Dictionary, action_tag: String, skill_id: String = "") -> int:
-	var key := "repeat_attack" if action_tag == "attack" else "repeat_defense"
-	var repeats := int(state.get(key, 0))
-	state[key] = 0
+	var repeats := ChargeService.consume_repeats_from_bucket(state, action_tag)
 	if skill_id != "":
 		var skills: Dictionary = state.get("skills", {})
 		if skills.has(skill_id):
-			repeats += int(skills[skill_id].get(key, 0))
-			skills[skill_id][key] = 0
+			repeats += ChargeService.consume_repeats_from_bucket(skills[skill_id], action_tag)
 	return repeats
 
 
 func _merged_charge_state(state: Dictionary, skill_id: String) -> Dictionary:
-	var result := state.duplicate(true)
 	if skill_id != "":
 		var skills: Dictionary = state.get("skills", {})
 		if skills.has(skill_id):
-			var skill_effects: Dictionary = skills[skill_id]
-			result["attack_multiplier"] = float(result.get("attack_multiplier", 1.0)) * float(skill_effects.get("attack_multiplier", 1.0))
-			result["defense_multiplier"] = float(result.get("defense_multiplier", 1.0)) * float(skill_effects.get("defense_multiplier", 1.0))
-			result["bonus_damage"] = int(result.get("bonus_damage", 0)) + int(skill_effects.get("bonus_damage", 0))
-	return result
+			return ChargeService.merge_charge_buckets(state, skills[skill_id])
+	return state.duplicate(true)

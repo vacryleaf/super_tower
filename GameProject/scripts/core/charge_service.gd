@@ -83,18 +83,7 @@ func random_ready_charge(session: Variant) -> String:
 func apply_charge_effect(session: Variant, charge: Dictionary) -> void:
 	ensure_charge_effects(session)
 	var effects := charge_effect_bucket(session, charge)
-	var kind := String(charge.get("kind", ""))
-	match kind:
-		"charge_attack_multiplier":
-			effects["attack_multiplier"] = float(effects.get("attack_multiplier", 1.0)) * float(charge.get("value", 1.0))
-		"charge_defense_multiplier":
-			effects["defense_multiplier"] = float(effects.get("defense_multiplier", 1.0)) * float(charge.get("value", 1.0))
-		"charge_repeat_attack":
-			effects["repeat_attack"] = int(effects.get("repeat_attack", 0)) + maxi(1, int(charge.get("value", 1)))
-		"charge_repeat_defense":
-			effects["repeat_defense"] = int(effects.get("repeat_defense", 0)) + maxi(1, int(charge.get("value", 1)))
-		"charge_bonus_damage":
-			effects["bonus_damage"] = int(effects.get("bonus_damage", 0)) + int(charge.get("value", 0))
+	apply_charge_to_bucket(effects, charge)
 
 
 func charge_effect_bucket(session: Variant, charge: Dictionary) -> Dictionary:
@@ -112,46 +101,36 @@ func charge_effect_bucket(session: Variant, charge: Dictionary) -> Dictionary:
 func apply_charge_attack_modifiers(session: Variant, base: int, skill_id: String = "") -> int:
 	ensure_charge_effects(session)
 	var effects := merged_charge_effects(session, skill_id)
-	var multiplier := float(effects.get("attack_multiplier", 1.0))
-	var bonus := int(effects.get("bonus_damage", 0))
+	var result := compute_charge_attack(base, effects)
 	clear_charge_attack_effects(session, skill_id)
-	return maxi(1, int(round(float(base) * multiplier)) + bonus)
+	return result
 
 
 func apply_charge_defense_modifiers(session: Variant, base: int, skill_id: String = "") -> int:
 	ensure_charge_effects(session)
 	var effects := merged_charge_effects(session, skill_id)
-	var multiplier := float(effects.get("defense_multiplier", 1.0))
+	var result := compute_charge_defense(base, effects)
 	clear_charge_defense_effects(session, skill_id)
-	return maxi(1, int(round(float(base) * multiplier)))
+	return result
 
 
 func consume_charge_repeat(session: Variant, action_tag: String, skill_id: String = "") -> int:
 	ensure_charge_effects(session)
-	var key := "repeat_attack" if action_tag == "attack" else "repeat_defense"
-	var repeats := int(session.pending_charge_effects["global"].get(key, 0))
-	session.pending_charge_effects["global"][key] = 0
+	var repeats := consume_repeats_from_bucket(session.pending_charge_effects["global"], action_tag)
 	if skill_id != "":
 		var skills: Dictionary = session.pending_charge_effects.get("skills", {})
 		if skills.has(skill_id):
-			repeats += int(skills[skill_id].get(key, 0))
-			skills[skill_id][key] = 0
+			repeats += consume_repeats_from_bucket(skills[skill_id], action_tag)
 	return repeats
 
 
 func merged_charge_effects(session: Variant, skill_id: String) -> Dictionary:
 	var global_effects: Dictionary = session.pending_charge_effects["global"]
-	var result := global_effects.duplicate(true)
 	if skill_id != "":
 		var skills: Dictionary = session.pending_charge_effects.get("skills", {})
 		if skills.has(skill_id):
-			var skill_effects: Dictionary = skills[skill_id]
-			result["attack_multiplier"] = float(result.get("attack_multiplier", 1.0)) * float(skill_effects.get("attack_multiplier", 1.0))
-			result["defense_multiplier"] = float(result.get("defense_multiplier", 1.0)) * float(skill_effects.get("defense_multiplier", 1.0))
-			result["bonus_damage"] = int(result.get("bonus_damage", 0)) + int(skill_effects.get("bonus_damage", 0))
-			result["repeat_attack"] = int(result.get("repeat_attack", 0)) + int(skill_effects.get("repeat_attack", 0))
-			result["repeat_defense"] = int(result.get("repeat_defense", 0)) + int(skill_effects.get("repeat_defense", 0))
-	return result
+			return merge_charge_buckets(global_effects, skills[skill_id])
+	return global_effects.duplicate(true)
 
 
 func clear_charge_attack_effects(session: Variant, skill_id: String) -> void:
@@ -203,6 +182,45 @@ func empty_charge_values() -> Dictionary:
 		"repeat_attack": 0,
 		"repeat_defense": 0
 	}
+
+
+static func apply_charge_to_bucket(bucket: Dictionary, charge: Dictionary) -> void:
+	match String(charge.get("kind", "")):
+		"charge_attack_multiplier":
+			bucket["attack_multiplier"] = float(bucket.get("attack_multiplier", 1.0)) * float(charge.get("value", 1.0))
+		"charge_defense_multiplier":
+			bucket["defense_multiplier"] = float(bucket.get("defense_multiplier", 1.0)) * float(charge.get("value", 1.0))
+		"charge_bonus_damage":
+			bucket["bonus_damage"] = int(bucket.get("bonus_damage", 0)) + int(charge.get("value", 0))
+		"charge_repeat_attack":
+			bucket["repeat_attack"] = int(bucket.get("repeat_attack", 0)) + maxi(1, int(charge.get("value", 1)))
+		"charge_repeat_defense":
+			bucket["repeat_defense"] = int(bucket.get("repeat_defense", 0)) + maxi(1, int(charge.get("value", 1)))
+
+
+static func merge_charge_buckets(global_bucket: Dictionary, skill_bucket: Dictionary) -> Dictionary:
+	var result := global_bucket.duplicate(true)
+	result["attack_multiplier"] = float(result.get("attack_multiplier", 1.0)) * float(skill_bucket.get("attack_multiplier", 1.0))
+	result["defense_multiplier"] = float(result.get("defense_multiplier", 1.0)) * float(skill_bucket.get("defense_multiplier", 1.0))
+	result["bonus_damage"] = int(result.get("bonus_damage", 0)) + int(skill_bucket.get("bonus_damage", 0))
+	result["repeat_attack"] = int(result.get("repeat_attack", 0)) + int(skill_bucket.get("repeat_attack", 0))
+	result["repeat_defense"] = int(result.get("repeat_defense", 0)) + int(skill_bucket.get("repeat_defense", 0))
+	return result
+
+
+static func compute_charge_attack(base: int, bucket: Dictionary) -> int:
+	return maxi(1, int(round(float(base) * float(bucket.get("attack_multiplier", 1.0)))) + int(bucket.get("bonus_damage", 0)))
+
+
+static func compute_charge_defense(base: int, bucket: Dictionary) -> int:
+	return maxi(1, int(round(float(base) * float(bucket.get("defense_multiplier", 1.0)))))
+
+
+static func consume_repeats_from_bucket(bucket: Dictionary, action_tag: String) -> int:
+	var key := "repeat_attack" if action_tag == "attack" else "repeat_defense"
+	var repeats := int(bucket.get(key, 0))
+	bucket[key] = 0
+	return repeats
 
 
 static func charge_count(player: Dictionary) -> int:
