@@ -58,3 +58,36 @@ func player_status(session: Variant, class_label: String, label_factory: Callabl
 	for key in ["class", "action", "hp", "block", "block_power", "attack", "armor"]:
 		box.add_child(labels[key])
 	return {"panel": panel, "labels": labels}
+
+
+func ally_card(
+	session: Variant,
+	index: int,
+	rank_label: Callable,
+	trait_labels: Callable,
+	trait_tooltip: Callable
+) -> Button:
+	var ally: Dictionary = session.allies[index]
+	var button := Button.new()
+	button.custom_minimum_size = Vector2(146, 136)
+	button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	button.text = ally_card_text(session, index, rank_label, trait_labels)
+	button.tooltip_text = trait_tooltip.call(ally["traits"])
+	button.disabled = int(ally["hp"]) <= 0
+	return button
+
+
+func ally_card_text(session: Variant, index: int, rank_label: Callable, trait_labels: Callable) -> String:
+	var ally: Dictionary = session.allies[index]
+	return "%s  %s\n生命 %d/%d\n攻%d 护%d  格%d/%d\n意图：%s\n特性：%s" % [
+		ally["name"],
+		rank_label.call(ally.get("rank", "normal")),
+		int(ally["hp"]),
+		int(ally["max_hp"]),
+		int(ally["attack"]),
+		int(ally.get("armor", ally.get("defense", 0))),
+		int(ally.get("block", 0)),
+		int(ally.get("block_power", ally.get("defense", 0))),
+		"支援",
+		trait_labels.call(ally.get("traits", []))
+	]

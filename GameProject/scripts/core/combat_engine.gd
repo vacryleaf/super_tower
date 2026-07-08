@@ -20,7 +20,7 @@ var char_service := CharacterService.new()
 var status_service := StatusService.new()
 
 
-func run_battle(player: Dictionary, encounter: Dictionary, tower_floor: int, battle_index: int) -> Dictionary:
+func run_battle(player: Dictionary, encounter: Dictionary, tower_floor: int, battle_index: int, allies: Array[Dictionary] = []) -> Dictionary:
 	var enemies := _build_enemies(encounter, tower_floor)
 	var log: Array[String] = []
 	var rounds := 0
@@ -92,6 +92,8 @@ func run_battle(player: Dictionary, encounter: Dictionary, tower_floor: int, bat
 
 		_clear_enemy_blocks(enemies)
 		_clear_enemy_taunts(enemies)
+		_clear_enemy_blocks(allies)
+		_clear_enemy_taunts(allies)
 		for enemy in enemies:
 			if enemy["hp"] <= 0:
 				continue
@@ -106,6 +108,17 @@ func run_battle(player: Dictionary, encounter: Dictionary, tower_floor: int, bat
 			var action_result := _resolve_enemy_action(player, enemy, player_block, rounds, counter_state, log)
 			player_block = int(action_result["block"])
 			actions += 1
+		for ally in allies:
+			if int(ally.get("hp", 0)) <= 0 or String(ally.get("controlled_by", "")) != "ai":
+				continue
+			status_service.fire_trigger(ally, TriggerEvents.ON_TURN_START, {"battle_log": log, "session": null, "round_index": rounds})
+			if actions >= 2:
+				_enemy_defend(ally, 0.5)
+				continue
+			var ally_result := _resolve_enemy_action(player, ally, player_block, rounds, counter_state, log)
+			player_block = int(ally_result["block"])
+			actions += 1
+			status_service.fire_trigger(ally, TriggerEvents.ON_TURN_END, {"battle_log": log, "session": null, "round_index": rounds})
 		for enemy in enemies:
 			if enemy["hp"] <= 0:
 				continue

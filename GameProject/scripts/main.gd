@@ -50,6 +50,7 @@ var render_queued := false
 var input_locked := false
 var equipment_open := false
 var enemy_card_nodes: Dictionary = {}
+var ally_card_nodes: Dictionary = {}
 var player_status_node: Control = null
 var player_status_labels: Dictionary = {}
 var message_label_node: Label = null
@@ -150,6 +151,15 @@ func _render_battle() -> void:
 	for i in range(session.enemies.size()):
 		enemy_row.add_child(_enemy_card(i))
 
+	if not session.allies.is_empty():
+		combat_area.add_child(_label("友方", 20))
+		var ally_row := HBoxContainer.new()
+		ally_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		ally_row.alignment = BoxContainer.ALIGNMENT_CENTER
+		combat_area.add_child(ally_row)
+		for i in range(session.allies.size()):
+			ally_row.add_child(_ally_card(i))
+
 	combat_area.add_child(_spacer_vertical())
 	pending_state_label_node = _status_badge(_pending_state_text(), 16, Vector2(220, 44))
 	combat_area.add_child(pending_state_label_node)
@@ -189,6 +199,22 @@ func _enemy_card(index: int) -> Control:
 
 func _enemy_card_text(index: int, selected: String = "") -> String:
 	return battle_view.enemy_card_text(session, index, selected, Callable(self, "_rank_label"), Callable(trait_catalog, "labels"))
+
+
+func _ally_card(index: int) -> Control:
+	var button: Button = battle_view.ally_card(
+		session,
+		index,
+		Callable(self, "_rank_label"),
+		Callable(trait_catalog, "labels"),
+		Callable(trait_catalog, "tooltip")
+	)
+	ally_card_nodes[index] = button
+	return button
+
+
+func _ally_card_text(index: int) -> String:
+	return battle_view.ally_card_text(session, index, Callable(self, "_rank_label"), Callable(trait_catalog, "labels"))
 
 
 func _render_player_status(parent: Control) -> void:
@@ -351,6 +377,12 @@ func _refresh_battle_ui() -> void:
 			button.text = _enemy_card_text(int(index), selected)
 			button.tooltip_text = trait_catalog.tooltip(session.enemies[index]["traits"])
 			button.disabled = int(session.enemies[index]["hp"]) <= 0
+	for index in ally_card_nodes.keys():
+		var ally_button: Button = ally_card_nodes[index]
+		if is_instance_valid(ally_button) and index < session.allies.size():
+			ally_button.text = _ally_card_text(int(index))
+			ally_button.tooltip_text = trait_catalog.tooltip(session.allies[index]["traits"])
+			ally_button.disabled = int(session.allies[index]["hp"]) <= 0
 	if player_status_labels.has("action"):
 		player_status_labels["action"].text = "行动力 %d/%d" % [session.action_points, session.max_action_points]
 	if player_status_labels.has("hp"):
