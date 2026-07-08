@@ -115,33 +115,42 @@ static func skill_heal_value(session: RefCounted, skill_id: String) -> int:
 	return maxi(1, int(round(float(session.player["max_hp"]) * multiplier)))
 
 
-static func skill_attack_value_for_actor(actor: Dictionary, skill_id: String, status_service = null) -> int:
+static func skill_attack_value_for_actor(actor: Dictionary, skill_id: String, status_service = null, multiplier_bonus: float = 0.0, modifiers: Array[Dictionary] = []) -> int:
 	var skill: Dictionary = _get_skill(skill_id)
-	var multiplier: float = float(skill.get("multiplier", 1.0))
+	var multiplier: float = float(skill.get("multiplier", 1.0)) + multiplier_bonus
 	var base_attack: float = float(actor["attack"])
 	if status_service != null:
 		base_attack = status_service.resolve_stat(actor, base_attack, StatusService.STAT_ATTACK)
 	var rank_mult: float = _rank_skill_multiplier(actor) if skill.get("class", "") == "enemy" else 1.0
-	return maxi(1, int(round(base_attack * multiplier * rank_mult)))
+	var result := maxi(1, int(round(base_attack * multiplier * rank_mult)))
+	if not modifiers.is_empty():
+		result = maxi(1, int(round(ModifierPipeline.resolve(float(result), modifiers))))
+	return result
 
 
-static func skill_defense_value_for_actor(actor: Dictionary, skill_id: String, status_service = null) -> int:
+static func skill_defense_value_for_actor(actor: Dictionary, skill_id: String, status_service = null, multiplier_bonus: float = 0.0, modifiers: Array[Dictionary] = []) -> int:
 	var skill: Dictionary = _get_skill(skill_id)
-	var multiplier: float = float(skill.get("multiplier", skill.get("block_multiplier", 1.0)))
+	var multiplier: float = float(skill.get("multiplier", skill.get("block_multiplier", 1.0))) + multiplier_bonus
 	var base_defense: float = float(actor.get("block_power", actor.get("defense", 1)))
 	if status_service != null:
 		base_defense = status_service.resolve_stat(actor, base_defense, StatusService.STAT_DEFENSE)
 	var rank_mult: float = _rank_skill_multiplier(actor) if skill.get("class", "") == "enemy" else 1.0
-	return maxi(1, int(round(base_defense * multiplier * rank_mult)))
+	var result := maxi(1, int(round(base_defense * multiplier * rank_mult)))
+	if not modifiers.is_empty():
+		result = maxi(1, int(round(ModifierPipeline.resolve(float(result), modifiers))))
+	return result
 
 
-static func skill_heal_value_for_actor(actor: Dictionary, skill_id: String, status_service = null, multiplier_bonus: float = 0.0) -> int:
+static func skill_heal_value_for_actor(actor: Dictionary, skill_id: String, status_service = null, multiplier_bonus: float = 0.0, modifiers: Array[Dictionary] = []) -> int:
 	var skill: Dictionary = _get_skill(skill_id)
 	var multiplier: float = float(skill.get("heal_multiplier", 0.0)) + multiplier_bonus
 	var max_hp: float = float(actor["max_hp"])
 	if status_service != null:
 		max_hp = status_service.resolve_stat(actor, max_hp, StatusService.STAT_MAX_HP)
-	return maxi(1, int(round(max_hp * multiplier)))
+	var result := maxi(1, int(round(max_hp * multiplier)))
+	if not modifiers.is_empty():
+		result = maxi(1, int(round(ModifierPipeline.resolve(float(result), modifiers))))
+	return result
 
 
 static func _rank_skill_multiplier(actor: Dictionary) -> float:

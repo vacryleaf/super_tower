@@ -5,8 +5,8 @@ const DataCatalog = preload("res://scripts/core/data_catalog.gd")
 
 
 func render(root: Control, class_key: String, roster_player: Dictionary, label_factory: Callable, action_callback: Callable, close_callback: Callable) -> void:
-	var class_name := String(DataCatalog.CLASSES[class_key]["name"])
-	root.add_child(label_factory.call("%s - 技能管理" % class_name, 28))
+	var cls_name := String(DataCatalog.CLASSES[class_key]["name"])
+	root.add_child(label_factory.call("%s - 技能管理" % cls_name, 28))
 
 	var unlocked: Array = roster_player.get("unlocked_skills", [])
 	var equipped: Array = roster_player.get("equipped_skills", [])
@@ -30,13 +30,13 @@ func render(root: Control, class_key: String, roster_player: Dictionary, label_f
 		var row := HBoxContainer.new()
 		row.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 
-		var label_text := skill["name"]
+		var label_text: String = skill["name"]
 		if is_equipped:
 			label_text += "（已装备）"
 		elif not is_unlocked:
 			label_text += "（未解锁）"
 
-		var label := label_factory.call(label_text, 16)
+		var label: Label = label_factory.call(label_text, 16)
 		if not is_unlocked:
 			label.modulate = Color(0.4, 0.4, 0.4)
 		elif is_equipped:

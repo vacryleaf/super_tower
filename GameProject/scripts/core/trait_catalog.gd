@@ -54,7 +54,7 @@ const DESCRIPTIONS := {
 }
 
 
-func labels(traits: Array) -> String:
+static func labels(traits: Array) -> String:
 	if traits.is_empty():
 		return "无"
 	var result: Array[String] = []

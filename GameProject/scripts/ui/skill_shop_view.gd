@@ -28,7 +28,7 @@ func render(
 		var label_text := "%s - %d 塔币" % [skill["name"], SKILL_PRICE]
 		if owned:
 			label_text += "（已拥有）"
-		var label := label_factory.call(label_text, 16)
+		var label: Label = label_factory.call(label_text, 16)
 		if owned:
 			label.modulate = Color(0.5, 0.5, 0.5)
 		row.add_child(label)

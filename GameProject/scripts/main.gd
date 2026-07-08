@@ -23,6 +23,8 @@ const TraitCatalog = preload("res://scripts/core/trait_catalog.gd")
 
 const CombatFeedback = preload("res://scripts/ui/combat_feedback.gd")
 
+const CJK_FONT = preload("res://fonts/Arial Unicode.ttf")
+
 @onready var root: VBoxContainer = $Root
 
 var session := PlaySession.new()
@@ -65,6 +67,11 @@ var log_text_node: RichTextLabel = null
 
 
 func _ready() -> void:
+	var default_theme := Theme.new()
+	default_theme.set_font("font", "Label", CJK_FONT)
+	default_theme.set_font("font", "Button", CJK_FONT)
+	default_theme.set_font("font", "RichTextLabel", CJK_FONT)
+	root.theme = default_theme
 	_render_menu()
 
 
@@ -94,12 +101,24 @@ func _clear_overlay_layers() -> void:
 			child.queue_free()
 
 
+func _add_camp_background() -> void:
+	var bg := TextureRect.new()
+	bg.texture = load("res://img/营地.jpg")
+	bg.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	bg.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(bg)
+	move_child(bg, 0)
+
+
 func _render_menu() -> void:
 	render_queued = false
 	_clear_root()
 	if camp_screen != "":
 		_render_camp_screen()
 		return
+	_add_camp_background()
 	camp_view.render(root, session, Callable(self, "_label"), Callable(self, "_on_continue_pressed"), Callable(self, "_on_shop_pressed"), Callable(self, "_on_encyclopedia_pressed"), Callable(self, "_on_class_detail"), Callable(self, "_on_pre_run_pressed"))
 
 
@@ -464,6 +483,7 @@ func _label(text_value: String, font_size: int) -> Label:
 	label.text = text_value
 	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	label.add_theme_font_size_override("font_size", font_size)
+	label.add_theme_font_override("font", CJK_FONT)
 	return label
 
 

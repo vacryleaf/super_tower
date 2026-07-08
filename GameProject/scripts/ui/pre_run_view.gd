@@ -56,8 +56,8 @@ func _render_class_select(root: Control, session: Variant, label_factory: Callab
 
 
 func _render_confirm_loadout(root: Control, session: Variant, label_factory: Callable, action_callback: Callable, close_callback: Callable) -> void:
-	var class_name := String(DataCatalog.CLASSES[selected_class]["name"])
-	root.add_child(label_factory.call("爬塔准备 — %s — 确认装备与技能" % class_name, 24))
+	var cls_name := String(DataCatalog.CLASSES[selected_class]["name"])
+	root.add_child(label_factory.call("爬塔准备 — %s — 确认装备与技能" % cls_name, 24))
 
 	var roster_player: Dictionary = session.get_roster_player(selected_class)
 
@@ -80,7 +80,7 @@ func _render_confirm_loadout(root: Control, session: Variant, label_factory: Cal
 			if DataCatalog.EQUIPMENT.has(item_id):
 				root.add_child(label_factory.call("  %s：%s" % [_slot_label(slot), DataCatalog.EQUIPMENT[item_id]["name"]], 15))
 
-	var hint := label_factory.call("如需修改，请返回营地后进入职业详情页调整。", 13)
+	var hint: Label = label_factory.call("如需修改，请返回营地后进入职业详情页调整。", 13)
 	hint.modulate = Color(0.6, 0.6, 0.6)
 	root.add_child(hint)
 
@@ -105,7 +105,7 @@ func _render_item_select(root: Control, label_factory: Callable, action_callback
 	root.add_child(label_factory.call("爬塔准备 — 选择物品", 24))
 	root.add_child(label_factory.call("选择需要带入塔内的消耗品。", 16))
 
-	var hint := label_factory.call("暂无可用消耗品（此功能将在后续版本开放）。", 14)
+	var hint: Label = label_factory.call("暂无可用消耗品（此功能将在后续版本开放）。", 14)
 	hint.modulate = Color(0.6, 0.6, 0.6)
 	root.add_child(hint)
 
@@ -167,9 +167,9 @@ func _render_floor_select(root: Control, session: Variant, label_factory: Callab
 func _render_confirm(root: Control, session: Variant, label_factory: Callable, action_callback: Callable, close_callback: Callable) -> void:
 	root.add_child(label_factory.call("爬塔准备 — 确认出发", 24))
 
-	var class_name := String(DataCatalog.CLASSES[selected_class]["name"])
+	var cls_name := String(DataCatalog.CLASSES[selected_class]["name"])
 	root.add_child(_avatar_for(selected_class))
-		root.add_child(label_factory.call("职业：%s" % class_name, 18))
+	root.add_child(label_factory.call("职业：%s" % cls_name, 18))
 
 	if start_floor >= 2:
 		root.add_child(label_factory.call("起始楼层：第 %d 层" % start_floor, 18))
@@ -204,10 +204,10 @@ func _avatar_for(class_key: String) -> TextureRect:
 
 
 func _slot_label(slot: String) -> String:
-var labels := {
-	"head": "头部", "body": "上身", "waist": "腰部", "legs": "腿部",
-	"hands": "手套", "leggings": "护腿", "feet": "鞋子", "weapon": "武器",
-	"offhand": "副手", "shoulders": "肩部", "cloak": "披风", "necklace": "项链",
-	"ring": "戒指1", "ring2": "戒指2"
-}
-return labels.get(slot, slot)
+	var labels := {
+		"head": "头部", "body": "上身", "waist": "腰部", "legs": "腿部",
+		"hands": "手套", "leggings": "护腿", "feet": "鞋子", "weapon": "武器",
+		"offhand": "副手", "shoulders": "肩部", "cloak": "披风", "necklace": "项链",
+		"ring": "戒指1", "ring2": "戒指2"
+	}
+	return labels.get(slot, slot)

@@ -13,8 +13,8 @@ const SLOT_LABELS := {
 
 
 func render(root: Control, class_key: String, roster_player: Dictionary, label_factory: Callable, close_callback: Callable) -> void:
-	var class_name := String(DataCatalog.CLASSES[class_key]["name"])
-	root.add_child(label_factory.call("%s - 物品收藏" % class_name, 28))
+	var cls_name := String(DataCatalog.CLASSES[class_key]["name"])
+	root.add_child(label_factory.call("%s - 物品收藏" % cls_name, 28))
 
 	var equipment_ids: Array = roster_player.get("equipment_ids", [])
 	if equipment_ids.is_empty():
@@ -34,7 +34,7 @@ func render(root: Control, class_key: String, roster_player: Dictionary, label_f
 			content.add_child(label_factory.call(SLOT_LABELS.get(slot, slot), 18))
 			for item_id in by_slot[slot]:
 				var item: Dictionary = DataCatalog.EQUIPMENT[item_id]
-				var el := label_factory.call(_item_summary(item), 14)
+				var el: Label = label_factory.call(_item_summary(item), 14)
 				el.modulate = Color(0.8, 0.8, 0.8)
 				content.add_child(el)
 
