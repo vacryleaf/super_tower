@@ -7,8 +7,12 @@ var _label_factory: Callable
 var _manage_callback: Callable
 var _session: Variant
 var _detail_container: Control
+var _left_container: Control
+var _class_section: Control
 var _class_buttons: Array[Button] = []
 var _class_keys: Array[String] = []
+var _class_visible := false
+var _profession_button: Button
 
 
 func render(
@@ -27,6 +31,7 @@ func render(
 	_session = session
 	_class_buttons.clear()
 	_class_keys.clear()
+	_class_visible = false
 
 	root.add_child(label_factory.call("塔下营地", 30))
 	root.add_child(label_factory.call("可玩版本：新手引导、手动战斗、奖励选择、装备、技能和 1-10 层流程。", 16))
@@ -45,7 +50,7 @@ func render(
 	body.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	root.add_child(body)
 
-	_render_class_list(body)
+	_render_left_panel(body)
 	_render_detail_panel(body)
 
 	var spacer := Control.new()
@@ -80,24 +85,52 @@ func render(
 	bottom_row.add_child(pre_run_button)
 
 
-func _render_class_list(parent: Control) -> void:
-	var left := VBoxContainer.new()
-	left.custom_minimum_size = Vector2(140, 0)
-	left.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	parent.add_child(left)
+func _render_left_panel(parent: Control) -> void:
+	_left_container = VBoxContainer.new()
+	_left_container.custom_minimum_size = Vector2(140, 0)
+	_left_container.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	parent.add_child(_left_container)
 
-	left.add_child(_label_factory.call("职业", 18))
+	_profession_button = Button.new()
+	_profession_button.text = "职业"
+	_profession_button.custom_minimum_size = Vector2(120, 40)
+	_profession_button.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	_profession_button.pressed.connect(_toggle_class_list)
+	_left_container.add_child(_profession_button)
+
+	_class_section = VBoxContainer.new()
+	_left_container.add_child(_class_section)
+
+
+func _toggle_class_list() -> void:
+	_class_visible = not _class_visible
+	_profession_button.flat = not _class_visible
+	_refresh_class_section()
+
+
+func _refresh_class_section() -> void:
+	for child in _class_section.get_children():
+		child.queue_free()
+	_class_buttons.clear()
+	_class_keys.clear()
+
+	if not _class_visible:
+		# also clear detail
+		for child in _detail_container.get_children():
+			child.queue_free()
+		_detail_container.add_child(_label_factory.call("请从左侧选择职业", 16))
+		return
 
 	for class_key in DataCatalog.CLASSES.keys():
 		var data: Dictionary = DataCatalog.CLASSES[class_key]
 		var btn := Button.new()
-		btn.text = data["name"]
-		btn.custom_minimum_size = Vector2(120, 40)
+		btn.text = "  " + data["name"]
+		btn.custom_minimum_size = Vector2(120, 36)
 		btn.alignment = HORIZONTAL_ALIGNMENT_LEFT
 		btn.pressed.connect(_on_class_button_pressed.bind(class_key))
 		_class_buttons.append(btn)
 		_class_keys.append(class_key)
-		left.add_child(btn)
+		_class_section.add_child(btn)
 
 
 func _render_detail_panel(parent: Control) -> void:
