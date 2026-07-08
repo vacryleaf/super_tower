@@ -40,12 +40,14 @@ func enemy_card_text(session: Variant, index: int, selected: String, rank_label:
 	]
 
 
-func player_status(session: Variant, class_label: String, label_factory: Callable) -> Dictionary:
+func player_status(session: Variant, class_label: String, label_factory: Callable, class_key: String = "") -> Dictionary:
 	var panel := PanelContainer.new()
 	panel.custom_minimum_size = Vector2(170, 150)
 	panel.size_flags_vertical = Control.SIZE_SHRINK_END
 	var box := VBoxContainer.new()
 	panel.add_child(box)
+	if class_key != "":
+		box.add_child(_avatar_for(class_key))
 	var labels := {
 		"class": label_factory.call(class_label, 18),
 		"action": label_factory.call("行动力 %d/%d" % [session.action_points, session.max_action_points], 15),
@@ -77,7 +79,17 @@ func ally_card(
 	return button
 
 
-func ally_card_text(session: Variant, index: int, rank_label: Callable, trait_labels: Callable) -> String:
+func _avatar_for(class_key: String) -> TextureRect:
+		var path := "res://img/zs.png" if class_key == "warrior" else "res://img/gjs.png"
+		var avatar := TextureRect.new()
+		avatar.texture = load(path)
+		avatar.custom_minimum_size = Vector2(64, 64)
+		avatar.expand_mode = TextureRect.EXPAND_FIT_WIDTH_PROPORTIONAL
+		avatar.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		return avatar
+
+
+	func ally_card_text(session: Variant, index: int, rank_label: Callable, trait_labels: Callable) -> String:
 	var ally: Dictionary = session.allies[index]
 	return "%s  %s\n生命 %d/%d\n攻%d 护%d  格%d/%d\n意图：%s\n特性：%s" % [
 		ally["name"],

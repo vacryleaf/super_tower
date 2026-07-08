@@ -7,6 +7,7 @@ const DataCatalog = preload("res://scripts/core/data_catalog.gd")
 func render(root: Control, class_key: String, roster_player: Dictionary, label_factory: Callable, manage_callback: Callable, close_callback: Callable) -> void:
 	var data: Dictionary = DataCatalog.CLASSES[class_key]
 	root.add_child(label_factory.call(String(data["name"]), 30))
+	root.add_child(_avatar_for(class_key))
 
 	root.add_child(label_factory.call("生命%d  攻击%d  护甲%d  格挡%d" % [
 		int(data["max_hp"]), int(data["base_attack"]), int(data["base_defense"]), int(data.get("base_block", 1))
@@ -46,7 +47,17 @@ func render(root: Control, class_key: String, roster_player: Dictionary, label_f
 	root.add_child(back_button)
 
 
-func _render_skill_summary(parent: Control, roster_player: Dictionary, label_factory: Callable) -> void:
+func _avatar_for(class_key: String) -> TextureRect:
+		var path := "res://img/zs.png" if class_key == "warrior" else "res://img/gjs.png"
+		var avatar := TextureRect.new()
+		avatar.texture = load(path)
+		avatar.custom_minimum_size = Vector2(64, 64)
+		avatar.expand_mode = TextureRect.EXPAND_FIT_WIDTH_PROPORTIONAL
+		avatar.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		return avatar
+
+
+	func _render_skill_summary(parent: Control, roster_player: Dictionary, label_factory: Callable) -> void:
 	var equipped: Array = roster_player.get("equipped_skills", [])
 	var unlocked: Array = roster_player.get("unlocked_skills", [])
 	parent.add_child(label_factory.call("已装备技能：%d/4" % equipped.size(), 18))

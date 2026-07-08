@@ -34,6 +34,7 @@ func _render_class_select(root: Control, session: Variant, label_factory: Callab
 	for class_key in DataCatalog.CLASSES.keys():
 		var data: Dictionary = DataCatalog.CLASSES[class_key]
 		var roster_player: Dictionary = session.get_roster_player(class_key) if is_instance_valid(session) else {}
+		root.add_child(_avatar_for(class_key))
 		var button := Button.new()
 		var text := "%s（HP %d  攻击 %d  护甲 %d）" % [data["name"], int(data["max_hp"]), int(data["base_attack"]), int(data["base_defense"])]
 		if roster_player.is_empty():
@@ -167,7 +168,8 @@ func _render_confirm(root: Control, session: Variant, label_factory: Callable, a
 	root.add_child(label_factory.call("爬塔准备 — 确认出发", 24))
 
 	var class_name := String(DataCatalog.CLASSES[selected_class]["name"])
-	root.add_child(label_factory.call("职业：%s" % class_name, 18))
+	root.add_child(_avatar_for(selected_class))
+		root.add_child(label_factory.call("职业：%s" % class_name, 18))
 
 	if start_floor >= 2:
 		root.add_child(label_factory.call("起始楼层：第 %d 层" % start_floor, 18))
@@ -191,7 +193,17 @@ func _render_confirm(root: Control, session: Variant, label_factory: Callable, a
 	button_row.add_child(start_button)
 
 
-func _slot_label(slot: String) -> String:
+func _avatar_for(class_key: String) -> TextureRect:
+		var path := "res://img/zs.png" if class_key == "warrior" else "res://img/gjs.png"
+		var avatar := TextureRect.new()
+		avatar.texture = load(path)
+		avatar.custom_minimum_size = Vector2(64, 64)
+		avatar.expand_mode = TextureRect.EXPAND_FIT_WIDTH_PROPORTIONAL
+		avatar.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		return avatar
+
+
+	func _slot_label(slot: String) -> String:
 	var labels := {
 		"head": "头部", "body": "上身", "waist": "腰部", "legs": "腿部",
 		"hands": "手套", "leggings": "护腿", "feet": "鞋子", "weapon": "武器",

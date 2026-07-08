@@ -221,7 +221,7 @@ func _ally_card_text(index: int) -> String:
 
 
 func _render_player_status(parent: Control) -> void:
-	var status: Dictionary = battle_view.player_status(session, DataCatalog.CLASSES[session.class_id]["name"], Callable(self, "_label"))
+	var status: Dictionary = battle_view.player_status(session, DataCatalog.CLASSES[session.class_id]["name"], Callable(self, "_label"), session.class_id)
 	player_status_node = status["panel"]
 	player_status_labels = status["labels"]
 	player_status_node.gui_input.connect(_on_player_status_clicked)

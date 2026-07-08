@@ -70,6 +70,7 @@ func _class_card(session: Variant, class_key: String, label_factory: Callable, d
 	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 
 	var box := VBoxContainer.new()
+	box.add_child(_avatar_for(class_key))
 	box.add_child(label_factory.call(String(data["name"]), 24))
 	box.add_child(label_factory.call("生命%d  攻击%d  护甲%d  格挡%d" % [
 		int(data["max_hp"]), int(data["base_attack"]), int(data["base_defense"]), int(data.get("base_block", 1))
@@ -97,7 +98,17 @@ func _class_card(session: Variant, class_key: String, label_factory: Callable, d
 	return panel
 
 
-func _is_shop_unlocked(session: Variant) -> bool:
+func _avatar_for(class_key: String) -> TextureRect:
+		var path := "res://img/zs.png" if class_key == "warrior" else "res://img/gjs.png"
+		var avatar := TextureRect.new()
+		avatar.texture = load(path)
+		avatar.custom_minimum_size = Vector2(64, 64)
+		avatar.expand_mode = TextureRect.EXPAND_FIT_WIDTH_PROPORTIONAL
+		avatar.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		return avatar
+
+
+	func _is_shop_unlocked(session: Variant) -> bool:
 	var profile = session.save_profile.read_profile(Callable(session, "_persistent_player_snapshot"))
 	var roster: Dictionary = profile.get("roster", {})
 	for class_key in roster.keys():
