@@ -84,13 +84,13 @@ func render(
 
 func _render_left_panel(parent: Control) -> void:
 	_left_container = VBoxContainer.new()
-	_left_container.custom_minimum_size = Vector2(140, 0)
+	_left_container.custom_minimum_size = Vector2(180, 0)
 	_left_container.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	parent.add_child(_left_container)
 
 	_profession_button = Button.new()
 	_profession_button.text = "职业"
-	_profession_button.custom_minimum_size = Vector2(120, 40)
+	_profession_button.custom_minimum_size = Vector2(160, 40)
 	_profession_button.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	_profession_button.pressed.connect(_toggle_class_list)
 	_left_container.add_child(_profession_button)
@@ -100,8 +100,9 @@ func _render_left_panel(parent: Control) -> void:
 
 	var encyclopedia_button := Button.new()
 	encyclopedia_button.text = "百科"
-	encyclopedia_button.custom_minimum_size = Vector2(120, 40)
+	encyclopedia_button.custom_minimum_size = Vector2(160, 40)
 	encyclopedia_button.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	encyclopedia_button.flat = true
 	encyclopedia_button.pressed.connect(_encyclopedia_callback)
 	_left_container.add_child(encyclopedia_button)
 
@@ -129,7 +130,7 @@ func _refresh_class_section() -> void:
 		var data: Dictionary = DataCatalog.CLASSES[class_key]
 		var btn := Button.new()
 		btn.text = "  " + data["name"]
-		btn.custom_minimum_size = Vector2(120, 36)
+		btn.custom_minimum_size = Vector2(160, 40)
 		btn.alignment = HORIZONTAL_ALIGNMENT_LEFT
 		btn.pressed.connect(_on_class_button_pressed.bind(class_key))
 		_class_buttons.append(btn)
