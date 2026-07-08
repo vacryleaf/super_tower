@@ -174,6 +174,14 @@ func _refresh_detail() -> void:
 
 	var entry: Dictionary = _bestiary[unit["id"]]
 	_detail_container.add_child(_label_factory.call(unit["name"], 24))
+	var avatar_path := _enemy_avatar_path(unit["id"])
+	if avatar_path != "":
+		var avatar := TextureRect.new()
+		avatar.texture = load(avatar_path)
+		avatar.custom_minimum_size = Vector2(64, 64)
+		avatar.expand_mode = TextureRect.EXPAND_FIT_WIDTH_PROPORTIONAL
+		avatar.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		_detail_container.add_child(avatar)
 	_detail_container.add_child(_label_factory.call("等级：%s" % _rank_name(unit["rank"]), 16))
 	_detail_container.add_child(_label_factory.call("生命×%.2f  攻击×%.2f  护甲×%.2f" % [unit["hp"], unit["attack"], unit["defense"]], 14))
 
@@ -195,7 +203,16 @@ func _refresh_detail() -> void:
 	_detail_container.add_child(_label_factory.call("击败次数：%d" % int(entry.get("defeated_count", 0)), 14))
 
 
-func _on_select_unit(index: int) -> void:
+func _enemy_avatar_path(enemy_id: String) -> String:
+		match enemy_id:
+			"normal_rat_01":
+				return "res://img/rot_rat.png"
+			"normal_rat_02":
+				return "res://img/fang_rat.png"
+		return ""
+
+
+	func _on_select_unit(index: int) -> void:
 	_selected_index = index
 	_refresh_list()
 	_refresh_detail()

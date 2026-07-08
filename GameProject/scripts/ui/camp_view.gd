@@ -99,7 +99,7 @@ func _class_card(session: Variant, class_key: String, label_factory: Callable, d
 
 
 func _avatar_for(class_key: String) -> TextureRect:
-		var path := "res://img/zs.png" if class_key == "warrior" else "res://img/gjs.png"
+		var path := "res://img/warrior.png" if class_key == "warrior" else "res://img/archer.png"
 		var avatar := TextureRect.new()
 		avatar.texture = load(path)
 		avatar.custom_minimum_size = Vector2(64, 64)
