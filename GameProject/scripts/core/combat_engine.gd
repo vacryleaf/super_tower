@@ -79,7 +79,7 @@ func run_battle(player: Dictionary, encounter: Dictionary, tower_floor: int, bat
 			action_points -= _first_skill_cost(player)
 
 		while action_points > 0 and _alive_count(enemies) > 0:
-			var attack_damage := int(player["attack"]) + _state_bonus(player, "attack")
+			var attack_damage := int(status_service.resolve_stat(player, float(player["attack"]), StatusService.STAT_ATTACK)) + _state_bonus(player, "attack")
 			attack_damage = charge_sim.apply_attack_modifiers(attack_damage, charge_state)
 			_damage_lowest_enemy(enemies, attack_damage, log, "attack")
 			for _i in range(charge_sim.consume_repeats(charge_state, "attack")):
@@ -140,7 +140,8 @@ func _skill_damage(player: Dictionary) -> int:
 		player["hp"] = mini(int(player["max_hp"]), int(player["hp"]) + healed)
 		return 0
 	var multiplier := float(skill.get("multiplier", 1.0)) + char_service.skill_multiplier_bonus(player, skill_id, "attack")
-	return maxi(1, int(round(float(player["attack"]) * multiplier)))
+	var base_attack: float = status_service.resolve_stat(player, float(player["attack"]), StatusService.STAT_ATTACK)
+	return maxi(1, int(round(base_attack * multiplier)))
 
 
 func _can_pay_first_skill(player: Dictionary, action_points: int) -> bool:
@@ -265,7 +266,8 @@ func _trigger_counter_attack(player: Dictionary, enemy: Dictionary, enemy_index:
 	if int(enemy.get("hp", 0)) <= 0:
 		return
 	counter_state["charges"] = int(counter_state["charges"]) - 1
-	var damage := maxi(1, int(round(float(player["attack"]) * float(counter_state.get("multiplier", 1.0)))))
+	var base_attack: float = status_service.resolve_stat(player, float(player["attack"]), StatusService.STAT_ATTACK)
+	var damage := maxi(1, int(round(base_attack * float(counter_state.get("multiplier", 1.0)))))
 	_damage_enemy_direct(enemy, damage, log, "counter")
 	if int(counter_state["charges"]) <= 0:
 		counter_state["multiplier"] = 1.0
@@ -294,7 +296,6 @@ func _execute_enemy_skill_in_sim(player: Dictionary, enemy: Dictionary, skill_id
 	if skill.is_empty():
 		return {"block": player_block}
 	var skill_type := String(skill.get("type", "attack"))
-	var rank_mult: float = CombatRules.RANK_SKILL_MULTIPLIER.get(String(enemy.get("rank", "normal")), 1.0) if skill.get("class", "") == "enemy" else 1.0
 	match skill_type:
 		"attack":
 			if skill_id == "innate_attack":
@@ -326,13 +327,27 @@ func _execute_enemy_skill_in_sim(player: Dictionary, enemy: Dictionary, skill_id
 			log.append("enemy_skill_heal:%s:%s" % [skill_id, enemy["name"]])
 		"buff":
 			var attack_mult := float(skill.get("attack_multiplier", 1.0))
-			if attack_mult != 1.0:
-				enemy["attack"] = maxi(1, int(round(float(enemy["attack"]) * attack_mult)))
+			var status := {
+				"id": skill_id,
+				"name": skill["name"],
+				"kind": "buff",
+				"stack": "replace",
+				"effects": [{"stat": "attack", "type": "multiply", "value": attack_mult}],
+				"duration": -1
+			}
+			status_service.add_status(enemy, status)
 			log.append("enemy_skill_buff:%s:%s" % [skill_id, enemy["name"]])
 		"debuff":
 			var weaken := float(skill.get("weaken_multiplier", 1.0))
-			if weaken < 1.0:
-				player["attack"] = maxi(1, int(round(float(player["attack"]) * weaken)))
+			var status := {
+				"id": skill_id,
+				"name": skill["name"],
+				"kind": "debuff",
+				"stack": "replace",
+				"effects": [{"stat": "attack", "type": "multiply", "value": weaken}],
+				"duration": -1
+			}
+			status_service.add_status(player, status)
 			log.append("enemy_skill_debuff:%s:%s" % [skill_id, enemy["name"]])
 	return {"block": player_block}
 
