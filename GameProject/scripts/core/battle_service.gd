@@ -151,8 +151,8 @@ func execute_skill(session: RefCounted, skill_id: String, target_index: int, act
 				session.counter_attack_multiplier = maxf(session.counter_attack_multiplier, float(skill.get("counter_multiplier", 1.0)) + session._skill_multiplier_bonus(skill_id, "attack"))
 				session.battle_log.append("%s：准备反击下一次命中自身的敌方攻击，反击倍率 x%.2f。" % [skill["name"], session.counter_attack_multiplier])
 		else:
-			var gained: int = CombatRules.skill_defense_value_for_actor(actor, skill_id)
-			Combatant.add_block(actor, gained)
+			var gained: int = CombatRules.skill_defense_value_for_actor(actor, skill_id, session.status_service)
+			Combatant.add_block_amount(actor, gained)
 			session.battle_log.append("%s 使用 %s：获得 %d 点格挡。" % [actor["name"], String(skill.get("name", skill_id)), gained])
 			session.last_events.append({"kind": "defense", "target": "enemy", "target_index": target_index, "source": actor["name"], "amount": gained})
 
@@ -186,7 +186,7 @@ func execute_skill(session: RefCounted, skill_id: String, target_index: int, act
 			session.battle_log.append("%s：恢复 %d 点生命。" % [skill["name"], healed])
 			session.last_events.append({"kind": "heal", "target": "player", "amount": healed})
 		else:
-			var healed: int = CombatRules.skill_heal_value_for_actor(actor, skill_id)
+			var healed: int = CombatRules.skill_heal_value_for_actor(actor, skill_id, session.status_service)
 			actor["hp"] = mini(int(actor["max_hp"]), int(actor["hp"]) + healed)
 			session.battle_log.append("%s 使用 %s：恢复 %d 点生命。" % [actor["name"], String(skill.get("name", skill_id)), healed])
 			session.last_events.append({"kind": "heal", "target": "enemy", "target_index": target_index, "source": actor["name"], "amount": healed})

@@ -97,6 +97,12 @@ static func add_block(combatant: Dictionary, scale: float = 1.0) -> int:
 	return gained
 
 
+static func add_block_amount(combatant: Dictionary, amount: int) -> int:
+	var gained := maxi(0, amount)
+	combatant["block"] = int(combatant.get("block", 0)) + gained
+	return gained
+
+
 static func add_dodge(combatant: Dictionary, layers: int = 1) -> int:
 	var gained := maxi(1, layers)
 	combatant["dodge_layers"] = int(combatant.get("dodge_layers", 0)) + gained
