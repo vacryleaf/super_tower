@@ -47,11 +47,6 @@ func render(
 	encyclopedia_button.custom_minimum_size = Vector2(160, 44)
 	encyclopedia_button.pressed.connect(encyclopedia_callback)
 	util_row.add_child(encyclopedia_button)
-	var bestiary_button := Button.new()
-	bestiary_button.text = "敌人图鉴"
-	bestiary_button.custom_minimum_size = Vector2(160, 44)
-	bestiary_button.pressed.connect(bestiary_callback)
-	util_row.add_child(bestiary_button)
 
 	var spacer := Control.new()
 	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL

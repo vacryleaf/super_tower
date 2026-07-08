@@ -100,7 +100,7 @@ func _render_menu() -> void:
 	if camp_screen != "":
 		_render_camp_screen()
 		return
-	camp_view.render(root, session, Callable(self, "_label"), Callable(self, "_on_continue_pressed"), Callable(self, "_on_shop_pressed"), Callable(self, "_on_encyclopedia_pressed"), Callable(self, "_on_bestiary_pressed"), Callable(self, "_on_class_detail"), Callable(self, "_on_pre_run_pressed"))
+	camp_view.render(root, session, Callable(self, "_label"), Callable(self, "_on_continue_pressed"), Callable(self, "_on_shop_pressed"), Callable(self, "_on_encyclopedia_pressed"), Callable(self, "_on_class_detail"), Callable(self, "_on_pre_run_pressed"))
 
 
 func _render_game() -> void:
@@ -534,9 +534,9 @@ func _render_camp_screen() -> void:
 		"item_collection":
 			item_collection_view.render(root, class_key, roster_player, Callable(self, "_label"), Callable(self, "_on_manage_close"))
 		"encyclopedia":
-			encyclopedia_view.render(root, Callable(self, "_label"), Callable(self, "_on_manage_close"))
+			encyclopedia_view.render(root, Callable(self, "_label"), Callable(self, "_on_manage_close"), Callable(self, "_on_bestiary_from_encyclopedia"))
 		"bestiary":
-			bestiary_view.render(root, Callable(self, "_label"), Callable(self, "_on_manage_close"), session.get_bestiary())
+			bestiary_view.render(root, Callable(self, "_label"), Callable(self, "_on_bestiary_back"), session.get_bestiary())
 		"pre_run":
 			pre_run_view.render(root, session, Callable(self, "_label"), Callable(self, "_on_pre_run_action"), Callable(self, "_on_manage_close"))
 
@@ -581,8 +581,13 @@ func _on_encyclopedia_pressed() -> void:
 	_request_menu_render()
 
 
-func _on_bestiary_pressed() -> void:
+func _on_bestiary_from_encyclopedia() -> void:
 	camp_screen = "bestiary"
+	_request_menu_render()
+
+
+func _on_bestiary_back() -> void:
+	camp_screen = "encyclopedia"
 	_request_menu_render()
 
 

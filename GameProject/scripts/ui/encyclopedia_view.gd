@@ -5,8 +5,14 @@ const DataCatalog = preload("res://scripts/core/data_catalog.gd")
 const TraitCatalog = preload("res://scripts/core/trait_catalog.gd")
 
 
-func render(root: Control, label_factory: Callable, close_callback: Callable) -> void:
+func render(root: Control, label_factory: Callable, close_callback: Callable, bestiary_callback: Callable = Callable()) -> void:
 	root.add_child(label_factory.call("百科", 30))
+
+	var bestiary_btn := Button.new()
+	bestiary_btn.text = "怪物图鉴"
+	bestiary_btn.custom_minimum_size = Vector2(200, 44)
+	bestiary_btn.pressed.connect(bestiary_callback)
+	root.add_child(bestiary_btn)
 
 	var scroll := ScrollContainer.new()
 	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
