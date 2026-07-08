@@ -21,7 +21,8 @@ static func from_player(player: Dictionary, current_block: int = 0, current_dodg
 		"block": maxi(0, current_block),
 		"dodge_layers": maxi(0, current_dodge),
 		"taunt": 0,
-		"traits": player.get("traits", [])
+		"traits": player.get("traits", []),
+		"controlled_by": "player"
 	}
 
 
@@ -121,6 +122,10 @@ static func is_alive(combatant: Dictionary) -> bool:
 	return int(combatant.get("hp", 0)) > 0
 
 
+static func are_hostile(a: Dictionary, b: Dictionary) -> bool:
+	return String(a.get("side", "")) != String(b.get("side", ""))
+
+
 static func apply_damage(combatant: Dictionary, raw_damage: int, damage_type: String = "physical") -> Dictionary:
 	var result := {
 		"dodged": false,
@@ -184,6 +189,8 @@ static func normalize_enemy(enemy: Dictionary) -> void:
 		}
 	if not enemy.has("statuses"):
 		enemy["statuses"] = []
+	if not enemy.has("controlled_by"):
+		enemy["controlled_by"] = "ai"
 	_apply_trait_statuses(enemy)
 
 
@@ -258,7 +265,8 @@ static func _enemy_dictionary(unit_name: String, rank: String, hp: int, attack: 
 			"defend": "innate_defend",
 			"dodge": "innate_dodge"
 		},
-		"statuses": []
+		"statuses": [],
+		"controlled_by": "ai"
 	}
 	_apply_trait_statuses(enemy)
 	return enemy

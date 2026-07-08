@@ -76,6 +76,11 @@ var enemies: Array[Dictionary]:
 		return battle_state.enemies
 	set(value):
 		battle_state.enemies = value
+var allies: Array[Dictionary]:
+	get:
+		return battle_state.allies
+	set(value):
+		battle_state.allies = value
 var current_encounter: Dictionary:
 	get:
 		return battle_state.current_encounter
@@ -312,6 +317,7 @@ func _start_current_battle() -> void:
 	last_events.clear()
 	current_encounter = _get_current_encounter()
 	enemies = _build_enemies(current_encounter)
+	allies = []
 	action_points = 1
 	max_action_points = 1
 	player_block = 0
@@ -863,6 +869,32 @@ func enemy_intent_text(index: int) -> String:
 
 func _alive_enemy_count() -> int:
 	return CombatRules.alive_count(enemies)
+
+
+func _opposing_units(actor: Dictionary) -> Array[Dictionary]:
+	if String(actor.get("side", "")) == "player":
+		return enemies
+	return _player_side_units()
+
+
+func _player_side_units() -> Array[Dictionary]:
+	var units: Array[Dictionary] = [_player_combatant()]
+	units.append_array(allies)
+	return units
+
+
+func _ai_units() -> Array[Dictionary]:
+	var units: Array[Dictionary] = []
+	for enemy in enemies:
+		units.append(enemy)
+	for ally in allies:
+		if String(ally.get("controlled_by", "")) == "ai":
+			units.append(ally)
+	return units
+
+
+func _opposing_units_alive() -> int:
+	return CombatRules.alive_count(_opposing_units(player))
 
 
 func _has_first_strike() -> bool:

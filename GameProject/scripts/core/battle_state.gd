@@ -8,6 +8,7 @@ var battle_index := 1
 var phase := "menu"
 var message := ""
 var enemies: Array[Dictionary] = []
+var allies: Array[Dictionary] = []
 var current_encounter: Dictionary = {}
 var action_points := 1
 var max_action_points := 1
@@ -45,6 +46,7 @@ func reset() -> void:
 	phase = "menu"
 	message = "已返回塔下营地。"
 	enemies.clear()
+	allies.clear()
 	current_encounter = {}
 	action_points = 1
 	max_action_points = 1
