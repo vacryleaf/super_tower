@@ -306,7 +306,7 @@ func _execute_enemy_skill_in_sim(player: Dictionary, enemy: Dictionary, skill_id
 			if skill_id == "innate_attack":
 				var result := _apply_enemy_attack(player, enemy, -1, player_block, log, false, round_index, counter_state)
 				return {"block": int(result["block"])}
-			var damage := CombatRules.skill_attack_value_for_actor(enemy, skill_id)
+			var damage := CombatRules.skill_attack_value_for_actor(enemy, skill_id, status_service)
 			var hits := maxi(1, int(skill.get("hits", 1)))
 			var was_hit := false
 			for _hit in range(hits):
@@ -317,7 +317,7 @@ func _execute_enemy_skill_in_sim(player: Dictionary, enemy: Dictionary, skill_id
 			if was_hit:
 				_trigger_counter_attack(player, enemy, -1, log, counter_state)
 		"defense", "stance":
-			enemy["block"] = int(enemy.get("block", 0)) + CombatRules.skill_defense_value_for_actor(enemy, skill_id)
+			enemy["block"] = int(enemy.get("block", 0)) + CombatRules.skill_defense_value_for_actor(enemy, skill_id, status_service)
 			log.append("enemy_skill_defend:%s:%s" % [skill_id, enemy["name"]])
 		"dodge":
 			Combatant.add_dodge(enemy, int(skill.get("dodge_layers", 1)))
@@ -327,7 +327,7 @@ func _execute_enemy_skill_in_sim(player: Dictionary, enemy: Dictionary, skill_id
 			Combatant.add_block(enemy, 1.0)
 			log.append("enemy_skill_taunt:%s:%s" % [skill_id, enemy["name"]])
 		"heal":
-			var healed := CombatRules.skill_heal_value_for_actor(enemy, skill_id)
+			var healed := CombatRules.skill_heal_value_for_actor(enemy, skill_id, status_service)
 			enemy["hp"] = mini(int(enemy["max_hp"]), int(enemy["hp"]) + healed)
 			log.append("enemy_skill_heal:%s:%s" % [skill_id, enemy["name"]])
 		"buff":
