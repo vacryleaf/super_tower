@@ -80,16 +80,16 @@ func ally_card(
 
 
 func _avatar_for(class_key: String) -> TextureRect:
-		var path := "res://img/warrior.png" if class_key == "warrior" else "res://img/archer.png"
-		var avatar := TextureRect.new()
-		avatar.texture = load(path)
-		avatar.custom_minimum_size = Vector2(64, 64)
-		avatar.expand_mode = TextureRect.EXPAND_FIT_WIDTH_PROPORTIONAL
-		avatar.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		return avatar
+	var path := "res://img/warrior.png" if class_key == "warrior" else "res://img/archer.png"
+	var avatar := TextureRect.new()
+	avatar.texture = load(path)
+	avatar.custom_minimum_size = Vector2(64, 64)
+	avatar.expand_mode = TextureRect.EXPAND_FIT_WIDTH_PROPORTIONAL
+	avatar.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	return avatar
 
 
-	func ally_card_text(session: Variant, index: int, rank_label: Callable, trait_labels: Callable) -> String:
+func ally_card_text(session: Variant, index: int, rank_label: Callable, trait_labels: Callable) -> String:
 	var ally: Dictionary = session.allies[index]
 	return "%s  %s\n生命 %d/%d\n攻%d 护%d  格%d/%d\n意图：%s\n特性：%s" % [
 		ally["name"],

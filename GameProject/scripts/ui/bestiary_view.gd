@@ -204,15 +204,15 @@ func _refresh_detail() -> void:
 
 
 func _enemy_avatar_path(enemy_id: String) -> String:
-		match enemy_id:
-			"normal_rat_01":
-				return "res://img/rot_rat.png"
-			"normal_rat_02":
-				return "res://img/fang_rat.png"
-		return ""
+	match enemy_id:
+		"normal_rat_01":
+			return "res://img/rot_rat.png"
+		"normal_rat_02":
+			return "res://img/fang_rat.png"
+	return ""
 
 
-	func _on_select_unit(index: int) -> void:
+func _on_select_unit(index: int) -> void:
 	_selected_index = index
 	_refresh_list()
 	_refresh_detail()

@@ -48,30 +48,30 @@ func render(root: Control, class_key: String, roster_player: Dictionary, label_f
 
 
 func _avatar_for(class_key: String) -> TextureRect:
-		var path := "res://img/warrior.png" if class_key == "warrior" else "res://img/archer.png"
-		var avatar := TextureRect.new()
-		avatar.texture = load(path)
-		avatar.custom_minimum_size = Vector2(64, 64)
-		avatar.expand_mode = TextureRect.EXPAND_FIT_WIDTH_PROPORTIONAL
-		avatar.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		return avatar
+	var path := "res://img/warrior.png" if class_key == "warrior" else "res://img/archer.png"
+	var avatar := TextureRect.new()
+	avatar.texture = load(path)
+	avatar.custom_minimum_size = Vector2(64, 64)
+	avatar.expand_mode = TextureRect.EXPAND_FIT_WIDTH_PROPORTIONAL
+	avatar.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	return avatar
 
 
-	func _render_skill_summary(parent: Control, roster_player: Dictionary, label_factory: Callable) -> void:
-	var equipped: Array = roster_player.get("equipped_skills", [])
-	var unlocked: Array = roster_player.get("unlocked_skills", [])
-	parent.add_child(label_factory.call("已装备技能：%d/4" % equipped.size(), 18))
-	if equipped.is_empty():
-		parent.add_child(label_factory.call("  未装备任何技能", 14))
-	else:
-		for skill_id in equipped:
+func _render_skill_summary(parent: Control, roster_player: Dictionary, label_factory: Callable) -> void:
+var equipped: Array = roster_player.get("equipped_skills", [])
+var unlocked: Array = roster_player.get("unlocked_skills", [])
+parent.add_child(label_factory.call("已装备技能：%d/4" % equipped.size(), 18))
+if equipped.is_empty():
+	parent.add_child(label_factory.call("  未装备任何技能", 14))
+else:
+	for skill_id in equipped:
 			if DataCatalog.SKILLS.has(skill_id):
 				var skill: Dictionary = DataCatalog.SKILLS[skill_id]
 				parent.add_child(label_factory.call("  %s" % skill["name"], 15))
-	parent.add_child(label_factory.call("已解锁技能：%d 个" % unlocked.size(), 14))
+parent.add_child(label_factory.call("已解锁技能：%d 个" % unlocked.size(), 14))
 
 
 func _render_equipment_summary(parent: Control, roster_player: Dictionary, label_factory: Callable) -> void:
-	var equipment: Dictionary = roster_player.get("equipment", {})
-	var equipment_ids: Array = roster_player.get("equipment_ids", [])
-	parent.add_child(label_factory.call("已装备：%d 件 / 已收集：%d 件" % [equipment.size(), equipment_ids.size()], 18))
+var equipment: Dictionary = roster_player.get("equipment", {})
+var equipment_ids: Array = roster_player.get("equipment_ids", [])
+parent.add_child(label_factory.call("已装备：%d 件 / 已收集：%d 件" % [equipment.size(), equipment_ids.size()], 18))

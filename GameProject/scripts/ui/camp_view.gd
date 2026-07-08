@@ -99,16 +99,16 @@ func _class_card(session: Variant, class_key: String, label_factory: Callable, d
 
 
 func _avatar_for(class_key: String) -> TextureRect:
-		var path := "res://img/warrior.png" if class_key == "warrior" else "res://img/archer.png"
-		var avatar := TextureRect.new()
-		avatar.texture = load(path)
-		avatar.custom_minimum_size = Vector2(64, 64)
-		avatar.expand_mode = TextureRect.EXPAND_FIT_WIDTH_PROPORTIONAL
-		avatar.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		return avatar
+	var path := "res://img/warrior.png" if class_key == "warrior" else "res://img/archer.png"
+	var avatar := TextureRect.new()
+	avatar.texture = load(path)
+	avatar.custom_minimum_size = Vector2(64, 64)
+	avatar.expand_mode = TextureRect.EXPAND_FIT_WIDTH_PROPORTIONAL
+	avatar.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	return avatar
 
 
-	func _is_shop_unlocked(session: Variant) -> bool:
+func _is_shop_unlocked(session: Variant) -> bool:
 	var profile = session.save_profile.read_profile(Callable(session, "_persistent_player_snapshot"))
 	var roster: Dictionary = profile.get("roster", {})
 	for class_key in roster.keys():

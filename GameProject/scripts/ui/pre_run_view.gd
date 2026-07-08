@@ -194,20 +194,20 @@ func _render_confirm(root: Control, session: Variant, label_factory: Callable, a
 
 
 func _avatar_for(class_key: String) -> TextureRect:
-		var path := "res://img/warrior.png" if class_key == "warrior" else "res://img/archer.png"
-		var avatar := TextureRect.new()
-		avatar.texture = load(path)
-		avatar.custom_minimum_size = Vector2(64, 64)
-		avatar.expand_mode = TextureRect.EXPAND_FIT_WIDTH_PROPORTIONAL
-		avatar.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		return avatar
+	var path := "res://img/warrior.png" if class_key == "warrior" else "res://img/archer.png"
+	var avatar := TextureRect.new()
+	avatar.texture = load(path)
+	avatar.custom_minimum_size = Vector2(64, 64)
+	avatar.expand_mode = TextureRect.EXPAND_FIT_WIDTH_PROPORTIONAL
+	avatar.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	return avatar
 
 
-	func _slot_label(slot: String) -> String:
-	var labels := {
-		"head": "头部", "body": "上身", "waist": "腰部", "legs": "腿部",
-		"hands": "手套", "leggings": "护腿", "feet": "鞋子", "weapon": "武器",
-		"offhand": "副手", "shoulders": "肩部", "cloak": "披风", "necklace": "项链",
-		"ring": "戒指1", "ring2": "戒指2"
-	}
-	return labels.get(slot, slot)
+func _slot_label(slot: String) -> String:
+var labels := {
+	"head": "头部", "body": "上身", "waist": "腰部", "legs": "腿部",
+	"hands": "手套", "leggings": "护腿", "feet": "鞋子", "weapon": "武器",
+	"offhand": "副手", "shoulders": "肩部", "cloak": "披风", "necklace": "项链",
+	"ring": "戒指1", "ring2": "戒指2"
+}
+return labels.get(slot, slot)
