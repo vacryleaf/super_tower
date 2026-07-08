@@ -119,7 +119,7 @@ func _render_menu() -> void:
 		_render_camp_screen()
 		return
 	_add_camp_background()
-	camp_view.render(root, session, Callable(self, "_label"), Callable(self, "_on_continue_pressed"), Callable(self, "_on_shop_pressed"), Callable(self, "_on_encyclopedia_pressed"), Callable(self, "_on_class_detail"), Callable(self, "_on_pre_run_pressed"), Callable(self, "_on_manage_action"))
+	camp_view.render(root, session, Callable(self, "_label"), Callable(self, "_on_continue_pressed"), Callable(self, "_on_shop_pressed"), Callable(self, "_on_encyclopedia_pressed"), Callable(self, "_on_class_detail"), Callable(self, "_on_pre_run_pressed"), Callable(self, "_on_manage_action"), Callable(self, "_on_bestiary_from_encyclopedia"))
 
 
 func _render_game() -> void:
