@@ -103,7 +103,7 @@ func _clear_overlay_layers() -> void:
 
 func _add_camp_background() -> void:
 	var bg := TextureRect.new()
-	bg.texture = load("res://img/营地.jpg")
+	bg.texture = load("res://img/营地.png")
 	bg.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	bg.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)

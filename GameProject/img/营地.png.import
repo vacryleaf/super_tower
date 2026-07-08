@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://ctmppdq4wemeg"
-path="res://.godot/imported/营地.jpg-d6931bf63144bb81f9d86375d54e3084.ctex"
+uid="uid://drooaj57iygin"
+path="res://.godot/imported/营地.png-570aa45bebc9b74b5ed13d8ece2f7ff7.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://img/营地.jpg"
-dest_files=["res://.godot/imported/营地.jpg-d6931bf63144bb81f9d86375d54e3084.ctex"]
+source_file="res://img/营地.png"
+dest_files=["res://.godot/imported/营地.png-570aa45bebc9b74b5ed13d8ece2f7ff7.ctex"]
 
 [params]
 
