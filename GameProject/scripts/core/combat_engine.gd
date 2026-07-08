@@ -10,6 +10,7 @@ const ChargeSimulator = preload("res://scripts/core/charge_simulator.gd")
 const ChargeService = preload("res://scripts/core/charge_service.gd")
 const CharacterService = preload("res://scripts/core/character_service.gd")
 const StatusService = preload("res://scripts/core/status_service.gd")
+const TriggerEvents = preload("res://scripts/core/trigger_events.gd")
 
 const MAX_ROUNDS := 40
 
@@ -91,6 +92,10 @@ func run_battle(player: Dictionary, encounter: Dictionary, tower_floor: int, bat
 
 		_clear_enemy_blocks(enemies)
 		_clear_enemy_taunts(enemies)
+		for enemy in enemies:
+			if enemy["hp"] <= 0:
+				continue
+			status_service.fire_trigger(enemy, TriggerEvents.ON_TURN_START, {"battle_log": log, "session": null, "round_index": rounds})
 		var actions := 0
 		for enemy in enemies:
 			if enemy["hp"] <= 0:
@@ -101,6 +106,10 @@ func run_battle(player: Dictionary, encounter: Dictionary, tower_floor: int, bat
 			var action_result := _resolve_enemy_action(player, enemy, player_block, rounds, counter_state, log)
 			player_block = int(action_result["block"])
 			actions += 1
+		for enemy in enemies:
+			if enemy["hp"] <= 0:
+				continue
+			status_service.fire_trigger(enemy, TriggerEvents.ON_TURN_END, {"battle_log": log, "session": null, "round_index": rounds})
 
 		_apply_end_round_traits(player, enemies, rounds)
 
@@ -247,10 +256,6 @@ func _apply_end_round_traits(player: Dictionary, enemies: Array[Dictionary], rou
 		if enemy["hp"] <= 0:
 			continue
 		var traits: Array = enemy["traits"]
-		if traits.has("revive") and round_index % 3 == 0:
-			enemy["hp"] = mini(int(enemy["max_hp"]), int(enemy["hp"]) + maxi(1, int(round(float(enemy["max_hp"]) * 0.05))))
-		if traits.has("fortify") and round_index % 2 == 0:
-			Combatant.add_block(enemy, 1.0)
 		if traits.has("curse") and round_index % 3 == 0:
 			player["hp"] = maxi(0, int(player["hp"]) - 1)
 

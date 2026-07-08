@@ -1,6 +1,7 @@
 extends RefCounted
 class_name Combatant
 
+const TriggerEvents = preload("res://scripts/core/trigger_events.gd")
 const ARMOR_BASE := 30.0
 
 
@@ -200,6 +201,30 @@ static func _apply_trait_statuses(enemy: Dictionary) -> void:
 			"conditional_effects": [
 				{"condition": {"hp_ratio": {"lt": 0.4}}, "effects": [{"stat": "attack", "type": "multiply", "value": 1.30}]}
 			],
+			"duration": -1
+		})
+
+	if traits.has("revive"):
+		statuses.append({
+			"id": "trait_revive", "name": "复苏", "kind": "buff", "stack": "replace",
+			"effects": [],
+			"triggers": [{
+				"event": TriggerEvents.ON_TURN_END,
+				"condition": {"round_index": {"mod": 3}},
+				"actions": [{"type": TriggerEvents.ACTION_HEAL, "self_stat": "max_hp", "self_ratio": 0.05}]
+			}],
+			"duration": -1
+		})
+
+	if traits.has("fortify"):
+		statuses.append({
+			"id": "trait_fortify", "name": "固守", "kind": "buff", "stack": "replace",
+			"effects": [],
+			"triggers": [{
+				"event": TriggerEvents.ON_TURN_END,
+				"condition": {"round_index": {"mod": 2}},
+				"actions": [{"type": TriggerEvents.ACTION_GAIN_BLOCK, "self_stat": "block_power", "self_ratio": 1.0}]
+			}],
 			"duration": -1
 		})
 

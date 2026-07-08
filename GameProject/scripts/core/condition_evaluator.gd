@@ -76,6 +76,7 @@ func _compare(actual: float, constraint) -> bool:
 			OP_NE:  return abs(actual - target) >= 0.0001
 			OP_GT:  return actual > target
 			OP_GTE: return actual >= target
+			"mod": return int(actual) % maxi(1, int(target)) == 0
 			OP_LT:  return actual < target
 			OP_LTE: return actual <= target
 	return false

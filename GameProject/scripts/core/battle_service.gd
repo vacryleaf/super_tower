@@ -200,7 +200,7 @@ func execute_skill(session: RefCounted, skill_id: String, target_index: int, act
 				"name": skill["name"],
 				"kind": "buff",
 				"stack": "replace",
-				"effects": [{"stat": "attack", "type": "percent", "value": multiplier - 1.0}],
+				"effects": [{"stat": "attack", "type": "multiply", "value": multiplier}],
 				"duration": -1
 			}
 			session.status_service.add_status(session.player, status)
@@ -229,10 +229,10 @@ func execute_skill(session: RefCounted, skill_id: String, target_index: int, act
 			var effects: Array[Dictionary] = []
 			var mark_multiplier := float(skill.get("mark_multiplier", 0.0))
 			if mark_multiplier > 0.0:
-				effects.append({"stat": "damage_taken", "type": "percent", "value": mark_multiplier - 1.0 + bonus_multiplier})
+				effects.append({"stat": "damage_taken", "type": "multiply", "value": mark_multiplier + bonus_multiplier})
 			var weaken_multiplier := float(skill.get("weaken_multiplier", 0.0))
 			if weaken_multiplier > 0.0:
-				effects.append({"stat": "attack", "type": "percent", "value": -(1.0 - weaken_multiplier)})
+				effects.append({"stat": "attack", "type": "multiply", "value": weaken_multiplier})
 			var status := {
 				"id": skill_id,
 				"name": skill["name"],
