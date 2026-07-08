@@ -268,7 +268,7 @@ func end_turn(session: RefCounted) -> void:
 	if session.phase != "battle":
 		return
 	enemy_turn(session)
-	if session._alive_enemy_count() > 0 and int(session.player["hp"]) > 0:
+	if session._opposing_units_alive() > 0 and int(session.player["hp"]) > 0:
 		session._begin_player_turn()
 
 
@@ -279,6 +279,10 @@ func enemy_turn(session: RefCounted) -> void:
 		if int(enemy["hp"]) <= 0:
 			continue
 		session.status_service.fire_trigger(enemy, TriggerEvents.ON_TURN_START, {"battle_log": session.battle_log, "session": session, "round_index": session.round_index})
+	for ally in session.allies:
+		if int(ally["hp"]) <= 0 or String(ally.get("controlled_by", "")) != "ai":
+			continue
+		session.status_service.fire_trigger(ally, TriggerEvents.ON_TURN_START, {"battle_log": session.battle_log, "session": session, "round_index": session.round_index})
 	var actions := 0
 	for i in range(session.enemies.size()):
 		var enemy: Dictionary = session.enemies[i]
@@ -289,10 +293,22 @@ func enemy_turn(session: RefCounted) -> void:
 			continue
 		resolve_enemy_action(session, enemy, i)
 		actions += 1
+	for ally in session.allies:
+		if int(ally["hp"]) <= 0 or String(ally.get("controlled_by", "")) != "ai":
+			continue
+		if actions >= 2:
+			enemy_defend(ally, 0.5)
+			continue
+		resolve_enemy_action(session, ally, session.find_enemy_index(ally))
+		actions += 1
 	for enemy in session.enemies:
 		if int(enemy["hp"]) <= 0:
 			continue
 		session.status_service.fire_trigger(enemy, TriggerEvents.ON_TURN_END, {"battle_log": session.battle_log, "session": session, "round_index": session.round_index})
+	for ally in session.allies:
+		if int(ally["hp"]) <= 0 or String(ally.get("controlled_by", "")) != "ai":
+			continue
+		session.status_service.fire_trigger(ally, TriggerEvents.ON_TURN_END, {"battle_log": session.battle_log, "session": session, "round_index": session.round_index})
 	if int(session.player["hp"]) <= 0:
 		session._on_defeat()
 
