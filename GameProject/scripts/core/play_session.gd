@@ -660,6 +660,26 @@ func _on_defeat() -> void:
 func _unlock_next_class_skill() -> void:
 	simulator._unlock_next_skill(player)
 
+
+func _unlock_enemies_in_bestiary() -> void:
+	var profile := save_profile.read_profile(Callable(self, "_persistent_player_snapshot"))
+	var bestiary: Dictionary = profile.get("bestiary", {})
+	for unit in current_encounter.get("units", []):
+		var enemy_id := String(unit.get("id", unit.get("name", "")))
+		if enemy_id == "":
+			continue
+		if not bestiary.has(enemy_id):
+			bestiary[enemy_id] = {"defeated_count": 0}
+		bestiary[enemy_id]["defeated_count"] = int(bestiary[enemy_id]["defeated_count"]) + 1
+	profile["bestiary"] = bestiary
+	save_profile.write_profile(profile)
+
+
+func get_bestiary() -> Dictionary:
+	var profile := save_profile.read_profile(Callable(self, "_persistent_player_snapshot"))
+	return profile.get("bestiary", {})
+
+
 func buy_common_skill(skill_id: String) -> bool:
 	if tower_coins < 15:
 		return false

@@ -4,6 +4,7 @@ class_name RunProgressService
 
 func on_victory(session: Variant) -> void:
 	session.player["battles_completed"] += 1
+	session._unlock_enemies_in_bestiary()
 	var encounter_type := String(session.current_encounter.get("type", ""))
 	if encounter_type == "boss" and not session.is_tutorial():
 		session.tower_coins += session.floor_index

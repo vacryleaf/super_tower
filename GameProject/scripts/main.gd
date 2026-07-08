@@ -11,6 +11,7 @@ const SkillManageView = preload("res://scripts/ui/skill_manage_view.gd")
 const EquipmentManageView = preload("res://scripts/ui/equipment_manage_view.gd")
 const ItemCollectionView = preload("res://scripts/ui/item_collection_view.gd")
 const EncyclopediaView = preload("res://scripts/ui/encyclopedia_view.gd")
+const BestiaryView = preload("res://scripts/ui/bestiary_view.gd")
 const ClassDetailView = preload("res://scripts/ui/class_detail_view.gd")
 const PreRunView = preload("res://scripts/ui/pre_run_view.gd")
 const ActionBarView = preload("res://scripts/ui/action_bar_view.gd")
@@ -35,6 +36,7 @@ var skill_manage_view: SkillManageView = SkillManageView.new()
 var equipment_manage_view: EquipmentManageView = EquipmentManageView.new()
 var item_collection_view: ItemCollectionView = ItemCollectionView.new()
 var encyclopedia_view: EncyclopediaView = EncyclopediaView.new()
+var bestiary_view: BestiaryView = BestiaryView.new()
 var class_detail_view: ClassDetailView = ClassDetailView.new()
 var pre_run_view: PreRunView = PreRunView.new()
 var camp_screen := ""
@@ -98,7 +100,7 @@ func _render_menu() -> void:
 	if camp_screen != "":
 		_render_camp_screen()
 		return
-	camp_view.render(root, session, Callable(self, "_label"), Callable(self, "_on_continue_pressed"), Callable(self, "_on_shop_pressed"), Callable(self, "_on_encyclopedia_pressed"), Callable(self, "_on_class_detail"), Callable(self, "_on_pre_run_pressed"))
+	camp_view.render(root, session, Callable(self, "_label"), Callable(self, "_on_continue_pressed"), Callable(self, "_on_shop_pressed"), Callable(self, "_on_encyclopedia_pressed"), Callable(self, "_on_bestiary_pressed"), Callable(self, "_on_class_detail"), Callable(self, "_on_pre_run_pressed"))
 
 
 func _render_game() -> void:
@@ -533,6 +535,8 @@ func _render_camp_screen() -> void:
 			item_collection_view.render(root, class_key, roster_player, Callable(self, "_label"), Callable(self, "_on_manage_close"))
 		"encyclopedia":
 			encyclopedia_view.render(root, Callable(self, "_label"), Callable(self, "_on_manage_close"))
+		"bestiary":
+			bestiary_view.render(root, Callable(self, "_label"), Callable(self, "_on_manage_close"), session.get_bestiary())
 		"pre_run":
 			pre_run_view.render(root, session, Callable(self, "_label"), Callable(self, "_on_pre_run_action"), Callable(self, "_on_manage_close"))
 
@@ -574,6 +578,11 @@ func _on_pre_run_action(action: String, arg: String) -> void:
 
 func _on_encyclopedia_pressed() -> void:
 	camp_screen = "encyclopedia"
+	_request_menu_render()
+
+
+func _on_bestiary_pressed() -> void:
+	camp_screen = "bestiary"
 	_request_menu_render()
 
 
