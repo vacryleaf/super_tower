@@ -25,9 +25,9 @@ func render(
 	var basic_row := HBoxContainer.new()
 	basic_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	actions.add_child(basic_row)
-	basic_row.add_child(_action_button("普通攻击", attack_callback, input_locked))
-	basic_row.add_child(_action_button("防御", defend_callback, input_locked))
-	basic_row.add_child(_action_button("躲避", dodge_callback, input_locked))
+	basic_row.add_child(_action_button("攻击", attack_callback, input_locked, "res://img/attack.png"))
+	basic_row.add_child(_action_button("防御", defend_callback, input_locked, "res://img/defend.png"))
+	basic_row.add_child(_action_button("闪避", dodge_callback, input_locked, "res://img/dodge.png"))
 	basic_row.add_child(_action_button("结束回合", end_turn_callback, input_locked))
 	for child in basic_row.get_children():
 		action_buttons.append(child as Button)
@@ -109,13 +109,20 @@ func refresh(
 		button.disabled = input_locked or bool(session.charge_used.get(charge_id, false)) or not bool(session.charge_ready.get(charge_id, false))
 
 
-func _action_button(text_value: String, callback: Callable, input_locked: bool) -> Button:
+func _action_button(text_value: String, callback: Callable, input_locked: bool, icon_path: String = "") -> Button:
 	var button := Button.new()
 	button.text = text_value
 	button.custom_minimum_size = Vector2(112, 46)
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	button.disabled = input_locked
 	button.pressed.connect(callback)
+	if icon_path != "":
+		var icon := TextureRect.new()
+		icon.texture = load(icon_path)
+		icon.custom_minimum_size = Vector2(24, 24)
+		icon.expand_mode = TextureRect.EXPAND_FIT_WIDTH_PROPORTIONAL
+		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		button.icon = icon.texture
 	return button
 
 
