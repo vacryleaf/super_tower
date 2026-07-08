@@ -885,6 +885,12 @@ func _opposing_units(actor: Dictionary) -> Array[Dictionary]:
 	return _player_side_units()
 
 
+func _allied_units(actor: Dictionary) -> Array[Dictionary]:
+	if String(actor.get("side", "")) == "player":
+		return _player_side_units()
+	return enemies
+
+
 func _player_side_units() -> Array[Dictionary]:
 	var units: Array[Dictionary] = [_player_combatant()]
 	units.append_array(allies)
