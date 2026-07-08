@@ -369,6 +369,10 @@ func _begin_player_turn() -> void:
 		if int(enemy["hp"]) > 0:
 			status_service.tick_statuses(enemy)
 			status_service.fire_trigger(enemy, TriggerEvents.ON_TURN_START, {"battle_log": battle_log, "session": self, "not_attacked_last_turn": false})
+	for ally in allies:
+		if int(ally["hp"]) > 0:
+			status_service.tick_statuses(ally)
+			status_service.fire_trigger(ally, TriggerEvents.ON_TURN_START, {"battle_log": battle_log, "session": self, "not_attacked_last_turn": false})
 	attacked_this_turn = false
 	ranger_hit_count = 0
 	var charged_label := _random_ready_charge()
@@ -444,7 +448,7 @@ func choose_reward_target(index: int) -> void:
 
 
 func _after_player_action() -> void:
-	if _alive_enemy_count() == 0:
+	if _opposing_units_alive() == 0:
 		_on_victory()
 	elif action_points <= 0:
 		message = "行动力已用完，请点击结束回合。"
@@ -520,10 +524,12 @@ func _enemy_turn() -> void:
 
 func _clear_enemy_taunts() -> void:
 	CombatRules.clear_enemy_taunts(enemies)
+	CombatRules.clear_enemy_taunts(allies)
 
 
 func _clear_enemy_blocks() -> void:
 	CombatRules.clear_enemy_blocks(enemies)
+	CombatRules.clear_enemy_blocks(allies)
 
 
 func _resolve_enemy_action(enemy: Dictionary, enemy_index: int) -> void:
@@ -610,6 +616,7 @@ func deal_damage(ctx: Dictionary) -> void:
 	var damage := int(ctx.get("final_damage", 0))
 	var damage_type := String(ctx.get("damage_type", "physical"))
 	var ignore_taunt := not ActionSource.is_interactive(source)
+	var source_actor: Dictionary = ctx.get("source_actor", player)
 
 	if not ignore_taunt:
 		var taunt_target := _active_taunt_target()
@@ -617,16 +624,17 @@ func deal_damage(ctx: Dictionary) -> void:
 			target_index = taunt_target
 			ctx["target_index"] = target_index
 
-	var enemy := enemies[target_index]
-	var result := battle_service.deal_damage_to_target(enemy, damage, damage_type, self)
+	var target_pool := _opposing_units(source_actor)
+	var target := target_pool[target_index]
+	var result := battle_service.deal_damage_to_target(target, damage, damage_type, self)
 	if bool(result["dodged"]):
-		battle_log.append("%s 闪避了这次命中。" % enemy["name"])
+		battle_log.append("%s 闪避了这次命中。" % target["name"])
 		last_events.append({"kind": "dodge_enemy_attack", "target": "enemy", "target_index": target_index, "amount": 0})
-		status_service.fire_trigger(enemy, TriggerEvents.ON_DODGE, {"battle_log": battle_log, "session": self, "source": player})
+		status_service.fire_trigger(target, TriggerEvents.ON_DODGE, {"battle_log": battle_log, "session": self, "source": source_actor})
 		return
 
 	battle_log.append("命中 %s：护甲减免 %d，格挡吸收 %d，造成 %d 点伤害。" % [
-		enemy["name"],
+		target["name"],
 		int(result["armor_reduced"]),
 		int(result["block_absorbed"]),
 		int(result["damage"])
@@ -634,11 +642,11 @@ func deal_damage(ctx: Dictionary) -> void:
 	last_events.append({"kind": "damage", "target": "enemy", "target_index": target_index, "amount": int(result["damage"])})
 
 	if ActionSource.is_interactive(source):
-		var hit_context := {"battle_log": battle_log, "session": self, "source": player, "damage": int(result["damage"]), "target": enemy}
-		status_service.fire_trigger(player, TriggerEvents.ON_HIT_DEALT, hit_context)
-		status_service.fire_trigger(enemy, TriggerEvents.ON_HIT_RECEIVED, hit_context)
-		if int(enemy["hp"]) <= 0:
-			status_service.fire_trigger(player, TriggerEvents.ON_KILL, {"battle_log": battle_log, "session": self, "source": player, "target": enemy})
+		var hit_context := {"battle_log": battle_log, "session": self, "source": source_actor, "damage": int(result["damage"]), "target": target}
+		status_service.fire_trigger(source_actor, TriggerEvents.ON_HIT_DEALT, hit_context)
+		status_service.fire_trigger(target, TriggerEvents.ON_HIT_RECEIVED, hit_context)
+		if int(target["hp"]) <= 0:
+			status_service.fire_trigger(source_actor, TriggerEvents.ON_KILL, {"battle_log": battle_log, "session": self, "source": source_actor, "target": target})
 
 
 func _on_victory() -> void:
