@@ -46,6 +46,7 @@ var run_hud_view: RunHudView = RunHudView.new()
 var end_screen_view: EndScreenView = EndScreenView.new()
 var trait_catalog: TraitCatalog = TraitCatalog.new()
 var selected_target := 0
+var selected_heal_target := -1
 var render_queued := false
 var input_locked := false
 var equipment_open := false
@@ -221,6 +222,7 @@ func _render_player_status(parent: Control) -> void:
 	var status: Dictionary = battle_view.player_status(session, DataCatalog.CLASSES[session.class_id]["name"], Callable(self, "_label"))
 	player_status_node = status["panel"]
 	player_status_labels = status["labels"]
+	player_status_node.gui_input.connect(_on_player_status_clicked)
 	parent.add_child(player_status_node)
 
 
@@ -280,6 +282,13 @@ func _on_equipment_close_pressed() -> void:
 
 func _on_enemy_card_pressed(index: int) -> void:
 	selected_target = index
+	selected_heal_target = -1
+
+
+func _on_player_status_clicked(event: InputEvent) -> void:
+	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+		selected_heal_target = 0
+		selected_target = -1
 	call_deferred("_refresh_battle_ui")
 
 
@@ -300,7 +309,16 @@ func _on_end_turn_pressed() -> void:
 
 
 func _on_skill_pressed(index: int) -> void:
-	_run_action(Callable(session, "use_skill").bind(index, selected_target))
+	var skill_id: String = session.player["equipped_skills"][index]
+	var skill: Dictionary = DataCatalog.SKILLS.get(skill_id, {})
+	if String(skill.get("type", "")) == "heal":
+		if selected_heal_target < 0:
+			session.message = "请先点击角色面板选择治疗目标。"
+			_request_game_render()
+			return
+		_run_action(Callable(session, "use_skill").bind(index, selected_heal_target))
+	else:
+		_run_action(Callable(session, "use_skill").bind(index, selected_target))
 
 
 func _on_charge_pressed(charge_id: String) -> void:
@@ -333,6 +351,7 @@ func _run_action(action: Callable) -> void:
 	action.call()
 	await combat_feedback.play_action_feedback(session.last_events.duplicate(true), enemy_card_nodes, player_status_node, Callable(self, "_label"))
 	input_locked = false
+	selected_heal_target = -1
 	_persist_session()
 	if session.phase == "battle":
 		_refresh_battle_ui()
@@ -395,6 +414,19 @@ func _refresh_battle_ui() -> void:
 		player_status_labels["block"].text = "格挡 %d" % session.player_block
 	if player_status_labels.has("block_power"):
 		player_status_labels["block_power"].text = "格挡值 %d" % int(session.player["block_power"])
+	if player_status_node != null and is_instance_valid(player_status_node):
+		var style := StyleBoxFlat.new()
+		style.bg_color = Color(0.12, 0.40, 0.18, 0.85) if selected_heal_target == 0 else Color(0.15, 0.15, 0.15, 0.85)
+		style.border_width_left = 3
+		style.border_width_right = 3
+		style.border_width_top = 3
+		style.border_width_bottom = 3
+		style.border_color = Color(0.35, 0.85, 0.55, 1) if selected_heal_target == 0 else Color(0.3, 0.3, 0.3, 1)
+		style.corner_radius_top_left = 6
+		style.corner_radius_top_right = 6
+		style.corner_radius_bottom_left = 6
+		style.corner_radius_bottom_right = 6
+		player_status_node.add_theme_stylebox_override("panel", style)
 	if pending_state_label_node != null and is_instance_valid(pending_state_label_node):
 		pending_state_label_node.text = _pending_state_text()
 	_refresh_action_buttons()

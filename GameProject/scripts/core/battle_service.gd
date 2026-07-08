@@ -64,9 +64,15 @@ func use_skill(session: RefCounted, slot_index: int, target_index: int) -> void:
 	var cost := int(skill.get("cost", 1))
 	if not session._can_act(cost):
 		return
+	var skill_type := String(skill.get("type", "attack"))
+	if skill_type == "heal":
+		var allied: Array[Dictionary] = session._allied_units(session.player)
+		if target_index < 0 or target_index >= allied.size():
+			session.message = "请选择一个有效的治疗目标。"
+			return
 	execute_skill(session, skill_id, target_index, session.player)
 	session.action_points -= cost
-	session._consume_state_after_action(String(skill.get("type", "attack")))
+	session._consume_state_after_action(skill_type)
 	session._after_player_action()
 
 
@@ -186,21 +192,20 @@ func execute_skill(session: RefCounted, skill_id: String, target_index: int, act
 		session.last_events.append({"kind": "defense", "target": "enemy", "target_index": target_index, "source": actor["name"], "amount": gained})
 
 	elif skill_type == "heal":
-		var heal_target_index := target_index
-		if heal_target_index < 0 or heal_target_index >= allied.size():
-			heal_target_index = 0
-		var heal_target: Dictionary = allied[heal_target_index]
+		if target_index < 0 or target_index >= allied.size():
+			return
+		var heal_target: Dictionary = allied[target_index]
 		var bonus: float = session._skill_multiplier_bonus(skill_id, "hp") if is_player_actor else 0.0
 		var healed: int = CombatRules.skill_heal_value_for_actor(actor, skill_id, session.status_service, bonus)
 		heal_target["hp"] = mini(int(heal_target["max_hp"]), int(heal_target["hp"]) + healed)
 		if is_player_actor:
-			if heal_target_index == 0:
+			if target_index == 0:
 				session._sync_player_combatant(heal_target)
 			session.battle_log.append("%s：恢复 %s %d 点生命。" % [skill["name"], heal_target["name"], healed])
 			session.last_events.append({"kind": "heal", "target": "player", "amount": healed})
 		else:
 			session.battle_log.append("%s 使用 %s：恢复 %d 点生命。" % [actor["name"], String(skill.get("name", skill_id)), healed])
-			session.last_events.append({"kind": "heal", "target": "enemy", "target_index": heal_target_index, "source": actor["name"], "amount": healed})
+			session.last_events.append({"kind": "heal", "target": "enemy", "target_index": target_index, "source": actor["name"], "amount": healed})
 
 	elif skill_type == "buff":
 		var bonus_multiplier: float = session._skill_multiplier_bonus(skill_id, "attack") if is_player_actor else 0.0
