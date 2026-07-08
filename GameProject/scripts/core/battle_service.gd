@@ -10,6 +10,7 @@ const ActionSource = preload("res://scripts/core/action_source.gd")
 const ActionContext = preload("res://scripts/core/action_context.gd")
 const ActionPipeline = preload("res://scripts/core/action_pipeline.gd")
 const CombatRules = preload("res://scripts/core/combat_rules.gd")
+const ModifierPipeline = preload("res://scripts/core/modifier_pipeline.gd")
 
 
 func player_attack(session: RefCounted, target_index: int) -> void:
@@ -76,6 +77,7 @@ func execute_skill(session: RefCounted, skill_id: String, target_index: int, act
 	var skill_type := String(skill.get("type", "attack"))
 	var cost := int(skill.get("cost", 1))
 	var is_player_actor: bool = actor.get("side", "") == "player"
+	var opposing: Array[Dictionary] = session._opposing_units(actor)
 
 	if skill_type == "attack":
 		if is_player_actor:
@@ -88,9 +90,9 @@ func execute_skill(session: RefCounted, skill_id: String, target_index: int, act
 			ActionPipeline.compute(skill_ctx, session)
 			var armor_reduce := float(skill.get("armor_reduce", 0.0))
 			if armor_reduce > 0.0:
-				var old_armor := int(session.enemies[target].get("armor", 0))
-				session.enemies[target]["armor"] = maxi(0, int(round(float(old_armor) * (1.0 - armor_reduce))))
-				session.battle_log.append("%s：破甲 %d%%，%s 护甲 %d → %d。" % [skill["name"], int(armor_reduce * 100), session.enemies[target]["name"], old_armor, int(session.enemies[target]["armor"])])
+				var old_armor := int(opposing[target].get("armor", 0))
+				opposing[target]["armor"] = maxi(0, int(round(float(old_armor) * (1.0 - armor_reduce))))
+				session.battle_log.append("%s：破甲 %d%%，%s 护甲 %d → %d。" % [skill["name"], int(armor_reduce * 100), opposing[target]["name"], old_armor, int(opposing[target]["armor"])])
 			var skill_damage_type: String = String(skill.get("damage_type", "physical"))
 			var hits := maxi(1, int(skill.get("hits", 1)) + int(session.player.get("extra_hits", 0)))
 			for _hit in range(hits):
@@ -116,14 +118,14 @@ func execute_skill(session: RefCounted, skill_id: String, target_index: int, act
 			if skill_id == "innate_attack":
 				enemy_attack(session, actor, target_index, false)
 				return
-			var player_unit: Dictionary = session._player_combatant()
-			var base_damage: int = CombatRules.skill_attack_value_for_actor(actor, skill_id)
+			var player_unit: Dictionary = opposing[0]
+			var base_damage: int = CombatRules.skill_attack_value_for_actor(actor, skill_id, session.status_service)
 			var hits := maxi(1, int(skill.get("hits", 1)))
 			var was_hit := false
 			for _hit in range(hits):
-				if int(session.player["hp"]) <= 0:
+				if int(player_unit["hp"]) <= 0:
 					break
-				var result := Combatant.apply_damage(player_unit, base_damage, String(skill.get("damage_type", "physical")))
+				var result := deal_damage_to_target(player_unit, base_damage, String(skill.get("damage_type", "physical")), session)
 				session._sync_player_combatant(player_unit)
 				if bool(result["dodged"]):
 					session.battle_log.append("躲避了 %s 的 %s。" % [actor["name"], skill["name"]])
@@ -136,13 +138,17 @@ func execute_skill(session: RefCounted, skill_id: String, target_index: int, act
 				session._trigger_counter_attack(target_index)
 
 	elif skill_type == "defense" or skill_type == "stance":
+		var bonus: float = session._skill_multiplier_bonus(skill_id, "defense") if is_player_actor else 0.0
+		var extra_modifiers: Array[Dictionary] = []
 		if is_player_actor:
-			var gained: int = session._skill_defense_value(skill_id)
-			gained = session._apply_charge_defense_modifiers(gained, skill_id)
-			var total_gained := gained
-			var repeats: int = session._consume_charge_repeat("defense", skill_id)
-			for _i in range(repeats):
-				total_gained += gained
+			extra_modifiers = ModifierPipeline.collect_from_session(session, "defense", {"skill_id": skill_id, "skill_multiplier": float(skill.get("multiplier", skill.get("block_multiplier", 1.0))) + bonus})
+		var gained: int = CombatRules.skill_defense_value_for_actor(actor, skill_id, session.status_service, bonus, extra_modifiers)
+		gained = session._apply_charge_defense_modifiers(gained, skill_id)
+		var total_gained := gained
+		var repeats: int = session._consume_charge_repeat("defense", skill_id)
+		for _i in range(repeats):
+			total_gained += gained
+		if is_player_actor:
 			session._add_player_block(total_gained)
 			session.battle_log.append("%s：获得 %d 点格挡值。" % [skill["name"], total_gained])
 			session.last_events.append({"kind": "defense", "target": "player", "amount": total_gained})
@@ -151,10 +157,9 @@ func execute_skill(session: RefCounted, skill_id: String, target_index: int, act
 				session.counter_attack_multiplier = maxf(session.counter_attack_multiplier, float(skill.get("counter_multiplier", 1.0)) + session._skill_multiplier_bonus(skill_id, "attack"))
 				session.battle_log.append("%s：准备反击下一次命中自身的敌方攻击，反击倍率 x%.2f。" % [skill["name"], session.counter_attack_multiplier])
 		else:
-			var gained: int = CombatRules.skill_defense_value_for_actor(actor, skill_id, session.status_service)
-			Combatant.add_block_amount(actor, gained)
-			session.battle_log.append("%s 使用 %s：获得 %d 点格挡。" % [actor["name"], String(skill.get("name", skill_id)), gained])
-			session.last_events.append({"kind": "defense", "target": "enemy", "target_index": target_index, "source": actor["name"], "amount": gained})
+			Combatant.add_block_amount(actor, total_gained)
+			session.battle_log.append("%s 使用 %s：获得 %d 点格挡。" % [actor["name"], String(skill.get("name", skill_id)), total_gained])
+			session.last_events.append({"kind": "defense", "target": "enemy", "target_index": target_index, "source": actor["name"], "amount": total_gained})
 
 	elif skill_type == "dodge":
 		if is_player_actor:
@@ -180,81 +185,68 @@ func execute_skill(session: RefCounted, skill_id: String, target_index: int, act
 		session.last_events.append({"kind": "defense", "target": "enemy", "target_index": target_index, "source": actor["name"], "amount": gained})
 
 	elif skill_type == "heal":
+		var bonus: float = session._skill_multiplier_bonus(skill_id, "hp") if is_player_actor else 0.0
+		var healed: int = CombatRules.skill_heal_value_for_actor(actor, skill_id, session.status_service, bonus)
+		actor["hp"] = mini(int(actor["max_hp"]), int(actor["hp"]) + healed)
 		if is_player_actor:
-			var healed: int = session._skill_heal_value(skill_id)
-			actor["hp"] = mini(int(actor["max_hp"]), int(actor["hp"]) + healed)
 			session.battle_log.append("%s：恢复 %d 点生命。" % [skill["name"], healed])
 			session.last_events.append({"kind": "heal", "target": "player", "amount": healed})
 		else:
-			var healed: int = CombatRules.skill_heal_value_for_actor(actor, skill_id, session.status_service)
-			actor["hp"] = mini(int(actor["max_hp"]), int(actor["hp"]) + healed)
 			session.battle_log.append("%s 使用 %s：恢复 %d 点生命。" % [actor["name"], String(skill.get("name", skill_id)), healed])
 			session.last_events.append({"kind": "heal", "target": "enemy", "target_index": target_index, "source": actor["name"], "amount": healed})
 
 	elif skill_type == "buff":
+		var bonus_multiplier: float = session._skill_multiplier_bonus(skill_id, "attack") if is_player_actor else 0.0
+		var multiplier: float = float(skill.get("attack_multiplier", 1.0)) + bonus_multiplier
+		var status := {
+			"id": skill_id,
+			"name": skill["name"],
+			"kind": "buff",
+			"stack": "replace",
+			"effects": [{"stat": "attack", "type": "multiply", "value": multiplier}],
+			"duration": -1
+		}
+		session.status_service.add_status(actor, status)
 		if is_player_actor:
-			var bonus_multiplier: float = session._skill_multiplier_bonus(skill_id, "attack")
-			var multiplier: float = float(skill.get("attack_multiplier", 1.0)) + bonus_multiplier
-			var status := {
-				"id": skill_id,
-				"name": skill["name"],
-				"kind": "buff",
-				"stack": "replace",
-				"effects": [{"stat": "attack", "type": "multiply", "value": multiplier}],
-				"duration": -1
-			}
-			session.status_service.add_status(session.player, status)
 			session.battle_log.append("%s：攻击力提升 x%.2f，持续整场战斗。" % [skill["name"], multiplier])
 			session.last_events.append({"kind": "buff", "target": "player", "amount": 0})
 		else:
-			var attack_mult := float(skill.get("attack_multiplier", 1.0))
-			var status := {
-				"id": skill_id,
-				"name": skill["name"],
-				"kind": "buff",
-				"stack": "replace",
-				"effects": [{"stat": "attack", "type": "multiply", "value": attack_mult}],
-				"duration": -1
-			}
-			session.status_service.add_status(actor, status)
-			session.battle_log.append("%s 使用 %s：攻击力提升 x%.2f。" % [actor["name"], String(skill.get("name", skill_id)), attack_mult])
+			session.battle_log.append("%s 使用 %s：攻击力提升 x%.2f。" % [actor["name"], String(skill.get("name", skill_id)), multiplier])
 			session.last_events.append({"kind": "buff", "target": "enemy", "target_index": target_index, "source": actor["name"], "amount": 0})
 
 	elif skill_type == "debuff":
+		var debuff_target: Dictionary
+		var target: int = -1
 		if is_player_actor:
-			var target: int = session._valid_target(target_index)
+			target = session._valid_target(target_index)
 			if target < 0:
 				return
-			var bonus_multiplier: float = session._skill_multiplier_bonus(skill_id, "attack")
-			var effects: Array[Dictionary] = []
-			var mark_multiplier := float(skill.get("mark_multiplier", 0.0))
-			if mark_multiplier > 0.0:
-				effects.append({"stat": "damage_taken", "type": "multiply", "value": mark_multiplier + bonus_multiplier})
-			var weaken_multiplier := float(skill.get("weaken_multiplier", 0.0))
-			if weaken_multiplier > 0.0:
-				effects.append({"stat": "attack", "type": "multiply", "value": weaken_multiplier})
-			var status := {
-				"id": skill_id,
-				"name": skill["name"],
-				"kind": "debuff",
-				"stack": "replace",
-				"effects": effects,
-				"duration": -1
-			}
-			session.status_service.add_status(session.enemies[target], status)
-			session.battle_log.append("%s：%s 受到标记，承受伤害提升，攻击力降低。" % [skill["name"], session.enemies[target]["name"]])
+			debuff_target = opposing[target]
+		else:
+			debuff_target = opposing[0]
+		var bonus_multiplier: float = session._skill_multiplier_bonus(skill_id, "attack") if is_player_actor else 0.0
+		var effects: Array[Dictionary] = []
+		var mark_multiplier := float(skill.get("mark_multiplier", 0.0))
+		if mark_multiplier > 0.0:
+			effects.append({"stat": "damage_taken", "type": "multiply", "value": mark_multiplier + bonus_multiplier})
+		var weaken_multiplier := float(skill.get("weaken_multiplier", 0.0))
+		if weaken_multiplier > 0.0:
+			effects.append({"stat": "attack", "type": "multiply", "value": weaken_multiplier})
+		if effects.is_empty():
+			effects.append({"stat": "attack", "type": "multiply", "value": float(skill.get("weaken_multiplier", 1.0))})
+		var status := {
+			"id": skill_id,
+			"name": skill["name"],
+			"kind": "debuff",
+			"stack": "replace",
+			"effects": effects,
+			"duration": -1
+		}
+		session.status_service.add_status(debuff_target, status)
+		if is_player_actor:
+			session.battle_log.append("%s：%s 受到标记，承受伤害提升，攻击力降低。" % [skill["name"], debuff_target["name"]])
 			session.last_events.append({"kind": "debuff", "target": "enemy", "target_index": target, "amount": 0})
 		else:
-			var weaken_mult := float(skill.get("weaken_multiplier", 1.0))
-			var status := {
-				"id": skill_id,
-				"name": skill["name"],
-				"kind": "debuff",
-				"stack": "replace",
-				"effects": [{"stat": "attack", "type": "multiply", "value": weaken_mult}],
-				"duration": -1
-			}
-			session.status_service.add_status(session.player, status)
 			session.battle_log.append("%s 使用 %s：玩家攻击力降低。" % [actor["name"], String(skill.get("name", skill_id))])
 			session.last_events.append({"kind": "debuff", "target": "player", "source": actor["name"], "amount": 0})
 
