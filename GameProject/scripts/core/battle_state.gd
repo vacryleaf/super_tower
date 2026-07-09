@@ -10,8 +10,9 @@ var message := ""
 var enemies: Array[Dictionary] = []
 var allies: Array[Dictionary] = []
 var current_encounter: Dictionary = {}
-var action_points := 1
-var max_action_points := 1
+var energy := 0
+var has_acted := false
+var skill_cooldowns: Dictionary = {}
 var player_block := 0
 var dodge_layers := 0
 var round_index := 0
@@ -48,8 +49,9 @@ func reset() -> void:
 	enemies.clear()
 	allies.clear()
 	current_encounter = {}
-	action_points = 1
-	max_action_points = 1
+	energy = 0
+	has_acted = false
+	skill_cooldowns = {}
 	player_block = 0
 	dodge_layers = 0
 	round_index = 0

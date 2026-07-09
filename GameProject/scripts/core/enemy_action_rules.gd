@@ -86,7 +86,7 @@ func choose_skill(enemy: Dictionary, round_index: int, player_context: Dictionar
 		var attack_skills_charge := _filter_by_type(skills, "attack")
 		if not attack_skills_charge.is_empty():
 			return attack_skills_charge[round_index % attack_skills_charge.size()]
-		return innate.get("attack", "innate_attack")
+		return innate.get("attack_1", "innate_attack_1")
 
 	# 3. 响应式规则：根据玩家状态调整策略
 	if not player_context.is_empty():
@@ -99,7 +99,7 @@ func choose_skill(enemy: Dictionary, round_index: int, player_context: Dictionar
 			var attack_skills_aggro := _filter_by_type(skills, "attack")
 			if not attack_skills_aggro.is_empty():
 				return attack_skills_aggro[round_index % attack_skills_aggro.size()]
-			return innate.get("attack", "innate_attack")
+			return innate.get("attack_1", "innate_attack_1")
 		# 3b. 玩家有闪避层数：优先多段攻击破闪避
 		if player_dodge > 0:
 			var multi_hit_dodge := _filter_multi_hit(skills)
@@ -181,7 +181,7 @@ func choose_skill(enemy: Dictionary, round_index: int, player_context: Dictionar
 		return non_taunt[round_index % non_taunt.size()]
 
 	# 12. Fallback: innate attack
-	return innate.get("attack", "innate_attack")
+	return innate.get("attack_1", "innate_attack_1")
 
 
 func _filter_by_type(skills: Array, skill_type: String) -> Array[String]:

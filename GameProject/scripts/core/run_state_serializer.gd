@@ -17,8 +17,9 @@ func save_data(session: RefCounted) -> Dictionary:
 		"current_encounter": session.current_encounter,
 		"enemies": session.enemies,
 		"allies": session.allies,
-		"action_points": session.action_points,
-		"max_action_points": session.max_action_points,
+		"energy": session.energy,
+		"has_acted": session.has_acted,
+		"skill_cooldowns": session.skill_cooldowns,
 		"player_block": session.player_block,
 		"dodge_layers": session.dodge_layers,
 		"round_index": session.round_index,
@@ -63,8 +64,9 @@ func load_save_data(session: RefCounted, data: Dictionary) -> bool:
 	_normalize_loaded_enemies(session.enemies)
 	session.allies = _dictionary_array(data.get("allies", []))
 	_normalize_loaded_allies(session.allies)
-	session.action_points = int(data.get("action_points", 1))
-	session.max_action_points = int(data.get("max_action_points", 1))
+	session.energy = int(data.get("energy", 0))
+	session.has_acted = bool(data.get("has_acted", false))
+	session.skill_cooldowns = _dictionary(data.get("skill_cooldowns", {}))
 	session.player_block = int(data.get("player_block", 0))
 	session.dodge_layers = int(data.get("dodge_layers", 0))
 	session.round_index = int(data.get("round_index", 0))

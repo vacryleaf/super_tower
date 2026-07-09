@@ -229,7 +229,7 @@ func test_jungle_set_meticulous() -> void:
 	assert_equal(session.seek_bloom_stacks, 3, "seek_bloom should cap at 3 stacks")
 	var hunt_bonus := DynamicValueResolver.resolve("dynamic:hunt", session.player, {"meticulous_stacks": 5, "seek_bloom_stacks": 3})
 	assert_true(abs(hunt_bonus - 2.85) < 0.001, "hunt bonus should be 2.85 with 5 meticulous + 3 seek_bloom")
-	session.action_points = 1
+	session.energy = 4
 	session.player_attack(0)
 	assert_equal(session.meticulous_stacks, 0, "meticulous should reset after dealing damage")
 	assert_equal(session.seek_bloom_stacks, 0, "seek_bloom should reset after dealing damage")

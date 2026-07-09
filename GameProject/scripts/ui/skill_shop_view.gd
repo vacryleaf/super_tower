@@ -22,7 +22,7 @@ func render(
 
 	for skill_id in common_skills:
 		var skill: Dictionary = DataCatalog.SKILLS[skill_id]
-		var owned := session.is_skill_owned(skill_id)
+		var owned: bool = session.is_skill_owned(skill_id)
 		var row := HBoxContainer.new()
 		row.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 		var label_text := "%s - %d 塔币" % [skill["name"], SKILL_PRICE]

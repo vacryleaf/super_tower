@@ -15,37 +15,40 @@ const ModifierPipeline = preload("res://scripts/core/modifier_pipeline.gd")
 
 func player_attack(session: RefCounted, target_index: int) -> void:
 	session.last_events.clear()
-	if not session._can_act(1):
+	if not session._can_act():
 		return
 	var target: int = session._valid_target(target_index)
 	if target < 0:
 		return
 	session.attacked_this_turn = true
-	var skill_id: String = session.player["innate_skills"]["attack"]
+	var skill_id: String = session.player["innate_skills"]["attack_1"]
 	execute_skill(session, skill_id, target, session.player)
-	session.action_points -= 1
+	session.energy = mini(DataCatalog.ENERGY_MAX, session.energy + DataCatalog.ATTACK_ENERGY)
+	session.has_acted = true
 	session._consume_state_after_action("attack")
 	session._after_player_action()
 
 
 func player_defend(session: RefCounted) -> void:
 	session.last_events.clear()
-	if not session._can_act(1):
+	if not session._can_act():
 		return
 	var skill_id: String = session.player["innate_skills"]["defend"]
 	execute_skill(session, skill_id, -1, session.player)
-	session.action_points -= 1
+	session.energy = mini(DataCatalog.ENERGY_MAX, session.energy + DataCatalog.DEFEND_ENERGY)
+	session.has_acted = true
 	session._consume_state_after_action("defense")
 	session._after_player_action()
 
 
 func player_dodge(session: RefCounted) -> void:
 	session.last_events.clear()
-	if not session._can_act(1):
+	if not session._can_act():
 		return
 	var skill_id: String = session.player["innate_skills"]["dodge"]
 	execute_skill(session, skill_id, -1, session.player)
-	session.action_points -= 1
+	session.energy = mini(DataCatalog.ENERGY_MAX, session.energy + DataCatalog.DODGE_ENERGY)
+	session.has_acted = true
 	session._consume_state_after_action("dodge")
 	session._after_player_action()
 
@@ -61,8 +64,15 @@ func use_skill(session: RefCounted, slot_index: int, target_index: int) -> void:
 	var skill: Dictionary = _get_skill_data(skill_id)
 	if skill.is_empty():
 		return
-	var cost := int(skill.get("cost", 1))
-	if not session._can_act(cost):
+	if not session._can_act():
+		return
+	var energy_cost := int(skill.get("energy_cost", 0))
+	if session.energy < energy_cost:
+		session.message = "能量不足，需要 %d 点能量。" % energy_cost
+		return
+	var cooldown := int(skill.get("cooldown", 0))
+	if cooldown > 0 and session.skill_cooldowns.get(skill_id, 0) > 0:
+		session.message = "%s 冷却中，剩余 %d 回合。" % [skill["name"], int(session.skill_cooldowns[skill_id])]
 		return
 	var skill_type := String(skill.get("type", "attack"))
 	if skill_type == "heal":
@@ -71,7 +81,10 @@ func use_skill(session: RefCounted, slot_index: int, target_index: int) -> void:
 			session.message = "请选择一个有效的治疗目标。"
 			return
 	execute_skill(session, skill_id, target_index, session.player)
-	session.action_points -= cost
+	session.energy -= energy_cost
+	if cooldown > 0:
+		session.skill_cooldowns[skill_id] = cooldown
+	session.has_acted = true
 	session._consume_state_after_action(skill_type)
 	session._after_player_action()
 
@@ -81,7 +94,7 @@ func execute_skill(session: RefCounted, skill_id: String, target_index: int, act
 	if skill.is_empty():
 		return
 	var skill_type := String(skill.get("type", "attack"))
-	var cost := int(skill.get("cost", 1))
+	var cost := int(skill.get("energy_cost", 0))
 	var is_player_actor: bool = actor.get("side", "") == "player"
 	var opposing: Array[Dictionary] = session._opposing_units(actor)
 	var allied: Array[Dictionary] = session._allied_units(actor)
@@ -122,7 +135,7 @@ func execute_skill(session: RefCounted, skill_id: String, target_index: int, act
 				"battle_log": session.battle_log, "session": session, "skill_id": skill_id
 			})
 		else:
-			if skill_id == "innate_attack":
+			if skill_id.begins_with("innate_attack_"):
 				enemy_attack(session, actor, target_index, false)
 				return
 			var player_unit: Dictionary = opposing[0]
@@ -355,7 +368,7 @@ func enemy_attack(session: RefCounted, enemy: Dictionary, enemy_index: int, firs
 			session._check_dodge_streak()
 			session.status_service.fire_trigger(session.player, TriggerEvents.ON_DODGE, {"battle_log": session.battle_log, "session": session, "source": enemy, "target": session.player})
 			if session._has_set_modifier("dynamic:ranger_return") and int(enemy["hp"]) > 0:
-				var counter_skill_id: String = session.player["innate_skills"]["attack"]
+				var counter_skill_id: String = session.player["innate_skills"]["attack_1"]
 				var counter_skill: Dictionary = _get_skill_data(counter_skill_id)
 				var counter_multiplier: float = float(counter_skill.get("multiplier", 1.0))
 				var counter_hits: int = maxi(1, int(counter_skill.get("hits", 1)))

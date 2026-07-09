@@ -1,6 +1,7 @@
 extends RefCounted
 class_name BattleView
 
+const DataCatalog = preload("res://scripts/core/data_catalog.gd")
 const UIHelpers = preload("res://scripts/ui/ui_helpers.gd")
 
 
@@ -52,7 +53,7 @@ func player_status(session: Variant, class_label: String, label_factory: Callabl
 		box.add_child(UIHelpers.avatar_for(class_key))
 	var labels := {
 		"class": label_factory.call(class_label, 18),
-		"action": label_factory.call("行动力 %d/%d" % [session.action_points, session.max_action_points], 15),
+		"action": label_factory.call("能量 %d/%d" % [session.energy, DataCatalog.ENERGY_MAX], 15),
 		"hp": label_factory.call("hp %d/%d" % [int(session.player["hp"]), int(session.player["max_hp"])], 15),
 		"block": label_factory.call("格挡 %d" % session.player_block, 15),
 		"block_power": label_factory.call("格挡值 %d" % int(session.player["block_power"]), 15),

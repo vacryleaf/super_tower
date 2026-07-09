@@ -119,7 +119,7 @@ func test_skill_multiplier_effects() -> void:
 	var warrior = session_script.new()
 	warrior.start_new_game("warrior")
 	warrior.player["equipped_skills"] = ["war_cry"]
-	warrior.action_points = 3
+	warrior.energy = 12
 	warrior.use_skill(0, 0)
 	var statuses: Array = warrior.player.get("statuses", [])
 	assert_true(statuses.size() > 0, "war cry should add a status to player")
@@ -145,7 +145,7 @@ func test_skill_multiplier_effects() -> void:
 		"traits": []
 	}]
 	archer.enemies = marked_enemies
-	archer.action_points = 3
+	archer.energy = 12
 	archer.use_skill(0, 0)
 	assert_true(archer.enemies[0].get("statuses", []).size() > 0, "hunter mark should add a debuff status to enemy")
 	var dmg_mult: float = archer.status_service.resolve_stat(archer.enemies[0], 1.0, StatusService.STAT_DAMAGE_TAKEN)
@@ -163,7 +163,7 @@ func test_counter_stance_and_multihit_dodge() -> void:
 	warrior.player["attack"] = 10
 	var counter_enemies: Array[Dictionary] = [TestHelpers.test_enemy("反击测试敌人", 100, 1, [])]
 	warrior.enemies = counter_enemies
-	warrior.action_points = 3
+	warrior.energy = 12
 	warrior.use_skill(0, 0)
 	warrior._enemy_attack(warrior.enemies[0], 0, false)
 	assert_true(int(warrior.enemies[0]["hp"]) < 100, "counter stance should counterattack after being hit")
@@ -176,7 +176,7 @@ func test_counter_stance_and_multihit_dodge() -> void:
 	var dodging_enemies: Array[Dictionary] = [TestHelpers.test_enemy("闪避测试敌人", 100, 0, [])]
 	dodging_enemies[0]["dodge_layers"] = 1
 	archer.enemies = dodging_enemies
-	archer.action_points = 3
+	archer.energy = 12
 	archer.use_skill(0, 0)
 	assert_equal(int(archer.enemies[0]["hp"]), 82, "quick shot should only lose its first hit to one dodge layer")
 
@@ -220,7 +220,7 @@ func test_enemy_skill_execution() -> void:
 		"taunt": 0,
 		"traits": [],
 		"skills": ["enemy_heavy_strike"],
-		"innate_skills": {"attack": "innate_attack", "defend": "innate_defend", "dodge": "innate_dodge"}
+		"innate_skills": {"attack_1": "innate_attack_1", "defend": "innate_defend", "dodge": "innate_dodge"}
 	}
 	session.enemies = [enemy] as Array[Dictionary]
 	session.end_turn()
@@ -248,7 +248,7 @@ func test_enemy_skill_execution() -> void:
 		"taunt": 0,
 		"traits": [],
 		"skills": ["enemy_fortify"],
-		"innate_skills": {"attack": "innate_attack", "defend": "innate_defend", "dodge": "innate_dodge"}
+		"innate_skills": {"attack_1": "innate_attack_1", "defend": "innate_defend", "dodge": "innate_dodge"}
 	}
 	session.enemies = [defend_enemy] as Array[Dictionary]
 	session.end_turn()
@@ -279,7 +279,7 @@ func test_enemy_ai_skill_selection() -> void:
 		"taunt": 0,
 		"traits": [],
 		"skills": ["enemy_heavy_strike", "enemy_fortify"],
-		"innate_skills": {"attack": "innate_attack", "defend": "innate_defend", "dodge": "innate_dodge"}
+		"innate_skills": {"attack_1": "innate_attack_1", "defend": "innate_defend", "dodge": "innate_dodge"}
 	}
 	assert_equal(rules.choose_skill(enemy, 1), "enemy_heavy_strike", "should choose attack skill when healthy")
 
@@ -301,7 +301,7 @@ func test_enemy_ai_skill_selection() -> void:
 		"taunt": 0,
 		"traits": ["tank"],
 		"skills": ["enemy_heavy_strike", "enemy_fortify"],
-		"innate_skills": {"attack": "innate_attack", "defend": "innate_defend", "dodge": "innate_dodge"}
+		"innate_skills": {"attack_1": "innate_attack_1", "defend": "innate_defend", "dodge": "innate_dodge"}
 	}
 	assert_equal(rules.choose_skill(tank_enemy, 2), "enemy_fortify", "tank should prefer defense on even rounds")
 
@@ -319,9 +319,9 @@ func test_enemy_ai_skill_selection() -> void:
 		"taunt": 0,
 		"traits": [],
 		"skills": [],
-		"innate_skills": {"attack": "innate_attack", "defend": "innate_defend", "dodge": "innate_dodge"}
+		"innate_skills": {"attack_1": "innate_attack_1", "defend": "innate_defend", "dodge": "innate_dodge"}
 	}
-	assert_equal(rules.choose_skill(no_skills_enemy, 1), "innate_attack", "enemy with no skills should fallback to innate attack")
+	assert_equal(rules.choose_skill(no_skills_enemy, 1), "innate_attack_1", "enemy with no skills should fallback to innate attack")
 
 
 func test_enemy_taunt_skill() -> void:
@@ -342,13 +342,13 @@ func test_enemy_taunt_skill() -> void:
 		"taunt": 0,
 		"traits": ["taunt"],
 		"skills": ["enemy_taunt"],
-		"innate_skills": {"attack": "innate_attack", "defend": "innate_defend", "dodge": "innate_dodge"}
+		"innate_skills": {"attack_1": "innate_attack_1", "defend": "innate_defend", "dodge": "innate_dodge"}
 	}
 	assert_equal(rules.choose_skill(taunt_enemy, 1), "enemy_taunt", "taunt enemy should use taunt skill on round 1")
-	assert_equal(rules.choose_skill(taunt_enemy, 2), "innate_attack", "taunt enemy should use innate attack on round 2")
+	assert_equal(rules.choose_skill(taunt_enemy, 2), "innate_attack_1", "taunt enemy should use innate attack on round 2")
 
 	taunt_enemy["taunt"] = 1
-	assert_equal(rules.choose_skill(taunt_enemy, 4), "innate_attack", "taunt enemy with active taunt should not taunt again on round 4")
+	assert_equal(rules.choose_skill(taunt_enemy, 4), "innate_attack_1", "taunt enemy with active taunt should not taunt again on round 4")
 
 
 func test_rank_skill_multiplier() -> void:

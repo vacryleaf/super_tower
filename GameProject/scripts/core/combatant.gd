@@ -22,6 +22,8 @@ static func from_player(player: Dictionary, current_block: int = 0, current_dodg
 		"dodge_layers": maxi(0, current_dodge),
 		"taunt": 0,
 		"traits": player.get("traits", []),
+		"energy": int(player.get("energy", 0)),
+		"skill_cooldowns": player.get("skill_cooldowns", {}).duplicate(),
 		"controlled_by": "player"
 	}
 
@@ -183,7 +185,7 @@ static func normalize_enemy(enemy: Dictionary) -> void:
 		enemy["skills"] = []
 	if not enemy.has("innate_skills"):
 		enemy["innate_skills"] = {
-			"attack": "innate_attack",
+			"attack_1": "innate_attack_1",
 			"defend": "innate_defend",
 			"dodge": "innate_dodge"
 		}
@@ -373,7 +375,7 @@ static func _enemy_dictionary(unit_name: String, rank: String, hp: int, attack: 
 		"traits": traits,
 		"skills": skills.duplicate(),
 		"innate_skills": {
-			"attack": "innate_attack",
+			"attack_1": "innate_attack_1",
 			"defend": "innate_defend",
 			"dodge": "innate_dodge"
 		},

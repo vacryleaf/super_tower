@@ -137,7 +137,7 @@ func test_charge_reward_flow() -> void:
 		"traits": []
 	}]
 	session.enemies = test_enemies
-	session.action_points = 1
+	session.energy = 4
 	session.use_charge(charge_id)
 	assert_true(bool(session.charge_used.get(charge_id, false)), "charge should be marked used after activation")
 	session.player_attack(0)
@@ -185,7 +185,7 @@ func test_skill_bound_charge_only_triggers_on_that_skill() -> void:
 		"traits": []
 	}]
 	session.enemies = test_enemies
-	session.action_points = 3
+	session.energy = 12
 	session.player_attack(0)
 	var after_attack := 999 - int(session.player["attack"])
 	assert_equal(int(session.enemies[0]["hp"]), after_attack, "normal attack should not consume skill-bound charge")

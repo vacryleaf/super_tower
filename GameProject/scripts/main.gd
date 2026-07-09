@@ -437,7 +437,7 @@ func _refresh_battle_ui() -> void:
 			ally_button.tooltip_text = trait_catalog.tooltip(session.allies[index]["traits"])
 			ally_button.disabled = int(session.allies[index]["hp"]) <= 0
 	if player_status_labels.has("action"):
-		player_status_labels["action"].text = "行动力 %d/%d" % [session.action_points, session.max_action_points]
+		player_status_labels["action"].text = "能量 %d/%d" % [session.energy, DataCatalog.ENERGY_MAX]
 	if player_status_labels.has("hp"):
 		player_status_labels["hp"].text = "hp %d/%d" % [int(session.player["hp"]), int(session.player["max_hp"])]
 	if player_status_labels.has("attack"):

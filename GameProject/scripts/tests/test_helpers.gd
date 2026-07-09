@@ -20,7 +20,7 @@ static func test_enemy(enemy_name: String, hp: int, attack: int, traits: Array) 
 		"traits": traits,
 		"skills": [],
 		"innate_skills": {
-			"attack": "innate_attack",
+			"attack": "innate_attack_1",
 			"defend": "innate_defend",
 			"dodge": "innate_dodge"
 		}

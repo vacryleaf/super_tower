@@ -5,6 +5,12 @@ const DataRepository = preload("res://scripts/core/data_repository.gd")
 
 const BATTLE_TYPES := ["normal", "normal", "normal", "elite", "normal", "normal", "normal", "elite", "normal", "boss"]
 
+const ENERGY_MAX := 60
+const ENERGY_START := 0
+const ATTACK_ENERGY := 4
+const DEFEND_ENERGY := 3
+const DODGE_ENERGY := 2
+
 const STATE_CARDS := {
 	"steady": {"name": "平稳", "weight": 50, "multiplier": 1.0, "tag": "numeric"},
 	"good": {"name": "效果不错", "weight": 20, "multiplier": 1.1, "tag": "numeric"},
@@ -37,31 +43,33 @@ const CLASSES := {
 }
 
 const SKILLS := {
-	"heavy_slash": {"name": "重劈", "class": "warrior", "type": "attack", "cost": 2, "multiplier": 2.25, "hits": 1, "damage_type": "physical"},
-	"shield_wall": {"name": "盾墙", "class": "warrior", "type": "defense", "cost": 2, "multiplier": 2.40},
-	"counter_stance": {"name": "反击架势", "class": "warrior", "type": "stance", "cost": 2, "block_multiplier": 1.20, "counter_multiplier": 1.35},
-	"war_cry": {"name": "战吼", "class": "warrior", "type": "buff", "cost": 2, "attack_multiplier": 1.25},
-	"precise_shot": {"name": "精准射击", "class": "archer", "type": "attack", "cost": 2, "multiplier": 2.10, "hits": 1, "armor_reduce": 0.30, "damage_type": "physical"},
-	"quick_shot": {"name": "连珠箭", "class": "archer", "type": "attack", "cost": 2, "multiplier": 0.60, "hits": 4, "damage_type": "physical"},
-	"hunter_mark": {"name": "猎人标记", "class": "archer", "type": "debuff", "cost": 2, "mark_multiplier": 1.35, "weaken_multiplier": 0.75},
-	"roll": {"name": "翻滚", "class": "archer", "type": "dodge", "cost": 2, "block_multiplier": 1.20, "dodge_layers": 1},
-	"first_aid": {"name": "急救", "class": "common", "type": "heal", "cost": 2, "heal_multiplier": 0.25},
-	"tactical_retreat": {"name": "战术后撤", "class": "common", "type": "dodge", "cost": 2, "block_multiplier": 0.90, "dodge_layers": 1},
-	"enemy_heavy_strike": {"name": "重击", "class": "enemy", "type": "attack", "cost": 1, "multiplier": 1.50, "hits": 1, "damage_type": "physical"},
-	"enemy_rend": {"name": "撕裂", "class": "enemy", "type": "attack", "cost": 1, "multiplier": 0.70, "hits": 2, "damage_type": "physical"},
-	"enemy_fortify": {"name": "固守", "class": "enemy", "type": "defense", "cost": 1, "multiplier": 1.50},
-	"enemy_enrage": {"name": "狂怒", "class": "enemy", "type": "buff", "cost": 1, "attack_multiplier": 1.30},
-	"enemy_weaken": {"name": "虚弱凝视", "class": "enemy", "type": "debuff", "cost": 1, "weaken_multiplier": 0.80},
-	"enemy_quick_evade": {"name": "迅捷闪避", "class": "enemy", "type": "dodge", "cost": 1, "dodge_layers": 1},
-	"enemy_dark_bolt": {"name": "暗影弹", "class": "enemy", "type": "attack", "cost": 1, "multiplier": 1.20, "hits": 1, "damage_type": "shadow"},
-		"enemy_taunt": {"name": "嘲讽", "class": "enemy", "type": "taunt", "cost": 1, "taunt_duration": 1}
+	"heavy_slash": {"name": "重劈", "class": "warrior", "type": "attack", "slot": 1, "energy_cost": 12, "cooldown": 0, "multiplier": 2.25, "hits": 1, "damage_type": "physical"},
+	"shield_wall": {"name": "盾墙", "class": "warrior", "type": "defense", "slot": 3, "energy_cost": 18, "cooldown": 0, "multiplier": 2.40},
+	"counter_stance": {"name": "反击架势", "class": "warrior", "type": "stance", "slot": 3, "energy_cost": 18, "cooldown": 0, "block_multiplier": 1.20, "counter_multiplier": 1.35},
+	"war_cry": {"name": "战吼", "class": "warrior", "type": "buff", "slot": 4, "energy_cost": 0, "cooldown": 3, "attack_multiplier": 1.25},
+	"precise_shot": {"name": "精准射击", "class": "archer", "type": "attack", "slot": 1, "energy_cost": 12, "cooldown": 0, "multiplier": 2.10, "hits": 1, "armor_reduce": 0.30, "damage_type": "physical"},
+	"quick_shot": {"name": "连珠箭", "class": "archer", "type": "attack", "slot": 2, "energy_cost": 30, "cooldown": 0, "multiplier": 0.60, "hits": 4, "damage_type": "physical"},
+	"hunter_mark": {"name": "猎人标记", "class": "archer", "type": "debuff", "slot": 3, "energy_cost": 18, "cooldown": 0, "mark_multiplier": 1.35, "weaken_multiplier": 0.75},
+	"roll": {"name": "翻滚", "class": "archer", "type": "dodge", "slot": 4, "energy_cost": 0, "cooldown": 3, "block_multiplier": 1.20, "dodge_layers": 1},
+	"first_aid": {"name": "急救", "class": "common", "type": "heal", "slot": 3, "energy_cost": 18, "cooldown": 0, "heal_multiplier": 0.25},
+	"tactical_retreat": {"name": "战术后撤", "class": "common", "type": "dodge", "slot": 4, "energy_cost": 0, "cooldown": 3, "block_multiplier": 0.90, "dodge_layers": 1},
+	"enemy_heavy_strike": {"name": "重击", "class": "enemy", "type": "attack", "slot": 0, "energy_cost": 0, "cooldown": 0, "multiplier": 1.50, "hits": 1, "damage_type": "physical"},
+	"enemy_rend": {"name": "撕裂", "class": "enemy", "type": "attack", "slot": 0, "energy_cost": 0, "cooldown": 0, "multiplier": 0.70, "hits": 2, "damage_type": "physical"},
+	"enemy_fortify": {"name": "固守", "class": "enemy", "type": "defense", "slot": 0, "energy_cost": 0, "cooldown": 0, "multiplier": 1.50},
+	"enemy_enrage": {"name": "狂怒", "class": "enemy", "type": "buff", "slot": 0, "energy_cost": 0, "cooldown": 0, "attack_multiplier": 1.30},
+	"enemy_weaken": {"name": "虚弱凝视", "class": "enemy", "type": "debuff", "slot": 0, "energy_cost": 0, "cooldown": 0, "weaken_multiplier": 0.80},
+	"enemy_quick_evade": {"name": "迅捷闪避", "class": "enemy", "type": "dodge", "slot": 0, "energy_cost": 0, "cooldown": 0, "dodge_layers": 1},
+	"enemy_dark_bolt": {"name": "暗影弹", "class": "enemy", "type": "attack", "slot": 0, "energy_cost": 0, "cooldown": 0, "multiplier": 1.20, "hits": 1, "damage_type": "shadow"},
+		"enemy_taunt": {"name": "嘲讽", "class": "enemy", "type": "taunt", "slot": 0, "energy_cost": 0, "cooldown": 0, "taunt_duration": 1}
 }
 
 const INNATE_SKILLS := {
-	"innate_attack": {"name": "普通攻击", "type": "attack", "cost": 1, "multiplier": 1.0, "hits": 1, "damage_type": "physical"},
-	"innate_defend": {"name": "防御", "type": "defense", "cost": 1, "multiplier": 1.0},
-	"innate_dodge": {"name": "闪避", "type": "dodge", "cost": 1, "dodge_layers": 1},
-	"ranger_flurry": {"name": "游侠连击", "type": "attack", "cost": 1, "multiplier": 0.3, "hits": 4, "damage_type": "physical"}
+	"innate_attack_1": {"name": "普通攻击", "type": "attack", "multiplier": 1.0, "hits": 1, "damage_type": "physical", "energy_gain": 4},
+	"innate_attack_2": {"name": "攻击·贰", "type": "attack", "multiplier": 1.0, "hits": 1, "damage_type": "physical", "energy_gain": 4},
+	"innate_attack_3": {"name": "攻击·叁", "type": "attack", "multiplier": 1.0, "hits": 1, "damage_type": "physical", "energy_gain": 4},
+	"innate_attack_4": {"name": "攻击·肆", "type": "attack", "multiplier": 1.0, "hits": 1, "damage_type": "physical", "energy_gain": 4},
+	"innate_defend": {"name": "防御", "type": "defense", "multiplier": 1.0, "energy_gain": 3},
+	"innate_dodge": {"name": "闪避", "type": "dodge", "dodge_layers": 1, "energy_gain": 2}
 }
 
 const EQUIPMENT := {

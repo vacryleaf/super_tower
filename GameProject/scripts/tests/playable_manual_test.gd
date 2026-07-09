@@ -48,19 +48,19 @@ func _play_one_action(session: PlaySession) -> void:
 	if target < 0:
 		return
 	var block_power := int(session.player.get("block_power", session.player.get("defense", 1)))
-	if String(session.player["class_id"]) == "archer" and _incoming_damage(session) >= block_power and session.action_points >= 1 and session.dodge_layers <= 0:
+	if String(session.player["class_id"]) == "archer" and _incoming_damage(session) >= block_power and not session.has_acted and session.dodge_layers <= 0:
 		session.player_dodge()
 		return
-	if _incoming_damage(session) >= block_power and session.action_points >= 1 and session.player_block < block_power and session.dodge_layers <= 0:
+	if _incoming_damage(session) >= block_power and not session.has_acted and session.player_block < block_power and session.dodge_layers <= 0:
 		session.player_defend()
 		return
 	if session.player["equipped_skills"].size() > 0:
 		var skill_id: String = session.player["equipped_skills"][0]
-		var skill_cost := int(DataCatalog.SKILLS[skill_id].get("cost", 2))
-		if session.action_points >= skill_cost:
+		var skill_cost := int(DataCatalog.SKILLS[skill_id].get("energy_cost", 0))
+		if session.energy >= skill_cost:
 			session.use_skill(0, target)
 			return
-	if session.action_points >= 1:
+	if not session.has_acted:
 		session.player_attack(target)
 		return
 	session.end_turn()

@@ -86,16 +86,21 @@ var current_encounter: Dictionary:
 		return battle_state.current_encounter
 	set(value):
 		battle_state.current_encounter = value
-var action_points: int:
+var energy: int:
 	get:
-		return battle_state.action_points
+		return battle_state.energy
 	set(value):
-		battle_state.action_points = value
-var max_action_points: int:
+		battle_state.energy = value
+var has_acted: bool:
 	get:
-		return battle_state.max_action_points
+		return battle_state.has_acted
 	set(value):
-		battle_state.max_action_points = value
+		battle_state.has_acted = value
+var skill_cooldowns: Dictionary:
+	get:
+		return battle_state.skill_cooldowns
+	set(value):
+		battle_state.skill_cooldowns = value
 var player_block: int:
 	get:
 		return battle_state.player_block
@@ -318,8 +323,8 @@ func _start_current_battle() -> void:
 	current_encounter = _get_current_encounter()
 	enemies = _build_enemies(current_encounter)
 	allies = []
-	action_points = 1
-	max_action_points = 1
+	has_acted = false
+	skill_cooldowns = {}
 	player_block = 0
 	dodge_layers = 0
 	round_index = 0
@@ -359,8 +364,8 @@ func _build_enemies(encounter: Dictionary) -> Array[Dictionary]:
 
 func _begin_player_turn() -> void:
 	round_index += 1
-	max_action_points = mini(round_index, 3)
-	action_points = max_action_points
+	has_acted = false
+	_tick_skill_cooldowns()
 	player_block = 0
 	pending_state_card = _draw_state_buff()
 	status_service.tick_statuses(player)
@@ -450,8 +455,6 @@ func choose_reward_target(index: int) -> void:
 func _after_player_action() -> void:
 	if _opposing_units_alive() == 0:
 		_on_victory()
-	elif action_points <= 0:
-		message = "行动力已用完，请点击结束回合。"
 
 
 func _player_combatant() -> Dictionary:
@@ -857,13 +860,25 @@ func _consume_state_after_action(action_tag: String) -> void:
 	state_buffs.consume_state_after_action(self, action_tag)
 
 
-func _can_act(cost: int) -> bool:
+func _can_act() -> bool:
 	if phase != "battle":
 		return false
-	if action_points < cost:
-		message = "行动力不足。"
+	if has_acted:
+		message = "本回合已经行动过了。"
 		return false
 	return true
+
+
+func _tick_skill_cooldowns() -> void:
+	var expired: Array[String] = []
+	for skill_id in skill_cooldowns.keys():
+		var remaining := int(skill_cooldowns[skill_id]) - 1
+		if remaining <= 0:
+			expired.append(skill_id)
+		else:
+			skill_cooldowns[skill_id] = remaining
+	for skill_id in expired:
+		skill_cooldowns.erase(skill_id)
 
 
 func _valid_target(target_index: int) -> int:

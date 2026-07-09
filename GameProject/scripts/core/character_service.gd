@@ -35,10 +35,12 @@ func create_character(class_id: String) -> Dictionary:
 		"unlocked_skills": [],
 		"equipped_skills": [],
 		"innate_skills": {
-			"attack": "innate_attack",
+			"attack_1": "innate_attack_1",
 			"defend": "innate_defend",
 			"dodge": "innate_dodge"
 		},
+		"energy": 0,
+		"skill_cooldowns": {},
 		"tutorial_completed": false,
 		"battles_completed": 0,
 		"highest_floor": 0,
@@ -161,7 +163,7 @@ func recalculate_player_stats(player: Dictionary, reset_hp: bool) -> void:
 	player["state_defense_bonus"] = 0
 	player["extra_hits"] = 0
 	player["innate_skills"] = {
-		"attack": "innate_attack",
+		"attack_1": "innate_attack_1",
 		"defend": "innate_defend",
 		"dodge": "innate_dodge"
 	}

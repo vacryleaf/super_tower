@@ -25,7 +25,8 @@ func run_battle(player: Dictionary, encounter: Dictionary, tower_floor: int, bat
 	var log: Array[String] = []
 	var rounds := 0
 	var player_block := 0
-	var used_first_skill := false
+	var energy := int(player.get("energy", 0))
+	var skill_cooldowns: Dictionary = player.get("skill_cooldowns", {}).duplicate()
 	var first_strike_done := false
 	var charge_state := charge_sim.build_charge_state(player)
 	var counter_state := {"charges": 0, "multiplier": 1.0}
@@ -38,20 +39,19 @@ func run_battle(player: Dictionary, encounter: Dictionary, tower_floor: int, bat
 	while player["hp"] > 0 and _alive_count(enemies) > 0 and rounds < MAX_ROUNDS:
 		rounds += 1
 		player_block = 0
-		var action_points: int = mini(rounds, 3)
 		charge_sim.charge_one_for_round(charge_state)
-		var incoming := _incoming_damage(enemies, rounds)
 
-		var defend_value := int(player.get("block_power", player.get("defense", 1))) + _state_bonus(player, "defense")
-		if defend_value >= 3 and incoming >= defend_value * 2 and action_points > 1:
-			defend_value = charge_sim.apply_defense_modifiers(defend_value, charge_state)
-			player_block += defend_value
-			for _i in range(charge_sim.consume_repeats(charge_state, "defense")):
-				player_block += defend_value
-			action_points -= 1
-			log.append("round_%d:defend" % rounds)
+		# 每回合一次攻击
+		if _alive_count(enemies) > 0:
+			var attack_damage := int(status_service.resolve_stat(player, float(player["attack"]), StatusService.STAT_ATTACK)) + _state_bonus(player, "attack")
+			attack_damage = charge_sim.apply_attack_modifiers(attack_damage, charge_state)
+			_damage_lowest_enemy(enemies, attack_damage, log, "attack")
+			for _i in range(charge_sim.consume_repeats(charge_state, "attack")):
+				_damage_lowest_enemy(enemies, attack_damage, log, "attack_charge_repeat")
+			energy = mini(DataCatalog.ENERGY_MAX, energy + DataCatalog.ATTACK_ENERGY)
 
-		if _should_use_skill(player, used_first_skill) and _can_pay_first_skill(player, action_points):
+		# 尝试使用技能
+		if _should_use_skill_in_sim(player, energy, skill_cooldowns) and _alive_count(enemies) > 0:
 			var skill_id := _first_skill_id(player)
 			var skill: Dictionary = DataCatalog.SKILLS[skill_id]
 			var skill_type := String(skill.get("type", "attack"))
@@ -76,16 +76,21 @@ func run_battle(player: Dictionary, encounter: Dictionary, tower_floor: int, bat
 					counter_state["multiplier"] = maxf(float(counter_state["multiplier"]), float(skill.get("counter_multiplier", 1.0)) + char_service.skill_multiplier_bonus(player, skill_id, "attack"))
 			elif skill_type == "heal":
 				_skill_damage(player)
-			used_first_skill = true
-			action_points -= _first_skill_cost(player)
+			energy -= int(skill.get("energy_cost", 0))
+			var cooldown := int(skill.get("cooldown", 0))
+			if cooldown > 0:
+				skill_cooldowns[skill_id] = cooldown
 
-		while action_points > 0 and _alive_count(enemies) > 0:
-			var attack_damage := int(status_service.resolve_stat(player, float(player["attack"]), StatusService.STAT_ATTACK)) + _state_bonus(player, "attack")
-			attack_damage = charge_sim.apply_attack_modifiers(attack_damage, charge_state)
-			_damage_lowest_enemy(enemies, attack_damage, log, "attack")
-			for _i in range(charge_sim.consume_repeats(charge_state, "attack")):
-				_damage_lowest_enemy(enemies, attack_damage, log, "attack_charge_repeat")
-			action_points -= 1
+		# 冷却回合递减
+		var expired: Array[String] = []
+		for sk_id in skill_cooldowns.keys():
+			var remaining := int(skill_cooldowns[sk_id]) - 1
+			if remaining <= 0:
+				expired.append(sk_id)
+			else:
+				skill_cooldowns[sk_id] = remaining
+		for sk_id in expired:
+			skill_cooldowns.erase(sk_id)
 
 		# 检查裂变特性：HP 低于阈值的敌人可能分裂
 		CombatRules.check_split(enemies, log)
@@ -139,6 +144,8 @@ func run_battle(player: Dictionary, encounter: Dictionary, tower_floor: int, bat
 		"enemies_total": enemies.size(),
 		"enemies_alive": _alive_count(enemies),
 		"player_hp": int(player["hp"]),
+		"energy": energy,
+		"skill_cooldowns": skill_cooldowns,
 		"log": log
 	}
 
@@ -151,12 +158,18 @@ func scale_enemy(unit: Dictionary, tower_floor: int, rank: String, formation_sca
 	return Combatant.scaled_enemy(unit, tower_floor, rank, formation_scale)
 
 
-func _should_use_skill(player: Dictionary, used_first_skill: bool) -> bool:
+func _should_use_skill_in_sim(player: Dictionary, energy: int, skill_cooldowns: Dictionary) -> bool:
 	if player["equipped_skills"].is_empty():
 		return false
-	if not used_first_skill:
-		return true
-	return int(player.get("battle_skill_uses", 0)) % 2 == 0
+	var skill_id := _first_skill_id(player)
+	var skill: Dictionary = DataCatalog.SKILLS[skill_id]
+	var energy_cost := int(skill.get("energy_cost", 0))
+	if energy < energy_cost:
+		return false
+	var cooldown := int(skill.get("cooldown", 0))
+	if cooldown > 0 and skill_cooldowns.get(skill_id, 0) > 0:
+		return false
+	return true
 
 
 func _skill_damage(player: Dictionary) -> int:
@@ -170,17 +183,6 @@ func _skill_damage(player: Dictionary) -> int:
 	var base_attack: float = status_service.resolve_stat(player, float(player["attack"]), StatusService.STAT_ATTACK)
 	return maxi(1, int(round(base_attack * multiplier)))
 
-
-func _can_pay_first_skill(player: Dictionary, action_points: int) -> bool:
-	return action_points >= _first_skill_cost(player)
-
-
-func _first_skill_cost(player: Dictionary) -> int:
-	var skill_id := _first_skill_id(player)
-	if skill_id == "":
-		return 999
-	var skill: Dictionary = DataCatalog.SKILLS[skill_id]
-	return int(skill.get("cost", 2))
 
 
 func _first_skill_id(player: Dictionary) -> String:
@@ -274,7 +276,7 @@ func _incoming_damage(enemies: Array[Dictionary], round_index: int) -> int:
 		var skill_id := enemy_rules.choose_skill(enemy, round_index)
 		var skill: Dictionary = DataCatalog.SKILLS.get(skill_id, DataCatalog.INNATE_SKILLS.get(skill_id, {}))
 		if skill.get("type", "") == "attack":
-			if skill_id == "innate_attack":
+			if skill_id.begins_with("innate_attack_"):
 				total += _enemy_round_damage(enemy, round_index)
 			else:
 				var hits := maxi(1, int(skill.get("hits", 1)))
@@ -339,7 +341,7 @@ func _execute_enemy_skill_in_sim(player: Dictionary, enemy: Dictionary, skill_id
 	var skill_type := String(skill.get("type", "attack"))
 	match skill_type:
 		"attack":
-			if skill_id == "innate_attack":
+			if skill_id.begins_with("innate_attack_"):
 				var result := _apply_enemy_attack(player, enemy, -1, player_block, log, false, round_index, counter_state)
 				return {"block": int(result["block"])}
 			var damage := CombatRules.skill_attack_value_for_actor(enemy, skill_id, status_service)

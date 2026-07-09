@@ -43,8 +43,14 @@ func render(
 		if i < session.player["equipped_skills"].size():
 			var skill_id: String = session.player["equipped_skills"][i]
 			var skill: Dictionary = DataCatalog.SKILLS[skill_id]
-			button.text = "%s（%d）" % [skill["name"], int(skill.get("cost", 0))]
-			button.disabled = input_locked or session.action_points < int(skill.get("cost", 0))
+			var energy_cost := int(skill.get("energy_cost", 0))
+			var cooldown := int(skill.get("cooldown", 0))
+			var cd_remaining := int(session.skill_cooldowns.get(skill_id, 0))
+			if cooldown > 0 and cd_remaining > 0:
+				button.text = "%s（冷却 %d）" % [skill["name"], cd_remaining]
+			else:
+				button.text = "%s（%d 能量）" % [skill["name"], energy_cost]
+			button.disabled = input_locked or session.has_acted or session.energy < energy_cost or (cooldown > 0 and cd_remaining > 0)
 			button.pressed.connect(skill_callback.bind(i))
 		else:
 			button.text = "未解锁"
@@ -89,7 +95,7 @@ func refresh(
 		if button == null or not is_instance_valid(button):
 			continue
 		if i < 3:
-			button.disabled = input_locked or session.action_points < 1
+			button.disabled = input_locked or session.has_acted
 		else:
 			button.disabled = input_locked
 	for i in range(skill_buttons.size()):
@@ -101,7 +107,14 @@ func refresh(
 			continue
 		var skill_id: String = session.player["equipped_skills"][i]
 		var skill: Dictionary = DataCatalog.SKILLS[skill_id]
-		button.disabled = input_locked or session.action_points < int(skill.get("cost", 0))
+		var energy_cost := int(skill.get("energy_cost", 0))
+		var cooldown := int(skill.get("cooldown", 0))
+		var cd_remaining := int(session.skill_cooldowns.get(skill_id, 0))
+		button.disabled = input_locked or session.has_acted or session.energy < energy_cost or (cooldown > 0 and cd_remaining > 0)
+		if cooldown > 0 and cd_remaining > 0:
+			button.text = "%s（冷却 %d）" % [skill["name"], cd_remaining]
+		else:
+			button.text = "%s（%d 能量）" % [skill["name"], energy_cost]
 	for button in charge_buttons:
 		if button == null or not is_instance_valid(button):
 			continue
