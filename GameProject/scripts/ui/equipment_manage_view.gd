@@ -2,6 +2,7 @@ extends RefCounted
 class_name EquipmentManageView
 
 const DataCatalog = preload("res://scripts/core/data_catalog.gd")
+const UIHelpers = preload("res://scripts/ui/ui_helpers.gd")
 
 const SLOTS := ["head", "body", "waist", "legs", "hands", "leggings", "feet", "weapon", "offhand", "shoulders", "cloak", "necklace", "ring", "ring2"]
 const SLOT_LABELS := {
@@ -19,7 +20,7 @@ func render(root: Control, class_key: String, roster_player: Dictionary, label_f
 	root.add_child(label_factory.call("%s - 装备管理" % cls_name, 28))
 
 	if selected_slot != "":
-		root.add_child(label_factory.call("已选中槽位：%s，点击右侧背包物品装备" % SLOT_LABELS.get(selected_slot, selected_slot), 14))
+		root.add_child(label_factory.call("已选中槽位：%s，点击右侧背包物品装备" % UIHelpers.slot_label(selected_slot), 14))
 
 	var body := HBoxContainer.new()
 	body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -45,14 +46,14 @@ func _render_slots(parent: Control, roster_player: Dictionary, label_factory: Ca
 	slot_panel.add_child(label_factory.call("装备槽位", 18))
 
 	var equipment: Dictionary = roster_player.get("equipment", {})
-	for slot in SLOTS:
+	for slot in UIHelpers.SLOTS:
 		var item_id := String(equipment.get(slot, ""))
 		var item_name := "空"
 		if item_id != "" and DataCatalog.EQUIPMENT.has(item_id):
 			item_name = DataCatalog.EQUIPMENT[item_id]["name"]
 
 		var button := Button.new()
-		var text := "%s：%s" % [SLOT_LABELS.get(slot, slot), item_name]
+		var text := "%s：%s" % [UIHelpers.slot_label(slot), item_name]
 		if slot == selected_slot:
 			text = "> " + text
 		button.text = text
@@ -100,7 +101,7 @@ func _render_bag(parent: Control, roster_player: Dictionary, class_key: String, 
 		var button := Button.new()
 		var text: String = item["name"]
 		if current_slot != "":
-			text += "（已装备：%s）" % SLOT_LABELS.get(current_slot, current_slot)
+			text += "（已装备：%s）" % UIHelpers.slot_label(current_slot)
 		text += "  HP %d  攻击 %d  护甲 %d  格挡 %d" % [int(item["hp"]), int(item["attack"]), int(item["armor"]), int(item.get("block", 0))]
 		var set_id := String(item.get("set_id", ""))
 		if set_id != "" and DataCatalog.EQUIPMENT_SETS.has(set_id):

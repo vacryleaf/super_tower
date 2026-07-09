@@ -87,6 +87,10 @@ func run_battle(player: Dictionary, encounter: Dictionary, tower_floor: int, bat
 				_damage_lowest_enemy(enemies, attack_damage, log, "attack_charge_repeat")
 			action_points -= 1
 
+		# 检查裂变特性：HP 低于阈值的敌人可能分裂
+		CombatRules.check_split(enemies, log)
+		CombatRules.check_summon(enemies, log)
+
 		if _alive_count(enemies) == 0:
 			break
 
@@ -124,7 +128,8 @@ func run_battle(player: Dictionary, encounter: Dictionary, tower_floor: int, bat
 				continue
 			status_service.fire_trigger(enemy, TriggerEvents.ON_TURN_END, {"battle_log": log, "session": null, "round_index": rounds})
 
-		_apply_end_round_traits(player, enemies, rounds)
+		CombatRules.apply_end_round_traits(player, enemies, rounds, status_service, log)
+		CombatRules.apply_arena_effects(player, enemies, rounds, status_service)
 
 	var victory: bool = int(player["hp"]) > 0 and _alive_count(enemies) == 0
 	return {
@@ -192,7 +197,12 @@ func _damage_lowest_enemy(enemies: Array[Dictionary], amount: int, log: Array[St
 	if target_index < 0:
 		for i in range(enemies.size()):
 			var enemy := enemies[i]
-			if enemy["hp"] > 0 and enemy["hp"] < target_hp:
+			if enemy["hp"] <= 0:
+				continue
+			# 有前排存活时跳过 backline 目标
+			if CombatRules.is_backline_protected(enemies, enemy):
+				continue
+			if enemy["hp"] < target_hp:
 				target_hp = enemy["hp"]
 				target_index = i
 	if target_index < 0:
@@ -207,7 +217,10 @@ func _damage_lowest_enemy(enemies: Array[Dictionary], amount: int, log: Array[St
 
 func _apply_damage_to_player(player: Dictionary, block: int, damage: int) -> Dictionary:
 	var player_unit := Combatant.from_player(player, block, 0)
-	var result := Combatant.apply_damage(player_unit, damage)
+	# 应用玩家身上的 damage_taken 乘数（mark 等特性施加的易伤 debuff）
+	var damage_taken_mult: float = status_service.resolve_stat(player_unit, 1.0, StatusService.STAT_DAMAGE_TAKEN)
+	var adjusted_damage := maxi(1, int(round(float(damage) * damage_taken_mult)))
+	var result := Combatant.apply_damage(player_unit, adjusted_damage)
 	var synced := Combatant.sync_to_player(player_unit, player)
 	return {"block": int(synced["block"]), "hit": not bool(result["dodged"])}
 
@@ -217,8 +230,14 @@ func _apply_enemy_attack(player: Dictionary, enemy: Dictionary, enemy_index: int
 	for damage in _enemy_attack_segments(enemy, round_index, first_strike):
 		var result := _apply_damage_to_player(player, block, damage)
 		block = int(result["block"])
-		was_hit = was_hit or bool(result["hit"])
+		var hit := bool(result["hit"])
+		was_hit = was_hit or hit
 		log.append("enemy_attack:%s:%d" % [enemy["name"], damage])
+		if hit:
+			status_service.fire_trigger(enemy, TriggerEvents.ON_HIT_DEALT, {
+				"battle_log": log, "session": null, "round_index": round_index,
+				"source": enemy, "target": player, "damage": damage
+			})
 	if was_hit:
 		_trigger_counter_attack(player, enemy, enemy_index, log, counter_state)
 	return {"block": block, "hit": was_hit}
@@ -264,17 +283,21 @@ func _incoming_damage(enemies: Array[Dictionary], round_index: int) -> int:
 	return total
 
 
-func _apply_end_round_traits(player: Dictionary, enemies: Array[Dictionary], round_index: int) -> void:
-	for enemy in enemies:
-		if enemy["hp"] <= 0:
-			continue
-		var traits: Array = enemy["traits"]
-		if traits.has("curse") and round_index % 3 == 0:
-			player["hp"] = maxi(0, int(player["hp"]) - 1)
+
+
+func _build_player_context(player: Dictionary, block: int) -> Dictionary:
+	return {
+		"hp": int(player.get("hp", 0)),
+		"max_hp": int(player.get("max_hp", 1)),
+		"block": block,
+		"block_power": int(player.get("block_power", player.get("defense", 1))),
+		"dodge_layers": 0
+	}
 
 
 func _resolve_enemy_action(player: Dictionary, enemy: Dictionary, player_block: int, round_index: int, counter_state: Dictionary, log: Array[String]) -> Dictionary:
-	var skill_id := enemy_rules.choose_skill(enemy, round_index)
+	var player_context := _build_player_context(player, player_block)
+	var skill_id := enemy_rules.choose_skill(enemy, round_index, player_context)
 	return _execute_enemy_skill_in_sim(player, enemy, skill_id, player_block, round_index, counter_state, log)
 
 
@@ -328,6 +351,11 @@ func _execute_enemy_skill_in_sim(player: Dictionary, enemy: Dictionary, skill_id
 				was_hit = was_hit or bool(result["hit"])
 				log.append("enemy_skill:%s:%s:%d" % [skill_id, enemy["name"], damage])
 			if was_hit:
+				# 技能命中后触发 ON_HIT_DEALT，使 break_armor/mark 等命中触发特性生效
+				status_service.fire_trigger(enemy, TriggerEvents.ON_HIT_DEALT, {
+					"battle_log": log, "session": null, "round_index": round_index,
+					"source": enemy, "target": player, "damage": damage
+				})
 				_trigger_counter_attack(player, enemy, -1, log, counter_state)
 		"defense", "stance":
 			enemy["block"] = int(enemy.get("block", 0)) + CombatRules.skill_defense_value_for_actor(enemy, skill_id, status_service)
@@ -396,3 +424,8 @@ func _has_first_strike(enemies: Array[Dictionary]) -> bool:
 
 func _alive_count(enemies: Array[Dictionary]) -> int:
 	return CombatRules.alive_count(enemies)
+
+
+
+
+

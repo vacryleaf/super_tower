@@ -112,6 +112,17 @@ func _add_camp_background() -> void:
 	move_child(bg, 0)
 
 
+func _add_battle_background() -> void:
+	var bg := TextureRect.new()
+	bg.texture = load("res://img/boss_arena.png")
+	bg.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	bg.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(bg)
+	move_child(bg, 0)
+
+
 func _render_menu() -> void:
 	render_queued = false
 	_clear_root()
@@ -125,6 +136,8 @@ func _render_menu() -> void:
 func _render_game() -> void:
 	render_queued = false
 	_clear_root()
+	if session.is_boss_battle():
+		_add_battle_background()
 	run_hud_view.render(root, session, input_locked, Callable(self, "_on_end_run_to_camp_pressed"), Callable(self, "_status_badge"), Callable(self, "_spacer"))
 	var message_label := _label(session.message, 16)
 	message_label_node = message_label
@@ -619,52 +632,12 @@ func _on_manage_close() -> void:
 
 
 func _on_skill_toggle(class_key: String, skill_id: String) -> void:
-	var profile := session.save_profile.read_profile(Callable(session, "_persistent_player_snapshot"))
-	var roster: Dictionary = profile.get("roster", {})
-	if not roster.has(class_key):
-		return
-	var player: Dictionary = roster[class_key]
-	var equipped: Array = player.get("equipped_skills", [])
-	if equipped.has(skill_id):
-		equipped.erase(skill_id)
-	elif equipped.size() < 4:
-		equipped.append(skill_id)
-	player["equipped_skills"] = equipped
-	roster[class_key] = player
-	profile["roster"] = roster
-	session.save_profile.write_profile(profile)
+	session.toggle_equipped_skill(class_key, skill_id)
 	_render_camp_screen()
 
 
 func _on_equipment_swap(class_key: String, slot: String, item_id: String) -> void:
-	var profile := session.save_profile.read_profile(Callable(session, "_persistent_player_snapshot"))
-	var roster: Dictionary = profile.get("roster", {})
-	if not roster.has(class_key):
-		return
-	var player: Dictionary = roster[class_key]
-	var equipment: Dictionary = player.get("equipment", {})
-	var item: Dictionary = DataCatalog.EQUIPMENT[item_id]
-	var item_slot := String(item.get("slot", ""))
-	var target_slot := slot
-	if item_slot == "ring" and slot == "ring" and equipment.has("ring"):
-		target_slot = "ring2"
-	var previous := String(equipment.get(target_slot, ""))
-	var displaced_slot := ""
-	for existing_slot in equipment.keys():
-		if String(equipment[existing_slot]) == item_id:
-			displaced_slot = existing_slot
-			break
-	if displaced_slot != "":
-		if previous != "":
-			equipment[displaced_slot] = previous
-		else:
-			equipment.erase(displaced_slot)
-	else:
-		equipment[target_slot] = item_id
-	player["equipment"] = equipment
-	roster[class_key] = player
-	profile["roster"] = roster
-	session.save_profile.write_profile(profile)
+	session.swap_equipment(class_key, slot, item_id)
 	_render_camp_screen()
 
 

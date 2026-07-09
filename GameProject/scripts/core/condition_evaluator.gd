@@ -63,6 +63,7 @@ func evaluate(subject: Dictionary, condition: Dictionary, context: Dictionary) -
 	return true
 
 
+# 所有约束条件都必须满足（多 operator 用于范围判断，如 {"gte": 0.30, "lt": 0.60}）
 func _compare(actual: float, constraint) -> bool:
 	if typeof(constraint) == TYPE_FLOAT or typeof(constraint) == TYPE_INT:
 		return abs(actual - float(constraint)) < 0.0001
@@ -72,14 +73,14 @@ func _compare(actual: float, constraint) -> bool:
 	for op in constraint_dict.keys():
 		var target := float(constraint_dict[op])
 		match op:
-			OP_EQ:  return abs(actual - target) < 0.0001
-			OP_NE:  return abs(actual - target) >= 0.0001
-			OP_GT:  return actual > target
-			OP_GTE: return actual >= target
-			"mod": return int(actual) % maxi(1, int(target)) == 0
-			OP_LT:  return actual < target
-			OP_LTE: return actual <= target
-	return false
+			OP_EQ:  if abs(actual - target) >= 0.0001: return false
+			OP_NE:  if abs(actual - target) < 0.0001: return false
+			OP_GT:  if actual <= target: return false
+			OP_GTE: if actual < target: return false
+			"mod": if int(actual) % maxi(1, int(target)) != 0: return false  # 仅用于 round_index 等整数值，float 会被截断
+			OP_LT:  if actual >= target: return false
+			OP_LTE: if actual > target: return false
+	return true
 
 
 func _has_status(subject: Dictionary, status_id: String) -> bool:

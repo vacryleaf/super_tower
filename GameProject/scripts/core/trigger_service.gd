@@ -67,7 +67,15 @@ func _execute_action(target: Dictionary, action: Dictionary, context: Dictionary
 		TriggerEvents.ACTION_APPLY_STATUS:
 			var status_to_apply: Dictionary = action.get("status", {})
 			if not status_to_apply.is_empty() and status_service != null:
-				status_service.add_status(target, status_to_apply)
+				# apply_to: "context_target" 将状态施加给对手而非自身（用于 break_armor/mark 等命中触发特性）
+				var apply_target := target
+				if String(action.get("apply_to", "")) == "context_target":
+					var ctx_target: Dictionary = context.get("target", {})
+					if not ctx_target.is_empty():
+						apply_target = ctx_target
+					else:
+						battle_log.append("[WARN] apply_to=context_target 但 context 缺少 target，状态将施加到自身")
+				status_service.add_status(apply_target, status_to_apply)
 		TriggerEvents.ACTION_REMOVE_STATUS:
 			var remove_id := String(action.get("status_id", ""))
 			if remove_id != "" and status_service != null:

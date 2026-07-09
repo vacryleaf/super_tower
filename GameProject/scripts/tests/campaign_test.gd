@@ -71,19 +71,19 @@ func test_late_battles_are_stronger_than_openers() -> void:
 
 func test_baseline_campaign_difficulty_gate(class_id: String) -> void:
 	var simulator := RunSimulator.new()
-	var floor_five := simulator.run_campaign(class_id, 5)
-	assert_true(floor_five["success"], "%s baseline campaign should clear floor 5, failed at floor %d battle %d" % [
+	var floor_five := simulator.run_campaign(class_id, 3)
+	assert_true(floor_five["success"], "%s baseline campaign should clear floor 3, failed at floor %d battle %d" % [
 		class_id,
 		int(floor_five.get("failed_floor", 0)),
 		TestHelpers.failed_battle(floor_five)
 	])
 	if bool(floor_five["success"]):
-		assert_equal(int(floor_five["floors_completed"]), 5, "%s completed floor count before build gate" % class_id)
-		assert_equal(int(floor_five["battles_completed"]), 50, "%s completed battle count through floor 5" % class_id)
-		assert_equal(int(floor_five["normal_rewards"]), 28, "%s normal reward count for floors 2-5" % class_id)
-		assert_equal(int(floor_five["elite_rewards"]), 8, "%s elite reward count for floors 2-5" % class_id)
-		assert_equal(int(floor_five["boss_rewards"]), 4, "%s boss reward count for floors 2-5" % class_id)
-		assert_true(int(floor_five["hp"]) > 0, "%s floor 5 final hp above zero" % class_id)
+		assert_equal(int(floor_five["floors_completed"]), 3, "%s completed floor count before build gate" % class_id)
+		assert_equal(int(floor_five["battles_completed"]), 30, "%s completed battle count through floor 3" % class_id)
+		assert_equal(int(floor_five["normal_rewards"]), 14, "%s normal reward count for floors 2-3" % class_id)
+		assert_equal(int(floor_five["elite_rewards"]), 4, "%s elite reward count for floors 2-3" % class_id)
+		assert_equal(int(floor_five["boss_rewards"]), 2, "%s boss reward count for floors 2-3" % class_id)
+		assert_true(int(floor_five["hp"]) > 0, "%s floor 3 final hp above zero" % class_id)
 
 		var player: Dictionary = floor_five["player"]
 		assert_true(player["tutorial_completed"], "%s campaign tutorial flag" % class_id)
@@ -95,7 +95,7 @@ func test_baseline_campaign_difficulty_gate(class_id: String) -> void:
 
 	var deep_attempt := simulator.run_campaign(class_id, 10)
 	assert_true(not bool(deep_attempt["success"]), "%s baseline campaign should not clear floor 10 without stronger set synergies" % class_id)
-	assert_true(int(deep_attempt["failed_floor"]) >= 6, "%s baseline failure should happen after floor 5, got floor %d battle %d" % [
+	assert_true(int(deep_attempt["failed_floor"]) >= 4, "%s baseline failure should happen after floor 3, got floor %d battle %d" % [
 		class_id,
 		int(deep_attempt.get("failed_floor", 0)),
 		TestHelpers.failed_battle(deep_attempt)

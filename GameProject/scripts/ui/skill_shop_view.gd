@@ -18,11 +18,11 @@ func render(
 	var common_skills := _common_skills()
 	var any_owned := false
 	for skill_id in common_skills:
-		any_owned = any_owned or _is_skill_owned(session, skill_id)
+		any_owned = any_owned or session.is_skill_owned(skill_id)
 
 	for skill_id in common_skills:
 		var skill: Dictionary = DataCatalog.SKILLS[skill_id]
-		var owned := _is_skill_owned(session, skill_id)
+		var owned := session.is_skill_owned(skill_id)
 		var row := HBoxContainer.new()
 		row.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 		var label_text := "%s - %d 塔币" % [skill["name"], SKILL_PRICE]
@@ -58,11 +58,3 @@ func _common_skills() -> Array[String]:
 			result.append(String(skill_id))
 	return result
 
-
-func _is_skill_owned(session: Variant, skill_id: String) -> bool:
-	var profile = session.save_profile.read_profile(Callable(session, "_persistent_player_snapshot"))
-	var roster: Dictionary = profile.get("roster", {})
-	for class_key in roster.keys():
-		if roster[class_key].get("unlocked_skills", []).has(skill_id):
-			return true
-	return false

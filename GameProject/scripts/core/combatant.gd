@@ -241,6 +241,118 @@ static func _apply_trait_statuses(enemy: Dictionary) -> void:
 			"duration": -1
 		})
 
+	# 破甲：命中玩家时施加护甲降低 debuff（defense × 0.80，持续 2 回合）
+	if traits.has("break_armor"):
+		statuses.append({
+			"id": "trait_break_armor", "name": "破甲", "kind": "buff", "stack": "replace",
+			"effects": [],
+			"triggers": [{
+				"event": TriggerEvents.ON_HIT_DEALT,
+				"actions": [{
+					"type": TriggerEvents.ACTION_APPLY_STATUS,
+					"apply_to": "context_target",
+					"status": {
+						"id": "break_armor_debuff", "name": "破甲", "kind": "debuff", "stack": "replace",
+						"effects": [{"stat": "defense", "type": "multiply", "value": 0.80}],
+						"duration": 2
+					}
+				}]
+			}],
+			"duration": -1
+		})
+
+	# 标记：命中玩家时施加易伤 debuff（damage_taken × 1.25，持续 2 回合）
+	if traits.has("mark"):
+		statuses.append({
+			"id": "trait_mark", "name": "标记", "kind": "buff", "stack": "replace",
+			"effects": [],
+			"triggers": [{
+				"event": TriggerEvents.ON_HIT_DEALT,
+				"actions": [{
+					"type": TriggerEvents.ACTION_APPLY_STATUS,
+					"apply_to": "context_target",
+					"status": {
+						"id": "mark_debuff", "name": "易伤", "kind": "debuff", "stack": "replace",
+						"effects": [{"stat": "damage_taken", "type": "multiply", "value": 1.25}],
+						"duration": 2
+					}
+				}]
+			}],
+			"duration": -1
+		})
+
+	# 法盾：每 3 回合获得 1 层护盾，减伤 50% 持续 1 回合
+	if traits.has("spell_shield"):
+		statuses.append({
+			"id": "trait_spell_shield", "name": "法盾", "kind": "buff", "stack": "replace",
+			"effects": [],
+			"triggers": [{
+				"event": TriggerEvents.ON_TURN_START,
+				"condition": {"round_index": {"mod": 3}},
+				"actions": [{
+					"type": TriggerEvents.ACTION_APPLY_STATUS,
+					"status": {
+						"id": "spell_shield_active", "name": "法盾", "kind": "buff", "stack": "replace",
+						"effects": [{"stat": "damage_taken", "type": "multiply", "value": 0.50}],
+						"duration": 1
+					}
+				}]
+			}],
+			"duration": -1
+		})
+
+	# 充能：每 3 回合充能一次，下次攻击力翻倍
+	if traits.has("charge"):
+		statuses.append({
+			"id": "trait_charge", "name": "充能", "kind": "buff", "stack": "replace",
+			"effects": [],
+			"triggers": [{
+				"event": TriggerEvents.ON_TURN_START,
+				"condition": {"round_index": {"mod": 3}},
+				"actions": [{
+					"type": TriggerEvents.ACTION_APPLY_STATUS,
+					"status": {
+						"id": "charged_up", "name": "充能完毕", "kind": "buff", "stack": "replace",
+						"effects": [{"stat": "attack", "type": "multiply", "value": 2.0}],
+						"duration": 1
+					}
+				}]
+			}],
+			"duration": -1
+		})
+
+	# 阶段：HP 越低攻击越高（30%-60%: ×1.30, <30%: ×1.60）
+	if traits.has("phase"):
+		statuses.append({
+			"id": "trait_phase", "name": "阶段", "kind": "buff", "stack": "replace",
+			"effects": [],
+			"conditional_effects": [
+				{"condition": {"hp_ratio": {"gte": 0.30, "lt": 0.60}}, "effects": [{"stat": "attack", "type": "multiply", "value": 1.30}]},
+				{"condition": {"hp_ratio": {"lt": 0.30}}, "effects": [{"stat": "attack", "type": "multiply", "value": 1.60}]}
+			],
+			"duration": -1
+		})
+
+	# 召唤：每 4 回合标记准备召唤，由 check_summon 创建弱化分身
+	if traits.has("summon"):
+		statuses.append({
+			"id": "trait_summon", "name": "召唤", "kind": "buff", "stack": "replace",
+			"effects": [],
+			"triggers": [{
+				"event": TriggerEvents.ON_TURN_START,
+				"condition": {"round_index": {"mod": 4}},
+				"actions": [{
+					"type": TriggerEvents.ACTION_APPLY_STATUS,
+					"status": {
+						"id": "summon_ready", "name": "召唤准备", "kind": "buff", "stack": "replace",
+						"effects": [],
+						"duration": 1
+					}
+				}]
+			}],
+			"duration": -1
+		})
+
 	enemy["statuses"] = statuses
 
 

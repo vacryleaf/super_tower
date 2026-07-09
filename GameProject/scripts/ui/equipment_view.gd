@@ -2,8 +2,7 @@ extends RefCounted
 class_name EquipmentView
 
 const DataCatalog = preload("res://scripts/core/data_catalog.gd")
-
-const SLOTS := ["head", "body", "waist", "legs", "hands", "leggings", "feet", "weapon", "offhand", "shoulders", "cloak", "necklace", "ring", "ring2"]
+const UIHelpers = preload("res://scripts/ui/ui_helpers.gd")
 
 
 func panel(session: Variant, label_factory: Callable, close_callback: Callable) -> Control:
@@ -59,23 +58,7 @@ func attachment_summary(session: Variant, target_type: String, target_id: String
 
 
 func slot_label(slot: String) -> String:
-	var labels := {
-		"head": "头部",
-		"body": "上身",
-		"waist": "腰部",
-		"legs": "下身",
-		"hands": "手部",
-		"leggings": "护腿",
-		"feet": "脚部",
-		"weapon": "武器",
-		"offhand": "副手",
-		"shoulders": "肩部",
-		"cloak": "披风",
-		"necklace": "项链",
-		"ring": "戒指1",
-		"ring2": "戒指2"
-	}
-	return labels.get(slot, slot)
+	return UIHelpers.slot_label(slot)
 
 
 func _render_body_slots(parent: Control, session: Variant, label_factory: Callable) -> void:
@@ -83,7 +66,7 @@ func _render_body_slots(parent: Control, session: Variant, label_factory: Callab
 	body_slots.custom_minimum_size = Vector2(205, 0)
 	parent.add_child(body_slots)
 	body_slots.add_child(label_factory.call("人体装备栏", 16))
-	for slot in SLOTS:
+	for slot in UIHelpers.SLOTS:
 		body_slots.add_child(label_factory.call("%s：%s" % [slot_label(slot), _equipped_name(session, slot)], 13))
 
 

@@ -285,6 +285,10 @@ func end_turn(session: RefCounted) -> void:
 
 
 func enemy_turn(session: RefCounted) -> void:
+	# 检查裂变特性：HP 低于阈值的 split 敌人可能分裂
+	CombatRules.check_split(session.enemies, session.battle_log)
+	# 检查召唤特性：summon_ready 状态的敌人召唤弱化分身
+	CombatRules.check_summon(session.enemies, session.battle_log)
 	session._clear_enemy_blocks()
 	session._clear_enemy_taunts()
 	for enemy in session.enemies:
@@ -323,6 +327,10 @@ func enemy_turn(session: RefCounted) -> void:
 		session.status_service.fire_trigger(ally, TriggerEvents.ON_TURN_END, {"battle_log": session.battle_log, "session": session, "round_index": session.round_index})
 	if int(session.player["hp"]) <= 0:
 		session._on_defeat()
+
+	# 回合结束特性结算：corrode 腐蚀玩家护甲，support 治疗友军
+	CombatRules.apply_end_round_traits(session.player, session.enemies, session.round_index, session.status_service, session.battle_log)
+	CombatRules.apply_arena_effects(session.player, session.enemies, session.round_index, session.status_service)
 
 
 func resolve_enemy_action(session: RefCounted, enemy: Dictionary, enemy_index: int) -> void:
@@ -391,3 +399,13 @@ func deal_damage_to_target(target: Dictionary, raw_damage: int, damage_type: Str
 		var resist_mult: float = session.status_service.resolve_stat(target, base_resist, resist_key)
 		marked_damage = maxi(0, int(round(float(marked_damage) * resist_mult)))
 	return Combatant.apply_damage(target, marked_damage, damage_type)
+
+
+# 回合结束时处理 corrode（腐蚀）和 support（辅助）特性效果，委托给 CombatRules 统一处理
+func _apply_end_round_traits(session: RefCounted) -> void:
+	CombatRules.apply_end_round_traits(session.player, session.enemies, session.round_index, session.status_service, session.battle_log)
+	CombatRules.apply_arena_effects(session.player, session.enemies, session.round_index, session.status_service)
+
+
+
+

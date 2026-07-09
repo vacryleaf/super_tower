@@ -3,6 +3,7 @@ class_name BestiaryView
 
 const DataCatalog = preload("res://scripts/core/data_catalog.gd")
 const TraitCatalog = preload("res://scripts/core/trait_catalog.gd")
+const UIHelpers = preload("res://scripts/ui/ui_helpers.gd")
 
 const PAGE_SIZE := 10
 
@@ -142,7 +143,7 @@ func _refresh_list() -> void:
 		var unit: Dictionary = _all_units[i]
 		var unlocked := _bestiary.has(unit["id"])
 		var name_text := String(unit["name"]) if unlocked else "？？？"
-		var rank_text := _rank_label(unit["rank"])
+		var rank_text := UIHelpers.rank_label(unit["rank"])
 		var text := "%s  %s" % [name_text, rank_text]
 
 		var button := Button.new()
@@ -182,7 +183,7 @@ func _refresh_detail() -> void:
 		avatar.expand_mode = TextureRect.EXPAND_FIT_WIDTH_PROPORTIONAL
 		avatar.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		_detail_container.add_child(avatar)
-	_detail_container.add_child(_label_factory.call("等级：%s" % _rank_name(unit["rank"]), 16))
+	_detail_container.add_child(_label_factory.call("等级：%s" % UIHelpers.rank_label(unit["rank"]), 16))
 	_detail_container.add_child(_label_factory.call("生命×%.2f  攻击×%.2f  护甲×%.2f" % [unit["hp"], unit["attack"], unit["defense"]], 14))
 
 	var traits: Array = unit["traits"]
@@ -234,22 +235,3 @@ func _on_next_page() -> void:
 		_refresh_list()
 		_refresh_detail()
 
-
-func _rank_label(rank: String) -> String:
-	match rank:
-		"elite":
-			return "精英"
-		"boss":
-			return "首领"
-		_:
-			return "普通"
-
-
-func _rank_name(rank: String) -> String:
-	match rank:
-		"elite":
-			return "精英"
-		"boss":
-			return "首领"
-		_:
-			return "普通"

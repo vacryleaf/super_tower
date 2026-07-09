@@ -2,14 +2,7 @@ extends RefCounted
 class_name ItemCollectionView
 
 const DataCatalog = preload("res://scripts/core/data_catalog.gd")
-
-const SLOTS := ["head", "body", "waist", "legs", "hands", "leggings", "feet", "weapon", "offhand", "shoulders", "cloak", "necklace", "ring", "ring2"]
-const SLOT_LABELS := {
-	"head": "头部", "body": "上身", "waist": "腰部", "legs": "腿部",
-	"hands": "手套", "leggings": "护腿", "feet": "鞋子", "weapon": "武器",
-	"offhand": "副手", "shoulders": "肩部", "cloak": "披风", "necklace": "项链",
-	"ring": "戒指1", "ring2": "戒指2"
-}
+const UIHelpers = preload("res://scripts/ui/ui_helpers.gd")
 
 
 func render(root: Control, class_key: String, roster_player: Dictionary, label_factory: Callable, close_callback: Callable) -> void:
@@ -28,10 +21,10 @@ func render(root: Control, class_key: String, roster_player: Dictionary, label_f
 		content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		scroll.add_child(content)
 		var by_slot := _group_by_slot(equipment_ids)
-		for slot in SLOTS:
+		for slot in UIHelpers.SLOTS:
 			if not by_slot.has(slot):
 				continue
-			content.add_child(label_factory.call(SLOT_LABELS.get(slot, slot), 18))
+			content.add_child(label_factory.call(UIHelpers.slot_label(slot), 18))
 			for item_id in by_slot[slot]:
 				var item: Dictionary = DataCatalog.EQUIPMENT[item_id]
 				var el: Label = label_factory.call(_item_summary(item), 14)

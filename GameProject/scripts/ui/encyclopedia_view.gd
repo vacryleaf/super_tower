@@ -3,20 +3,12 @@ class_name EncyclopediaView
 
 const DataCatalog = preload("res://scripts/core/data_catalog.gd")
 const TraitCatalog = preload("res://scripts/core/trait_catalog.gd")
+const UIHelpers = preload("res://scripts/ui/ui_helpers.gd")
 
 var _label_factory: Callable
 var _bestiary_callback: Callable
 var _detail_container: Control
 var _category_buttons: Array[Button] = []
-
-const CATEGORIES := [
-	["状态Buff", "state_cards"],
-	["套装效果", "set_effects"],
-	["技能", "skills"],
-	["职业", "classes"],
-	["敌人特性", "traits"],
-	["怪物图鉴", "bestiary"],
-]
 
 
 func render(root: Control, label_factory: Callable, close_callback: Callable, bestiary_callback: Callable = Callable()) -> void:
@@ -49,8 +41,8 @@ func _build_left_panel(parent: Control) -> void:
 	left.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	parent.add_child(left)
 
-	for i in range(CATEGORIES.size()):
-		var cat: Array = CATEGORIES[i]
+	for i in range(UIHelpers.CATEGORIES.size()):
+		var cat: Array = UIHelpers.CATEGORIES[i]
 		var btn := Button.new()
 		btn.text = cat[0]
 		btn.custom_minimum_size = Vector2(160, 40)
@@ -87,7 +79,7 @@ func _select_category(index: int) -> void:
 	for child in _detail_container.get_children():
 		child.queue_free()
 
-	var cat_id: String = CATEGORIES[index][1]
+	var cat_id: String = UIHelpers.CATEGORIES[index][1]
 	if cat_id == "bestiary":
 		_detail_container.add_child(_label_factory.call("点击下方按钮查看怪物图鉴", 16))
 		var btn := Button.new()
@@ -143,7 +135,7 @@ func _render_skills() -> void:
 	_detail_container.add_child(_label_factory.call("先天技能（所有职业通用）：", 16))
 	for skill_id in DataCatalog.INNATE_SKILLS.keys():
 		var skill: Dictionary = DataCatalog.INNATE_SKILLS[skill_id]
-		_detail_container.add_child(_label_factory.call("  %s - %s，费用 %d" % [skill["name"], _skill_type_name(skill), int(skill["cost"])], 14))
+		_detail_container.add_child(_label_factory.call("  %s - %s，费用 %d" % [skill["name"], UIHelpers.skill_type_name(skill), int(skill["cost"])], 14))
 	_detail_container.add_child(_label_factory.call("职业技能与通用技能：", 16))
 	for skill_id in DataCatalog.SKILLS.keys():
 		var skill: Dictionary = DataCatalog.SKILLS[skill_id]
@@ -156,7 +148,7 @@ func _render_skills() -> void:
 				class_label = "弓箭手"
 			"common":
 				class_label = "通用"
-		_detail_container.add_child(_label_factory.call("  %s [%s] - %s，费用 %d" % [skill["name"], class_label, _skill_type_name(skill), int(skill["cost"])], 14))
+		_detail_container.add_child(_label_factory.call("  %s [%s] - %s，费用 %d" % [skill["name"], class_label, UIHelpers.skill_type_name(skill), int(skill["cost"])], 14))
 
 
 func _render_classes() -> void:
@@ -171,7 +163,7 @@ func _render_classes() -> void:
 
 
 func _render_traits() -> void:
-	_detail_container.add_child(_label_factory.call("敌人特性", 22))
+	_detail_container.add_child(_label_factory.call("特性", 22))
 	var all_traits: Array[String] = []
 	for trait_id in TraitCatalog.LABELS.keys():
 		all_traits.append(String(trait_id))
@@ -180,25 +172,3 @@ func _render_traits() -> void:
 		var label_text := "%s：%s" % [TraitCatalog.LABELS.get(trait_id, trait_id), TraitCatalog.DESCRIPTIONS.get(trait_id, "暂无说明。")]
 		_detail_container.add_child(_label_factory.call(label_text, 14))
 
-
-func _skill_type_name(skill: Dictionary) -> String:
-	match String(skill.get("type", "")):
-		"attack":
-			var hits := int(skill.get("hits", 1))
-			var mult := float(skill.get("multiplier", 1.0))
-			if hits > 1:
-				return "攻击（%d 段，每段 x%.2f）" % [hits, mult]
-			return "攻击（x%.2f）" % mult
-		"defense":
-			return "防御（格挡 x%.2f）" % float(skill.get("multiplier", 1.0))
-		"stance":
-			return "架式（格挡 x%.2f，反击 x%.2f）" % [float(skill.get("block_multiplier", 1.0)), float(skill.get("counter_multiplier", 1.0))]
-		"dodge":
-			return "闪避（%d 层）" % int(skill.get("dodge_layers", 1))
-		"heal":
-			return "治疗（生命上限 x%.2f）" % float(skill.get("heal_multiplier", 0.25))
-		"buff":
-			return "增益（攻击 x%.2f）" % float(skill.get("attack_multiplier", 1.0))
-		"debuff":
-			return "减益（增伤 x%.2f，削弱 x%.2f）" % [float(skill.get("mark_multiplier", 1.0)), float(skill.get("weaken_multiplier", 1.0))]
-	return "未知"

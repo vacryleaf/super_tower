@@ -882,11 +882,25 @@ func find_enemy_index(enemy: Dictionary) -> int:
 
 
 func _enemy_intent(enemy: Dictionary) -> String:
-	return enemy_rules.intent(enemy, round_index)
+	var player_context := {
+		"hp": int(player.get("hp", 0)),
+		"max_hp": int(player.get("max_hp", 1)),
+		"block": player_block,
+		"block_power": int(player.get("block_power", player.get("defense", 1))),
+		"dodge_layers": dodge_layers
+	}
+	return enemy_rules.intent(enemy, round_index, player_context)
 
 
 func _enemy_choose_skill(enemy: Dictionary) -> String:
-	return enemy_rules.choose_skill(enemy, round_index)
+	var player_context := {
+		"hp": int(player.get("hp", 0)),
+		"max_hp": int(player.get("max_hp", 1)),
+		"block": player_block,
+		"block_power": int(player.get("block_power", player.get("defense", 1))),
+		"dodge_layers": dodge_layers
+	}
+	return enemy_rules.choose_skill(enemy, round_index, player_context)
 
 
 func enemy_intent_text(index: int) -> String:
@@ -984,3 +998,73 @@ func _dictionary(value: Variant) -> Dictionary:
 func _battle_title() -> String:
 	var label := "新手引导" if is_tutorial() else "高塔"
 	return "%s 第 %d 层 第 %d 场：%s" % [label, floor_index, battle_index, current_encounter.get("name", current_encounter.get("id", "战斗"))]
+
+
+func is_boss_battle() -> bool:
+	return current_encounter.get("type") == "boss"
+
+
+func toggle_equipped_skill(class_key: String, skill_id: String) -> void:
+	var profile := save_profile.read_profile(Callable(self, "_persistent_player_snapshot"))
+	var roster: Dictionary = profile.get("roster", {})
+	if not roster.has(class_key):
+		return
+	var player_data: Dictionary = roster[class_key]
+	var equipped: Array = player_data.get("equipped_skills", [])
+	if equipped.has(skill_id):
+		equipped.erase(skill_id)
+	elif equipped.size() < 4:
+		equipped.append(skill_id)
+	player_data["equipped_skills"] = equipped
+	roster[class_key] = player_data
+	profile["roster"] = roster
+	save_profile.write_profile(profile)
+
+
+func swap_equipment(class_key: String, slot: String, item_id: String) -> void:
+	var profile := save_profile.read_profile(Callable(self, "_persistent_player_snapshot"))
+	var roster: Dictionary = profile.get("roster", {})
+	if not roster.has(class_key):
+		return
+	var player_data: Dictionary = roster[class_key]
+	var equipment: Dictionary = player_data.get("equipment", {})
+	var item: Dictionary = DataCatalog.EQUIPMENT[item_id]
+	var item_slot := String(item.get("slot", ""))
+	var target_slot := slot
+	if item_slot == "ring" and slot == "ring" and equipment.has("ring"):
+		target_slot = "ring2"
+	var previous := String(equipment.get(target_slot, ""))
+	var displaced_slot := ""
+	for existing_slot in equipment.keys():
+		if String(equipment[existing_slot]) == item_id:
+			displaced_slot = existing_slot
+			break
+	if displaced_slot != "":
+		if previous != "":
+			equipment[displaced_slot] = previous
+		else:
+			equipment.erase(displaced_slot)
+	else:
+		equipment[target_slot] = item_id
+	player_data["equipment"] = equipment
+	roster[class_key] = player_data
+	profile["roster"] = roster
+	save_profile.write_profile(profile)
+
+
+func is_shop_unlocked() -> bool:
+	var profile = save_profile.read_profile(Callable(self, "_persistent_player_snapshot"))
+	var roster: Dictionary = profile.get("roster", {})
+	for class_key in roster.keys():
+		if int(roster[class_key].get("highest_floor", 0)) >= 10:
+			return true
+	return false
+
+
+func is_skill_owned(skill_id: String) -> bool:
+	var profile = save_profile.read_profile(Callable(self, "_persistent_player_snapshot"))
+	var roster: Dictionary = profile.get("roster", {})
+	for class_key in roster.keys():
+		if roster[class_key].get("unlocked_skills", []).has(skill_id):
+			return true
+	return false

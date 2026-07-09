@@ -1,6 +1,8 @@
 extends RefCounted
 class_name BattleView
 
+const UIHelpers = preload("res://scripts/ui/ui_helpers.gd")
+
 
 func enemy_card(
 	session: Variant,
@@ -47,7 +49,7 @@ func player_status(session: Variant, class_label: String, label_factory: Callabl
 	var box := VBoxContainer.new()
 	panel.add_child(box)
 	if class_key != "":
-		box.add_child(_avatar_for(class_key))
+		box.add_child(UIHelpers.avatar_for(class_key))
 	var labels := {
 		"class": label_factory.call(class_label, 18),
 		"action": label_factory.call("行动力 %d/%d" % [session.action_points, session.max_action_points], 15),
@@ -79,14 +81,6 @@ func ally_card(
 	return button
 
 
-func _avatar_for(class_key: String) -> TextureRect:
-	var path := "res://img/warrior.png" if class_key == "warrior" else "res://img/archer.png"
-	var avatar := TextureRect.new()
-	avatar.texture = load(path)
-	avatar.custom_minimum_size = Vector2(64, 64)
-	avatar.expand_mode = TextureRect.EXPAND_FIT_WIDTH_PROPORTIONAL
-	avatar.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	return avatar
 
 
 func ally_card_text(session: Variant, index: int, rank_label: Callable, trait_labels: Callable) -> String:

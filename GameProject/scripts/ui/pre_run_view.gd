@@ -2,6 +2,7 @@ extends RefCounted
 class_name PreRunView
 
 const DataCatalog = preload("res://scripts/core/data_catalog.gd")
+const UIHelpers = preload("res://scripts/ui/ui_helpers.gd")
 
 var step := 0
 var selected_class := ""
@@ -34,7 +35,7 @@ func _render_class_select(root: Control, session: Variant, label_factory: Callab
 	for class_key in DataCatalog.CLASSES.keys():
 		var data: Dictionary = DataCatalog.CLASSES[class_key]
 		var roster_player: Dictionary = session.get_roster_player(class_key) if is_instance_valid(session) else {}
-		root.add_child(_avatar_for(class_key))
+		root.add_child(UIHelpers.avatar_for(class_key))
 		var button := Button.new()
 		var text := "%s（HP %d  攻击 %d  护甲 %d）" % [data["name"], int(data["max_hp"]), int(data["base_attack"]), int(data["base_defense"])]
 		if roster_player.is_empty():
@@ -78,7 +79,7 @@ func _render_confirm_loadout(root: Control, session: Variant, label_factory: Cal
 		for slot in equipment.keys():
 			var item_id := String(equipment[slot])
 			if DataCatalog.EQUIPMENT.has(item_id):
-				root.add_child(label_factory.call("  %s：%s" % [_slot_label(slot), DataCatalog.EQUIPMENT[item_id]["name"]], 15))
+				root.add_child(label_factory.call("  %s：%s" % [UIHelpers.slot_label(slot), DataCatalog.EQUIPMENT[item_id]["name"]], 15))
 
 	var hint: Label = label_factory.call("如需修改，请返回营地后进入职业详情页调整。", 13)
 	hint.modulate = Color(0.6, 0.6, 0.6)
@@ -168,7 +169,7 @@ func _render_confirm(root: Control, session: Variant, label_factory: Callable, a
 	root.add_child(label_factory.call("爬塔准备 — 确认出发", 24))
 
 	var cls_name := String(DataCatalog.CLASSES[selected_class]["name"])
-	root.add_child(_avatar_for(selected_class))
+	root.add_child(UIHelpers.avatar_for(selected_class))
 	root.add_child(label_factory.call("职业：%s" % cls_name, 18))
 
 	if start_floor >= 2:
@@ -193,21 +194,4 @@ func _render_confirm(root: Control, session: Variant, label_factory: Callable, a
 	button_row.add_child(start_button)
 
 
-func _avatar_for(class_key: String) -> TextureRect:
-	var path := "res://img/warrior.png" if class_key == "warrior" else "res://img/archer.png"
-	var avatar := TextureRect.new()
-	avatar.texture = load(path)
-	avatar.custom_minimum_size = Vector2(64, 64)
-	avatar.expand_mode = TextureRect.EXPAND_FIT_WIDTH_PROPORTIONAL
-	avatar.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	return avatar
 
-
-func _slot_label(slot: String) -> String:
-	var labels := {
-		"head": "头部", "body": "上身", "waist": "腰部", "legs": "腿部",
-		"hands": "手套", "leggings": "护腿", "feet": "鞋子", "weapon": "武器",
-		"offhand": "副手", "shoulders": "肩部", "cloak": "披风", "necklace": "项链",
-		"ring": "戒指1", "ring2": "戒指2"
-	}
-	return labels.get(slot, slot)

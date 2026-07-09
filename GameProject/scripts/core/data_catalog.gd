@@ -207,9 +207,9 @@ const ELITE_UNITS := [
 const BOSS_UNITS := [
 	{"id": "boss_rat_king", "name": "腐巢鼠王", "hp": 1.00, "attack": 1.10, "defense": 0.90, "traits": ["swarm", "summon", "enrage"], "skills": ["enemy_rend", "enemy_enrage", "enemy_heavy_strike"]},
 	{"id": "boss_iron_warden", "name": "铁狱典狱长", "hp": 1.25, "attack": 1.00, "defense": 1.45, "traits": ["thick_skin", "guard", "fortify"], "skills": ["enemy_fortify", "enemy_heavy_strike", "enemy_enrage"]},
-	{"id": "boss_shadow_duke", "name": "夜幕公爵", "hp": 0.95, "attack": 1.30, "defense": 1.00, "traits": ["first_strike", "evade", "mark", "cunning"], "skills": ["enemy_dark_bolt", "enemy_quick_evade", "enemy_weaken"]},
-	{"id": "boss_deep_oracle", "name": "深塔预言者", "hp": 1.05, "attack": 1.10, "defense": 1.20, "traits": ["curse", "spell_shield", "summon"], "skills": ["enemy_weaken", "enemy_dark_bolt", "enemy_fortify"]},
-	{"id": "boss_tower_core", "name": "裂塔核心", "hp": 1.20, "attack": 1.20, "defense": 1.20, "traits": ["revive", "charge", "split"], "skills": ["enemy_heavy_strike", "enemy_enrage", "enemy_rend"]}
+	{"id": "boss_shadow_duke", "name": "夜幕公爵", "hp": 0.95, "attack": 1.30, "defense": 1.00, "traits": ["first_strike", "evade", "mark", "cunning", "shadow_domain"], "skills": ["enemy_dark_bolt", "enemy_quick_evade", "enemy_weaken"]},
+	{"id": "boss_deep_oracle", "name": "深塔预言者", "hp": 1.05, "attack": 1.10, "defense": 1.20, "traits": ["curse", "spell_shield", "summon", "toxic_mist"], "skills": ["enemy_weaken", "enemy_dark_bolt", "enemy_fortify"]},
+	{"id": "boss_tower_core", "name": "裂塔核心", "hp": 1.20, "attack": 1.20, "defense": 1.20, "traits": ["revive", "charge", "split", "blood_moon"], "skills": ["enemy_heavy_strike", "enemy_enrage", "enemy_rend"]}
 ]
 
 
