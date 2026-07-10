@@ -29,7 +29,7 @@ const CLASSES := {
 		"base_defense": 1,
 		"base_block": 5,
 		"resource": "rage",
-		"first_skill": "heavy_slash"
+		"first_skill": "po_jun"
 	},
 	"archer": {
 		"name": "弓箭手",
@@ -43,10 +43,25 @@ const CLASSES := {
 }
 
 const SKILLS := {
-	"heavy_slash": {"name": "重劈", "class": "warrior", "type": "attack", "slot": 1, "energy_cost": 12, "cooldown": 0, "multiplier": 2.25, "hits": 1, "damage_type": "physical"},
+	"po_jun": {"name": "破军", "class": "warrior", "type": "attack", "slot": 1, "energy_cost": 8, "cooldown": 0, "multiplier": 2.00, "hits": 1, "armor_reduce": 0.30, "damage_type": "physical"},
+	"heng_sao": {"name": "横扫", "class": "warrior", "type": "attack", "slot": 1, "energy_cost": 9, "cooldown": 0, "multiplier": 1.80, "hits": 1, "splash": true, "damage_type": "physical"},
+	"tiao_zhan": {"name": "挑斩", "class": "warrior", "type": "attack", "slot": 1, "energy_cost": 10, "cooldown": 0, "multiplier": 2.00, "hits": 1, "interrupt": true, "damage_type": "physical"},
+	"zhong_kan": {"name": "重砍", "class": "warrior", "type": "attack", "slot": 1, "energy_cost": 9, "cooldown": 0, "multiplier": 2.20, "hits": 1, "weaken_multiplier": 0.70, "damage_type": "physical"},
 	"shield_wall": {"name": "盾墙", "class": "warrior", "type": "defense", "slot": 3, "energy_cost": 18, "cooldown": 0, "multiplier": 2.40},
 	"counter_stance": {"name": "反击架势", "class": "warrior", "type": "stance", "slot": 3, "energy_cost": 18, "cooldown": 0, "block_multiplier": 1.20, "counter_multiplier": 1.35},
+	"battle_cry": {"name": "战吼", "class": "warrior", "type": "buff", "slot": 3, "energy_cost": 15, "cooldown": 0, "duration": 5, "effects": [{"stat": "attack", "type": "multiply", "value": 1.30}, {"stat": "damage_taken", "type": "multiply", "value": 0.70}], "tick_effects": [{"stat": "hp", "type": "percent", "value": 0.05}]},
+	"fury": {"name": "狂怒", "class": "warrior", "type": "buff", "slot": 3, "energy_cost": 16, "cooldown": 0, "duration": 5, "effects": [{"stat": "attack", "type": "multiply", "value": 2.00}, {"stat": "damage_taken", "type": "multiply", "value": 1.30}], "tick_effects": [{"stat": "hp", "type": "percent", "value": -0.05}]},
+	"iron_stance": {"name": "钢铁姿态", "class": "warrior", "type": "buff", "slot": 3, "energy_cost": 15, "cooldown": 0, "duration": 4, "effects": [{"stat": "armor", "type": "multiply", "value": 2.00}, {"stat": "damage_taken", "type": "multiply", "value": 0.50}], "reflect_multiplier": 0.50},
+	"quick_prep": {"name": "快速准备", "class": "warrior", "type": "buff", "slot": 3, "energy_cost": 14, "cooldown": 0, "duration": 8, "effects": [{"stat": "extra_hits", "type": "flat", "value": 1}, {"stat": "energy_cost", "type": "flat", "value": -3}, {"stat": "cooldown", "type": "flat", "value": -1}]},
 	"war_cry": {"name": "战吼", "class": "warrior", "type": "buff", "slot": 4, "energy_cost": 0, "cooldown": 3, "attack_multiplier": 1.25},
+	"adrenaline": {"name": "肾上腺素", "class": "warrior", "type": "buff", "slot": 4, "energy_cost": 0, "cooldown": 20, "duration": 5, "effects": [{"stat": "attack", "type": "multiply", "value": 2.00}, {"stat": "damage_taken", "type": "multiply", "value": 0.50}], "tick_effects": [{"stat": "energy", "type": "flat", "value": 5}], "deferred_damage_percent": 0.30},
+	"iron_blood_reckoning": {"name": "铁血清算", "class": "warrior", "type": "attack", "slot": 4, "energy_cost": 0, "cooldown": 19, "multiplier": 5.00, "hits": 1, "aoe": true, "heal_percent": 0.50, "clear_debuffs": true, "dot_multiplier": 1.00, "dot_duration": 5, "damage_type": "physical"},
+	"duel_domain": {"name": "单挑领域", "class": "warrior", "type": "duel", "slot": 4, "energy_cost": 0, "cooldown": 18, "attack_multiplier": 2.00},
+	"force_deflection": {"name": "力拨千斤", "class": "warrior", "type": "deflect", "slot": 4, "energy_cost": 0, "cooldown": 20},
+		"explosive_strike": {"name": "爆裂猛击", "class": "warrior", "type": "attack", "slot": 2, "energy_cost": 19, "cooldown": 0, "multiplier": 6.80, "hits": 1, "splash": true, "splash_multiplier": 1.00, "self_block_multiplier": 1.00, "damage_type": "physical"},
+		"counter_storm": {"name": "反击风暴", "class": "warrior", "type": "attack", "slot": 2, "energy_cost": 21, "cooldown": 0, "multiplier": 2.00, "hits": 2, "aoe": true, "counter_attack_multiplier": 0.80, "counter_charges": 1, "damage_type": "physical"},
+		"shattering_blow": {"name": "碎裂斩", "class": "warrior", "type": "attack", "slot": 2, "energy_cost": 22, "cooldown": 0, "armor_reduce": 0.75, "multiplier": 3.00, "hits": 1, "aoe_multiplier": 2.00, "damage_type": "physical"},
+		"vacuum_slash": {"name": "真空斩", "class": "warrior", "type": "attack", "slot": 2, "energy_cost": 21, "cooldown": 0, "multiplier": 5.00, "hits": 1, "damage_type": "true", "weaken_multiplier": 0.60},
 	"precise_shot": {"name": "精准射击", "class": "archer", "type": "attack", "slot": 1, "energy_cost": 12, "cooldown": 0, "multiplier": 2.10, "hits": 1, "armor_reduce": 0.30, "damage_type": "physical"},
 	"quick_shot": {"name": "连珠箭", "class": "archer", "type": "attack", "slot": 2, "energy_cost": 30, "cooldown": 0, "multiplier": 0.60, "hits": 4, "damage_type": "physical"},
 	"hunter_mark": {"name": "猎人标记", "class": "archer", "type": "debuff", "slot": 3, "energy_cost": 18, "cooldown": 0, "mark_multiplier": 1.35, "weaken_multiplier": 0.75},
@@ -171,7 +186,7 @@ const TUTORIAL_UNLOCKS := {
 	"warrior": [
 		"warrior_training_helm", "warrior_old_chest", "warrior_soldier_belt",
 		"warrior_practice_greaves", "warrior_cloth_gloves", "warrior_old_leggings",
-		"warrior_march_boots", "warrior_training_sword", "warrior_wooden_shield", "heavy_slash"
+		"warrior_march_boots", "warrior_training_sword", "warrior_wooden_shield", "po_jun"
 	],
 	"archer": [
 		"archer_practice_hood", "archer_old_leather", "archer_hunter_belt",

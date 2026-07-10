@@ -37,6 +37,9 @@ var last_events: Array[Dictionary] = []
 var charge_used: Dictionary = {}
 var charge_ready: Dictionary = {}
 var pending_charge_effects: Dictionary = {}
+var deferred_damage := 0.0
+var duel_target_index := -1
+var perfect_deflect := false
 
 
 func reset() -> void:
@@ -76,3 +79,6 @@ func reset() -> void:
 	charge_used = {}
 	charge_ready = {}
 	pending_charge_effects = {}
+	deferred_damage = 0.0
+	duel_target_index = -1
+	perfect_deflect = false

@@ -3,10 +3,15 @@ class_name Combatant
 
 const TriggerEvents = preload("res://scripts/core/trigger_events.gd")
 const ARMOR_BASE := 30.0
+const DamageType = preload("res://scripts/core/damage_type.gd")
+const StatusService = preload("res://scripts/core/status_service.gd")
 
 
-static func from_player(player: Dictionary, current_block: int = 0, current_dodge: int = 0) -> Dictionary:
-	var armor := maxi(0, int(player.get("defense", 0)))
+static func from_player(player: Dictionary, current_block: int = 0, current_dodge: int = 0, status_service = null) -> Dictionary:
+	var base_armor := maxi(0, int(player.get("defense", 0)))
+	var armor := base_armor
+	if status_service:
+		armor = maxi(0, int(status_service.resolve_stat(player, float(base_armor), StatusService.STAT_ARMOR)))
 	return {
 		"id": String(player.get("class_id", "player")),
 		"name": String(player.get("name", player.get("class_id", "玩家"))),
@@ -143,7 +148,9 @@ static func apply_damage(combatant: Dictionary, raw_damage: int, damage_type: St
 		result["dodged"] = true
 		return result
 
-	var after_armor := damage_after_armor(combatant, raw_damage)
+	var after_armor := raw_damage
+	if damage_type != DamageType.TRUE:
+		after_armor = damage_after_armor(combatant, raw_damage)
 	result["armor_reduced"] = maxi(0, raw_damage - after_armor)
 	var remaining := after_armor
 	if int(combatant.get("block", 0)) > 0:

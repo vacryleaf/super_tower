@@ -57,16 +57,19 @@ func use_skill(session: RefCounted, slot_index: int, target_index: int) -> void:
 	session.last_events.clear()
 	if session.phase != "battle":
 		return
-	if slot_index < 0 or slot_index >= session.player["equipped_skills"].size():
+	var equipped: Array = session.player.get("equipped_skills", [])
+	if slot_index < 0 or slot_index >= 4:
+		return
+	var skill_id: String = equipped[slot_index] if slot_index < equipped.size() else ""
+	if skill_id == "":
 		session.message = "该技能槽还没有技能。"
 		return
-	var skill_id: String = session.player["equipped_skills"][slot_index]
 	var skill: Dictionary = _get_skill_data(skill_id)
 	if skill.is_empty():
 		return
 	if not session._can_act():
 		return
-	var energy_cost := int(skill.get("energy_cost", 0))
+	var energy_cost := maxi(0, int(skill.get("energy_cost", 0)) + int(session.status_service.resolve_stat(session.player, 0.0, StatusService.STAT_ENERGY_COST)))
 	if session.energy < energy_cost:
 		session.message = "能量不足，需要 %d 点能量。" % energy_cost
 		return
@@ -101,39 +104,157 @@ func execute_skill(session: RefCounted, skill_id: String, target_index: int, act
 
 	if skill_type == "attack":
 		if is_player_actor:
-			var target: int = session._valid_target(target_index)
-			if target < 0:
-				return
-			var base_damage: int = session._skill_attack_value(skill_id, ActionSource.ACTIVE_ATTACK)
-			var skill_ctx := ActionContext.create_attack(ActionSource.ACTIVE_ATTACK, target, skill_id, String(skill.get("damage_type", "physical")), maxi(1, int(skill.get("hits", 1))))
-			skill_ctx["base_damage"] = base_damage
-			ActionPipeline.compute(skill_ctx, session)
-			var armor_reduce := float(skill.get("armor_reduce", 0.0))
-			if armor_reduce > 0.0:
-				var old_armor := int(opposing[target].get("armor", 0))
-				opposing[target]["armor"] = maxi(0, int(round(float(old_armor) * (1.0 - armor_reduce))))
-				session.battle_log.append("%s：破甲 %d%%，%s 护甲 %d → %d。" % [skill["name"], int(armor_reduce * 100), opposing[target]["name"], old_armor, int(opposing[target]["armor"])])
+			var is_aoe := bool(skill.get("aoe", false))
 			var skill_damage_type: String = String(skill.get("damage_type", "physical"))
-			var hits := maxi(1, int(skill.get("hits", 1)) + int(session.player.get("extra_hits", 0)))
-			for _hit in range(hits):
-				if session._alive_enemy_count() <= 0:
-					break
-				var hit_ctx := ActionContext.create_attack(ActionSource.ACTIVE_ATTACK, target, skill_id, skill_damage_type, 1)
-				hit_ctx["final_damage"] = skill_ctx["final_damage"]
-				session.deal_damage(hit_ctx)
-			var repeats: int = session._consume_charge_repeat("attack", skill_id)
-			for _i in range(repeats):
-				for _hit in range(hits):
+			var extra_hits := int(session.status_service.resolve_stat(session.player, float(session.player.get("extra_hits", 0)), StatusService.STAT_EXTRA_HITS))
+			var base_hits := maxi(1, int(skill.get("hits", 1)) + extra_hits)
+			if is_aoe:
+				# AOE 攻击：对所有敌人造成伤害
+				var aoe_damage: int = session._skill_attack_value(skill_id, ActionSource.ACTIVE_ATTACK)
+				var aoe_ctx := ActionContext.create_attack(ActionSource.ACTIVE_ATTACK, 0, skill_id, skill_damage_type, 1)
+				aoe_ctx["base_damage"] = aoe_damage
+				ActionPipeline.compute(aoe_ctx, session)
+				for enemy_idx in range(opposing.size()):
+					if int(opposing[enemy_idx]["hp"]) <= 0:
+						continue
+					if session._alive_enemy_count() <= 0:
+						break
+					for _hit in range(base_hits):
+						if int(opposing[enemy_idx]["hp"]) <= 0:
+							break
+						var hit_ctx := ActionContext.create_attack(ActionSource.ACTIVE_ATTACK, enemy_idx, skill_id, skill_damage_type, 1)
+						hit_ctx["final_damage"] = aoe_ctx["final_damage"]
+						session.deal_damage(hit_ctx)
+				var repeats: int = session._consume_charge_repeat("attack", skill_id)
+				for _i in range(repeats):
+					for enemy_idx in range(opposing.size()):
+						if int(opposing[enemy_idx]["hp"]) <= 0:
+							continue
+						for _hit in range(base_hits):
+							if int(opposing[enemy_idx]["hp"]) <= 0:
+								break
+							var hit_ctx := ActionContext.create_attack(ActionSource.ACTIVE_ATTACK, enemy_idx, skill_id, skill_damage_type, 1)
+							hit_ctx["final_damage"] = aoe_ctx["final_damage"]
+							session.deal_damage(hit_ctx)
+			else:
+				# 单目标攻击
+				var target: int = session._valid_target(target_index)
+				if target < 0:
+					return
+				var base_damage: int = session._skill_attack_value(skill_id, ActionSource.ACTIVE_ATTACK)
+				var skill_ctx := ActionContext.create_attack(ActionSource.ACTIVE_ATTACK, target, skill_id, skill_damage_type, maxi(1, int(skill.get("hits", 1))))
+				skill_ctx["base_damage"] = base_damage
+				ActionPipeline.compute(skill_ctx, session)
+				var armor_reduce := float(skill.get("armor_reduce", 0.0))
+				if armor_reduce > 0.0:
+					var old_armor := int(opposing[target].get("armor", 0))
+					opposing[target]["armor"] = maxi(0, int(round(float(old_armor) * (1.0 - armor_reduce))))
+					session.battle_log.append("%s：破甲 %d%%，%s 护甲 %d → %d。" % [skill["name"], int(armor_reduce * 100), opposing[target]["name"], old_armor, int(opposing[target]["armor"])])
+				for _hit in range(base_hits):
 					if session._alive_enemy_count() <= 0:
 						break
 					var hit_ctx := ActionContext.create_attack(ActionSource.ACTIVE_ATTACK, target, skill_id, skill_damage_type, 1)
 					hit_ctx["final_damage"] = skill_ctx["final_damage"]
 					session.deal_damage(hit_ctx)
-			if session.pending_state_card == "fallback":
-				session._add_player_block(maxi(1, int(round(float(session.player["block_power"]) * 0.5))))
+				var repeats: int = session._consume_charge_repeat("attack", skill_id)
+				for _i in range(repeats):
+					for _hit in range(base_hits):
+						if session._alive_enemy_count() <= 0:
+							break
+						var hit_ctx := ActionContext.create_attack(ActionSource.ACTIVE_ATTACK, target, skill_id, skill_damage_type, 1)
+						hit_ctx["final_damage"] = skill_ctx["final_damage"]
+						session.deal_damage(hit_ctx)
+				if session.pending_state_card == "fallback":
+					session._add_player_block(maxi(1, int(round(float(session.player["block_power"]) * 0.5))))
+				# 横扫/爆裂猛击：对目标左右相邻敌人造成溅射伤害
+				if bool(skill.get("splash", false)):
+					var splash_mult := float(skill.get("splash_multiplier", 1.0))
+					var splash_damage: int = maxi(1, int(round(float(skill_ctx["final_damage"]) * splash_mult)))
+					for offset in [-1, 1]:
+						var splash_idx: int = target + offset
+						if splash_idx >= 0 and splash_idx < opposing.size() and splash_idx != target:
+							var splash_enemy: Dictionary = opposing[splash_idx]
+							if int(splash_enemy["hp"]) > 0:
+								var splash_ctx := ActionContext.create_attack(ActionSource.ACTIVE_ATTACK, splash_idx, skill_id, skill_damage_type, 1)
+								splash_ctx["final_damage"] = splash_damage
+								session.deal_damage(splash_ctx)
+								session.battle_log.append("%s：溅射 %s，造成 %d 点伤害。" % [skill["name"], splash_enemy["name"], splash_damage])
+				# 挑斩：打断目标本回合行动
+				if bool(skill.get("interrupt", false)):
+					opposing[target]["interrupted"] = true
+					session.battle_log.append("%s：打断 %s 的本回合行动。" % [skill["name"], opposing[target]["name"]])
+				# 重砍/真空斩：降低目标攻击力
+				var weaken_multiplier := float(skill.get("weaken_multiplier", 0.0))
+				if weaken_multiplier > 0.0:
+					var weaken_status := {
+						"id": skill_id,
+						"name": skill["name"],
+						"kind": "debuff",
+						"stack": "replace",
+						"effects": [{"stat": "attack", "type": "multiply", "value": weaken_multiplier}],
+						"duration": 2
+					}
+					session.status_service.add_status(opposing[target], weaken_status)
+					session.battle_log.append("%s：%s 攻击力降低 %d%%，持续 2 回合。" % [skill["name"], opposing[target]["name"], int((1.0 - weaken_multiplier) * 100)])
+
+			# 碎裂斩：主目标伤害后，对全体敌人造成追加 AOE 伤害
+			var aoe_multiplier := float(skill.get("aoe_multiplier", 0.0))
+			if aoe_multiplier > 0.0:
+				var aoe_damage: int = maxi(1, int(round(float(session._current_attack_value(ActionSource.ACTIVE_ATTACK)) * aoe_multiplier)))
+				for enemy_idx in range(opposing.size()):
+					if int(opposing[enemy_idx]["hp"]) <= 0:
+						continue
+					var aoe_ctx := ActionContext.create_attack(ActionSource.ACTIVE_ATTACK, enemy_idx, skill_id, skill_damage_type, 1)
+					aoe_ctx["final_damage"] = aoe_damage
+					session.deal_damage(aoe_ctx)
+				session.battle_log.append("%s：碎裂冲击对所有敌人造成 %d 点伤害。" % [skill["name"], aoe_damage])
+
+			# 爆裂猛击：给自己提供格挡
+			var self_block_mult := float(skill.get("self_block_multiplier", 0.0))
+			if self_block_mult > 0.0:
+				var block_gain := maxi(1, int(round(float(session.player["block_power"]) * self_block_mult)))
+				session._add_player_block(block_gain)
+				session.battle_log.append("%s：获得 %d 点格挡。" % [skill["name"], block_gain])
+
+			# 反击风暴：设置反击状态
+			var counter_mult := float(skill.get("counter_attack_multiplier", 0.0))
+			var counter_charges := int(skill.get("counter_charges", 0))
+			if counter_mult > 0.0 and counter_charges > 0:
+				session.counter_stance_charges += counter_charges
+				session.counter_attack_multiplier = maxf(session.counter_attack_multiplier, counter_mult)
+				session.battle_log.append("%s：接下来受到攻击时反击 %d 次，倍率 x%.2f。" % [skill["name"], counter_charges, counter_mult])
+
 			session.status_service.fire_trigger(session.player, TriggerEvents.ON_ATTACK_COMPLETE, {
 				"battle_log": session.battle_log, "session": session, "skill_id": skill_id
 			})
+			# 铁血清算：回复造成伤害的百分比
+			var heal_percent := float(skill.get("heal_percent", 0.0))
+			if heal_percent > 0.0:
+				var heal_amount := maxi(1, int(round(float(session._skill_attack_value(skill_id, ActionSource.ACTIVE_ATTACK)) * heal_percent)))
+				session.player["hp"] = mini(int(session.player["max_hp"]), int(session.player["hp"]) + heal_amount)
+				session.battle_log.append("%s：回复 %d 点 HP。" % [skill["name"], heal_amount])
+			# 铁血清算：清除自身 debuff
+			if bool(skill.get("clear_debuffs", false)):
+				session.status_service.clear_debuffs(session.player)
+				session.battle_log.append("%s：清除所有负面效果。" % skill["name"])
+			# 铁血清算：对全体敌人施加 DOT
+			var dot_mult := float(skill.get("dot_multiplier", 0.0))
+			var dot_duration := int(skill.get("dot_duration", 0))
+			if dot_mult > 0.0 and dot_duration > 0:
+				var dot_damage := maxi(1, int(round(float(session._current_attack_value(ActionSource.ACTIVE_ATTACK)) * dot_mult)))
+				var dot_status := {
+					"id": skill_id + "_dot",
+					"name": skill["name"] + "（流血）",
+					"kind": "debuff",
+					"stack": "replace",
+					"tick_effects": [{"stat": "hp", "type": "flat", "value": float(-dot_damage)}],
+					"duration": dot_duration
+				}
+				for enemy in opposing:
+					if int(enemy["hp"]) <= 0:
+						continue
+					session.status_service.add_status(enemy, dot_status)
+				session.battle_log.append("%s：对所有敌人造成流血效果，每回合 %d 点伤害，持续 %d 回合。" % [skill["name"], dot_damage, dot_duration])
 		else:
 			if skill_id.begins_with("innate_attack_"):
 				enemy_attack(session, actor, target_index, false)
@@ -221,22 +342,33 @@ func execute_skill(session: RefCounted, skill_id: String, target_index: int, act
 			session.last_events.append({"kind": "heal", "target": "enemy", "target_index": target_index, "source": actor["name"], "amount": healed})
 
 	elif skill_type == "buff":
-		var bonus_multiplier: float = session._skill_multiplier_bonus(skill_id, "attack") if is_player_actor else 0.0
-		var multiplier: float = float(skill.get("attack_multiplier", 1.0)) + bonus_multiplier
+		var effects: Array[Dictionary] = _build_buff_effects(skill, skill_id, is_player_actor, session)
 		var status := {
 			"id": skill_id,
 			"name": skill["name"],
 			"kind": "buff",
 			"stack": "replace",
-			"effects": [{"stat": "attack", "type": "multiply", "value": multiplier}],
-			"duration": -1
+			"effects": effects,
+			"duration": int(skill.get("duration", -1))
 		}
+		# 每回合效果（回血/扣血等）
+		var tick_effects: Array = skill.get("tick_effects", [])
+		if not tick_effects.is_empty():
+			status["tick_effects"] = tick_effects
+		# 反伤
+		var reflect_mult := float(skill.get("reflect_multiplier", 0.0))
+		if reflect_mult > 0.0:
+			status["reflect_multiplier"] = reflect_mult
+		# 延迟伤害
+		var deferred_pct := float(skill.get("deferred_damage_percent", 0.0))
+		if deferred_pct > 0.0:
+			status["deferred_damage_percent"] = deferred_pct
 		session.status_service.add_status(actor, status)
 		if is_player_actor:
-			session.battle_log.append("%s：攻击力提升 x%.2f，持续整场战斗。" % [skill["name"], multiplier])
+			_buff_log_message(skill, status, session)
 			session.last_events.append({"kind": "buff", "target": "player", "amount": 0})
 		else:
-			session.battle_log.append("%s 使用 %s：攻击力提升 x%.2f。" % [actor["name"], String(skill.get("name", skill_id)), multiplier])
+			session.battle_log.append("%s 使用 %s。" % [actor["name"], String(skill.get("name", skill_id))])
 			session.last_events.append({"kind": "buff", "target": "enemy", "target_index": target_index, "source": actor["name"], "amount": 0})
 
 	elif skill_type == "debuff":
@@ -274,6 +406,31 @@ func execute_skill(session: RefCounted, skill_id: String, target_index: int, act
 		else:
 			session.battle_log.append("%s 使用 %s：玩家攻击力降低。" % [actor["name"], String(skill.get("name", skill_id))])
 			session.last_events.append({"kind": "debuff", "target": "player", "source": actor["name"], "amount": 0})
+
+	elif skill_type == "duel":
+		if is_player_actor:
+			var target: int = session._valid_target(target_index)
+			if target < 0:
+				return
+			session.duel_target_index = target
+			# 给玩家加攻击 buff
+			var duel_buff := {
+				"id": skill_id,
+				"name": skill["name"],
+				"kind": "buff",
+				"stack": "replace",
+				"effects": [{"stat": "attack", "type": "multiply", "value": float(skill.get("attack_multiplier", 2.0))}],
+				"duration": -1
+			}
+			session.status_service.add_status(actor, duel_buff)
+			session.battle_log.append("%s：与 %s 进入单挑，伤害提升 x%.2f，免疫其他敌人伤害。" % [skill["name"], opposing[target]["name"], float(skill.get("attack_multiplier", 2.0))])
+			session.last_events.append({"kind": "duel", "target": "enemy", "target_index": target, "amount": 0})
+
+	elif skill_type == "deflect":
+		if is_player_actor:
+			session.perfect_deflect = true
+			session.battle_log.append("%s：下一回合免疫所有敌人攻击并反弹伤害。" % skill["name"])
+			session.last_events.append({"kind": "deflect", "target": "player", "amount": 0})
 
 	else:
 		session.message = "该技能暂未实现。"
@@ -317,6 +474,10 @@ func enemy_turn(session: RefCounted) -> void:
 		var enemy: Dictionary = session.enemies[i]
 		if int(enemy["hp"]) <= 0:
 			continue
+		if bool(enemy.get("interrupted", false)):
+			enemy["interrupted"] = false
+			session.battle_log.append("%s 被中断，本回合无法行动。" % enemy["name"])
+			continue
 		if actions >= 2:
 			enemy_defend(enemy, 0.5)
 			continue
@@ -356,8 +517,26 @@ func enemy_defend(enemy: Dictionary, scale: float) -> int:
 
 
 func enemy_attack(session: RefCounted, enemy: Dictionary, enemy_index: int, first_strike: bool) -> void:
+	# 决斗免疫：非决斗目标的敌人攻击无效
+	if session.duel_target_index >= 0 and enemy_index != session.duel_target_index:
+		session.battle_log.append("%s 被单挑领域阻挡，无法攻击。" % enemy["name"])
+		return
 	var segments := enemy_attack_segments(session, enemy, first_strike)
 	var player_unit: Dictionary = session._player_combatant()
+	# 完美偏转：免疫所有伤害并反弹给所有敌人
+	if session.perfect_deflect:
+		var total_reflect := 0
+		for damage in segments:
+			total_reflect += damage
+		total_reflect = maxi(1, total_reflect)
+		session.battle_log.append("力拨千斤：完美偏转 %s 的攻击，反弹 %d 点伤害！" % [enemy["name"], total_reflect])
+		for i in range(session.enemies.size()):
+			if int(session.enemies[i]["hp"]) <= 0:
+				continue
+			var reflect_ctx := ActionContext.create_attack(ActionSource.COUNTER_ATTACK, i, "", "physical", 1)
+			reflect_ctx["final_damage"] = total_reflect
+			session.deal_damage(reflect_ctx)
+		return
 	var was_hit := false
 	for damage in segments:
 		var result := deal_damage_to_target(player_unit, damage, "physical", session)
@@ -395,8 +574,15 @@ func enemy_attack(session: RefCounted, enemy: Dictionary, enemy_index: int, firs
 		session.last_events.append({"kind": "damage", "target": "player", "source": enemy["name"], "amount": int(result["damage"])})
 		session.status_service.fire_trigger(enemy, TriggerEvents.ON_HIT_DEALT, {"battle_log": session.battle_log, "session": session, "source": enemy, "damage": int(result["damage"]), "target": session.player})
 		session.status_service.fire_trigger(session.player, TriggerEvents.ON_HIT_RECEIVED, {"battle_log": session.battle_log, "session": session, "source": enemy, "damage": int(result["damage"]), "target": session.player})
+		# 延迟伤害追踪
+		var deferred_pct := 0.0
+		for status in session.player.get("statuses", []):
+			deferred_pct = maxf(deferred_pct, float(status.get("deferred_damage_percent", 0.0)))
+		if deferred_pct > 0.0:
+			session.deferred_damage += float(int(result["damage"])) * deferred_pct
 	if was_hit:
 		session._trigger_counter_attack(enemy_index)
+		session._trigger_reflect_damage(enemy_index)
 
 
 func enemy_attack_segments(session: RefCounted, enemy: Dictionary, first_strike: bool) -> Array[int]:
@@ -418,6 +604,69 @@ func deal_damage_to_target(target: Dictionary, raw_damage: int, damage_type: Str
 func _apply_end_round_traits(session: RefCounted) -> void:
 	CombatRules.apply_end_round_traits(session.player, session.enemies, session.round_index, session.status_service, session.battle_log)
 	CombatRules.apply_arena_effects(session.player, session.enemies, session.round_index, session.status_service)
+
+
+func _build_buff_effects(skill: Dictionary, skill_id: String, is_player_actor: bool, session: RefCounted) -> Array[Dictionary]:
+	var effects: Array[Dictionary] = skill.get("effects", [])
+	if effects.is_empty():
+		# 兼容旧版 buff（仅 attack_multiplier）
+		var bonus: float = session._skill_multiplier_bonus(skill_id, "attack") if is_player_actor else 0.0
+		var multiplier: float = float(skill.get("attack_multiplier", 1.0)) + bonus
+		return [{"stat": "attack", "type": "multiply", "value": multiplier}]
+	# 新版 buff：解析 effects 中的 skill_multiplier_bonus
+	var result: Array[Dictionary] = []
+	for eff in effects:
+		var eff_copy := eff.duplicate(true)
+		if String(eff.get("stat", "")) == "attack" and String(eff.get("type", "")) == "multiply":
+			var bonus: float = session._skill_multiplier_bonus(skill_id, "attack") if is_player_actor else 0.0
+			eff_copy["value"] = float(eff["value"]) + bonus
+		result.append(eff_copy)
+	return result
+
+
+func _buff_log_message(skill: Dictionary, status: Dictionary, session: RefCounted) -> void:
+	var parts: Array[String] = []
+	for eff in status.get("effects", []):
+		var stat := String(eff.get("stat", ""))
+		var etype := String(eff.get("type", ""))
+		var val := float(eff.get("value", 0.0))
+		match stat:
+			"attack":
+				if etype == "multiply":
+					parts.append("攻击力 x%.2f" % val)
+			"damage_taken":
+				if etype == "multiply":
+					if val < 1.0:
+						parts.append("受到伤害 -%d%%" % int((1.0 - val) * 100))
+					else:
+						parts.append("受到伤害 +%d%%" % int((val - 1.0) * 100))
+			"armor":
+				if etype == "multiply":
+					parts.append("护甲 x%.2f" % val)
+			"extra_hits":
+				if etype == "flat":
+					parts.append("普攻额外 %d 段" % int(val))
+			"energy_cost":
+				if etype == "flat":
+					parts.append("技能能量消耗 %d" % int(val))
+			"cooldown":
+				if etype == "flat":
+					parts.append("冷却 -%d 回合" % int(abs(val)))
+	var duration := int(status.get("duration", -1))
+	var dur_text := "持续 %d 回合" % duration if duration > 0 else "持续整场战斗"
+	if not parts.is_empty():
+		session.battle_log.append("%s：%s，%s。" % [skill["name"], "，".join(parts), dur_text])
+	# tick_effects
+	for tick in status.get("tick_effects", []):
+		var tick_val := float(tick.get("value", 0.0))
+		if tick_val > 0.0:
+			session.battle_log.append("%s：每回合恢复 %.0f%% HP。" % [skill["name"], tick_val * 100])
+		elif tick_val < 0.0:
+			session.battle_log.append("%s：每回合失去 %.0f%% HP。" % [skill["name"], abs(tick_val) * 100])
+	# reflect
+	var reflect_mult := float(status.get("reflect_multiplier", 0.0))
+	if reflect_mult > 0.0:
+		session.battle_log.append("%s：受到攻击时反弹 %.0f%% 伤害。" % [skill["name"], reflect_mult * 100])
 
 
 

@@ -39,9 +39,10 @@ func render(
 		var button := Button.new()
 		button.custom_minimum_size = Vector2(118, 44)
 		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		button.disabled = input_locked or i >= session.player["equipped_skills"].size()
-		if i < session.player["equipped_skills"].size():
-			var skill_id: String = session.player["equipped_skills"][i]
+		var equipped: Array = session.player.get("equipped_skills", [])
+		var skill_id: String = equipped[i] if i < equipped.size() else ""
+		button.disabled = input_locked or skill_id == ""
+		if skill_id != "":
 			var skill: Dictionary = DataCatalog.SKILLS[skill_id]
 			var energy_cost := int(skill.get("energy_cost", 0))
 			var cooldown := int(skill.get("cooldown", 0))
@@ -102,10 +103,12 @@ func refresh(
 		var button := skill_buttons[i]
 		if button == null or not is_instance_valid(button):
 			continue
-		if i >= session.player["equipped_skills"].size():
+		var equipped: Array = session.player.get("equipped_skills", [])
+		var skill_id: String = equipped[i] if i < equipped.size() else ""
+		if skill_id == "":
 			button.disabled = true
+			button.text = "空槽位"
 			continue
-		var skill_id: String = session.player["equipped_skills"][i]
 		var skill: Dictionary = DataCatalog.SKILLS[skill_id]
 		var energy_cost := int(skill.get("energy_cost", 0))
 		var cooldown := int(skill.get("cooldown", 0))

@@ -631,8 +631,8 @@ func _on_manage_close() -> void:
 	_request_menu_render()
 
 
-func _on_skill_toggle(class_key: String, skill_id: String) -> void:
-	session.toggle_equipped_skill(class_key, skill_id)
+func _on_skill_toggle(class_key: String, slot: int, skill_id: String) -> void:
+	session.set_skill_slot(class_key, slot, skill_id)
 	_render_camp_screen()
 
 

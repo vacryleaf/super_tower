@@ -2,8 +2,10 @@ extends RefCounted
 class_name EnemyActionRules
 
 
-func intent(enemy: Dictionary, round_index: int, player_context: Dictionary = {}) -> String:
+func intent(enemy: Dictionary, round_index: int, player_context: Dictionary = {}, is_alone: bool = false) -> String:
 	var traits: Array = enemy["traits"]
+	if is_alone:
+		return "attack"
 	if traits.has("taunt") and int(enemy.get("taunt", 0)) <= 0 and round_index % 3 == 1:
 		return "taunt"
 	if traits.has("tank") or traits.has("guard"):
@@ -69,11 +71,18 @@ func has_first_strike(enemies: Array[Dictionary]) -> bool:
 	return false
 
 
-func choose_skill(enemy: Dictionary, round_index: int, player_context: Dictionary = {}) -> String:
+func choose_skill(enemy: Dictionary, round_index: int, player_context: Dictionary = {}, is_alone: bool = false) -> String:
 	var skills: Array = enemy.get("skills", [])
 	var innate: Dictionary = enemy.get("innate_skills", {})
 	var traits: Array = enemy["traits"]
 	var hp_percent: float = float(enemy["hp"]) / float(maxi(1, enemy["max_hp"]))
+
+	# 0. 只剩自己一个时，不再防御或闪避，只攻击
+	if is_alone:
+		var attack_skills := _filter_by_type(skills, "attack")
+		if not attack_skills.is_empty():
+			return attack_skills[round_index % attack_skills.size()]
+		return innate.get("attack_1", "innate_attack_1")
 
 	# 1. Taunt: has taunt trait, taunt not active, every 3rd+1 round
 	if traits.has("taunt") and int(enemy.get("taunt", 0)) <= 0 and round_index % 3 == 1:
@@ -110,8 +119,8 @@ func choose_skill(enemy: Dictionary, round_index: int, player_context: Dictionar
 			var multi_hit_block := _filter_multi_hit(skills)
 			if not multi_hit_block.is_empty():
 				return multi_hit_block[round_index % multi_hit_block.size()]
-		# 3d. 自身 HP < 25%：更倾向防守
-		if hp_percent < 0.25:
+		# 3d. 自身 HP < 25%：更倾向防守（phase 特性 boss 不防守）
+		if hp_percent < 0.25 and not traits.has("phase"):
 			var defense_skills_low := _filter_by_type(skills, "defense")
 			if not defense_skills_low.is_empty():
 				return defense_skills_low[0]
@@ -120,8 +129,8 @@ func choose_skill(enemy: Dictionary, round_index: int, player_context: Dictionar
 				return dodge_skills_low[0]
 			return innate.get("defend", "innate_defend")
 
-	# 4. Low HP: prefer defense/dodge from special skills
-	if hp_percent < 0.35:
+	# 4. Low HP: prefer defense/dodge from special skills（phase 特性 boss 不防守）
+	if hp_percent < 0.35 and not traits.has("phase"):
 		var defense_skills := _filter_by_type(skills, "defense")
 		if not defense_skills.is_empty():
 			return defense_skills[0]

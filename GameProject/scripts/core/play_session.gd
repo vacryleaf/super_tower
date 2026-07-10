@@ -222,6 +222,22 @@ var pending_charge_effects: Dictionary:
 	set(value):
 		battle_state.pending_charge_effects = value
 
+var deferred_damage: float:
+	get:
+		return battle_state.deferred_damage
+	set(value):
+		battle_state.deferred_damage = value
+var duel_target_index: int:
+	get:
+		return battle_state.duel_target_index
+	set(value):
+		battle_state.duel_target_index = value
+var perfect_deflect: bool:
+	get:
+		return battle_state.perfect_deflect
+	set(value):
+		battle_state.perfect_deflect = value
+
 
 func _load_account() -> void:
 	var profile := save_profile.read_profile(Callable(self, "_persistent_player_snapshot"))
@@ -343,6 +359,9 @@ func _start_current_battle() -> void:
 	charge_used = {}
 	charge_ready = {}
 	pending_charge_effects = _empty_charge_effects()
+	deferred_damage = 0.0
+	duel_target_index = -1
+	perfect_deflect = false
 	battle_log.clear()
 	phase = "battle"
 	message = _battle_title()
@@ -365,18 +384,22 @@ func _build_enemies(encounter: Dictionary) -> Array[Dictionary]:
 func _begin_player_turn() -> void:
 	round_index += 1
 	has_acted = false
+	perfect_deflect = false
 	_tick_skill_cooldowns()
 	player_block = 0
 	pending_state_card = _draw_state_buff()
 	status_service.tick_statuses(player)
+	_process_tick_effects(player)
 	status_service.fire_trigger(player, TriggerEvents.ON_TURN_START, {"battle_log": battle_log, "session": self, "not_attacked_last_turn": not attacked_this_turn})
 	for enemy in enemies:
 		if int(enemy["hp"]) > 0:
 			status_service.tick_statuses(enemy)
+			_process_tick_effects(enemy)
 			status_service.fire_trigger(enemy, TriggerEvents.ON_TURN_START, {"battle_log": battle_log, "session": self, "not_attacked_last_turn": false})
 	for ally in allies:
 		if int(ally["hp"]) > 0:
 			status_service.tick_statuses(ally)
+			_process_tick_effects(ally)
 			status_service.fire_trigger(ally, TriggerEvents.ON_TURN_START, {"battle_log": battle_log, "session": self, "not_attacked_last_turn": false})
 	attacked_this_turn = false
 	ranger_hit_count = 0
@@ -458,7 +481,7 @@ func _after_player_action() -> void:
 
 
 func _player_combatant() -> Dictionary:
-	return Combatant.from_player(player, player_block, dodge_layers)
+	return Combatant.from_player(player, player_block, dodge_layers, status_service)
 
 
 func _resolve_focus_combo(target_index: int) -> float:
@@ -569,6 +592,23 @@ func _trigger_counter_attack(enemy_index: int) -> void:
 		counter_attack_multiplier = 1.0
 
 
+func _trigger_reflect_damage(enemy_index: int) -> void:
+	if enemy_index < 0 or enemy_index >= enemies.size():
+		return
+	if int(enemies[enemy_index]["hp"]) <= 0:
+		return
+	var reflect_mult := 0.0
+	for status in player.get("statuses", []):
+		reflect_mult = maxf(reflect_mult, float(status.get("reflect_multiplier", 0.0)))
+	if reflect_mult <= 0.0:
+		return
+	var reflect_damage := maxi(1, int(round(float(_current_attack_value(ActionSource.COUNTER_ATTACK)) * reflect_mult)))
+	battle_log.append("钢铁姿态：反弹 %d 点伤害给 %s。" % [reflect_damage, enemies[enemy_index]["name"]])
+	var reflect_ctx := ActionContext.create_attack(ActionSource.COUNTER_ATTACK, enemy_index, "", "physical", 1)
+	reflect_ctx["final_damage"] = reflect_damage
+	deal_damage(reflect_ctx)
+
+
 func _check_dodge_streak() -> void:
 	dodge_streak += 1
 
@@ -611,6 +651,9 @@ func _apply_damage_to_enemy(target_index: int, damage: int, ignore_taunt: bool =
 	status_service.fire_trigger(enemy, TriggerEvents.ON_HIT_RECEIVED, hit_context)
 	if int(enemy["hp"]) <= 0:
 		status_service.fire_trigger(player, TriggerEvents.ON_KILL, {"battle_log": battle_log, "session": self, "source": player, "target": enemy})
+		if duel_target_index == target_index:
+			duel_target_index = -1
+			battle_log.append("单挑领域：决斗目标已死亡，单挑结束。")
 
 
 func deal_damage(ctx: Dictionary) -> void:
@@ -650,6 +693,10 @@ func deal_damage(ctx: Dictionary) -> void:
 		status_service.fire_trigger(target, TriggerEvents.ON_HIT_RECEIVED, hit_context)
 		if int(target["hp"]) <= 0:
 			status_service.fire_trigger(source_actor, TriggerEvents.ON_KILL, {"battle_log": battle_log, "session": self, "source": source_actor, "target": target})
+			# 清除决斗目标
+			if duel_target_index >= 0 and target_pool == enemies and target_index == duel_target_index:
+				duel_target_index = -1
+				battle_log.append("单挑领域：决斗目标已死亡，单挑结束。")
 
 
 func _on_victory() -> void:
@@ -694,11 +741,18 @@ func buy_common_skill(skill_id: String) -> bool:
 	tower_coins -= 15
 	for class_key in roster.keys():
 		var class_player: Dictionary = roster[class_key]
-		simulator.unlock_skill(class_player, skill_id, class_player["equipped_skills"].size() < 4)
+		simulator.unlock_skill(class_player, skill_id, _roster_has_empty_skill_slot(class_player))
 	profile["roster"] = roster
 	profile["tower_coins"] = tower_coins
 	save_profile.write_profile(profile)
 	return true
+
+func _roster_has_empty_skill_slot(class_player: Dictionary) -> bool:
+	for skill_id in class_player.get("equipped_skills", []):
+		if String(skill_id) == "":
+			return true
+	return class_player.get("equipped_skills", []).size() < 4
+
 
 func _build_reward_options() -> void:
 	reward_apply.build_reward_options(self)
@@ -870,15 +924,49 @@ func _can_act() -> bool:
 
 
 func _tick_skill_cooldowns() -> void:
+	var cd_reduction := int(status_service.resolve_stat(player, 0.0, StatusService.STAT_COOLDOWN))
 	var expired: Array[String] = []
 	for skill_id in skill_cooldowns.keys():
-		var remaining := int(skill_cooldowns[skill_id]) - 1
+		var remaining := int(skill_cooldowns[skill_id]) - 1 - cd_reduction
 		if remaining <= 0:
 			expired.append(skill_id)
 		else:
 			skill_cooldowns[skill_id] = remaining
 	for skill_id in expired:
 		skill_cooldowns.erase(skill_id)
+
+
+func _process_tick_effects(target: Dictionary) -> void:
+	if not target.has("statuses"):
+		return
+	for status in target.get("statuses", []):
+		for tick in status.get("tick_effects", []):
+			var tick_stat := String(tick.get("stat", "hp"))
+			var tick_type := String(tick.get("type", "percent"))
+			var tick_value := float(tick.get("value", 0.0))
+			if tick_stat == "hp":
+				if tick_type == "percent":
+					var amount := maxi(1, int(round(float(target["max_hp"]) * abs(tick_value))))
+					if tick_value > 0.0:
+						target["hp"] = mini(int(target["max_hp"]), int(target["hp"]) + amount)
+						battle_log.append("%s：每回合恢复 %d 点 HP。" % [String(status.get("name", "")), amount])
+					elif tick_value < 0.0:
+						target["hp"] = maxi(1, int(target["hp"]) - amount)
+						battle_log.append("%s：每回合失去 %d 点 HP。" % [String(status.get("name", "")), amount])
+				elif tick_type == "flat":
+					if tick_value > 0.0:
+						target["hp"] = mini(int(target["max_hp"]), int(target["hp"]) + int(tick_value))
+					elif tick_value < 0.0:
+						target["hp"] = maxi(1, int(target["hp"]) + int(tick_value))
+			elif tick_stat == "energy" and tick_type == "flat":
+				energy = mini(DataCatalog.ENERGY_MAX, energy + int(tick_value))
+	# 延迟伤害结算
+	if target == player and deferred_damage > 0.0:
+		var deferred_tick := maxi(1, int(round(deferred_damage / 3.0)))
+		deferred_tick = mini(deferred_tick, int(deferred_damage))
+		deferred_damage -= float(deferred_tick)
+		target["hp"] = maxi(1, int(target["hp"]) - deferred_tick)
+		battle_log.append("延迟伤害结算：受到 %d 点延迟伤害。" % deferred_tick)
 
 
 func _valid_target(target_index: int) -> int:
@@ -904,7 +992,7 @@ func _enemy_intent(enemy: Dictionary) -> String:
 		"block_power": int(player.get("block_power", player.get("defense", 1))),
 		"dodge_layers": dodge_layers
 	}
-	return enemy_rules.intent(enemy, round_index, player_context)
+	return enemy_rules.intent(enemy, round_index, player_context, _is_enemy_alone())
 
 
 func _enemy_choose_skill(enemy: Dictionary) -> String:
@@ -915,7 +1003,18 @@ func _enemy_choose_skill(enemy: Dictionary) -> String:
 		"block_power": int(player.get("block_power", player.get("defense", 1))),
 		"dodge_layers": dodge_layers
 	}
-	return enemy_rules.choose_skill(enemy, round_index, player_context)
+	return enemy_rules.choose_skill(enemy, round_index, player_context, _is_enemy_alone())
+
+
+func _is_enemy_alone() -> bool:
+	var alive_ai := 0
+	for e in enemies:
+		if int(e.get("hp", 0)) > 0:
+			alive_ai += 1
+	for a in allies:
+		if int(a.get("hp", 0)) > 0 and String(a.get("controlled_by", "")) == "ai":
+			alive_ai += 1
+	return alive_ai <= 1
 
 
 func enemy_intent_text(index: int) -> String:
@@ -1019,17 +1118,22 @@ func is_boss_battle() -> bool:
 	return current_encounter.get("type") == "boss"
 
 
-func toggle_equipped_skill(class_key: String, skill_id: String) -> void:
+func set_skill_slot(class_key: String, slot: int, skill_id: String) -> void:
 	var profile := save_profile.read_profile(Callable(self, "_persistent_player_snapshot"))
 	var roster: Dictionary = profile.get("roster", {})
 	if not roster.has(class_key):
 		return
 	var player_data: Dictionary = roster[class_key]
 	var equipped: Array = player_data.get("equipped_skills", [])
-	if equipped.has(skill_id):
-		equipped.erase(skill_id)
-	elif equipped.size() < 4:
-		equipped.append(skill_id)
+	while equipped.size() < 4:
+		equipped.append("")
+	var idx := slot - 1
+	if idx < 0 or idx >= 4:
+		return
+	if String(equipped[idx]) == skill_id:
+		equipped[idx] = ""
+	else:
+		equipped[idx] = skill_id
 	player_data["equipped_skills"] = equipped
 	roster[class_key] = player_data
 	profile["roster"] = roster

@@ -101,16 +101,19 @@ func preferred_attachment_target(player: Dictionary, reward_kind: String) -> Dic
 			var armor_target := equipment_target_by_slot(player, slot)
 			if not armor_target.is_empty():
 				return armor_target
-	if reward_kind == "skill" and not player["equipped_skills"].is_empty():
-		return {"type": "skill", "id": String(player["equipped_skills"][0])}
+	if reward_kind == "skill":
+		for skill_id in player["equipped_skills"]:
+			if String(skill_id) != "":
+				return {"type": "skill", "id": skill_id}
 	if reward_kind == "state" and not player["equipment_ids"].is_empty():
 		return {"type": "equipment", "id": String(player["equipment_ids"][0])}
 	if reward_kind == "charge" and not player["equipment_ids"].is_empty():
 		return {"type": "equipment", "id": String(player["equipment_ids"][0])}
 	if not player["equipment_ids"].is_empty():
 		return {"type": "equipment", "id": String(player["equipment_ids"][0])}
-	if not player["equipped_skills"].is_empty():
-		return {"type": "skill", "id": String(player["equipped_skills"][0])}
+	for skill_id in player["equipped_skills"]:
+		if String(skill_id) != "":
+			return {"type": "skill", "id": skill_id}
 	return {}
 
 
@@ -203,6 +206,8 @@ func recalculate_player_stats(player: Dictionary, reset_hp: bool) -> void:
 	player["extra_hits"] += int(flat_stats.get("extra_hits", 0))
 	var skill_attachments: Dictionary = player.get("skill_attachments", {})
 	for skill_id in player["equipped_skills"]:
+		if String(skill_id) == "":
+			continue
 		for attachment in skill_attachments.get(skill_id, []):
 			match ChargeService.attachment_stat_kind(String(attachment.get("kind", ""))):
 				"hp":
