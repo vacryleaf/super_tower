@@ -55,24 +55,26 @@ static func valid_target(enemies: Array[Dictionary], target_index: int) -> int:
 		return taunt_target
 	if enemies.is_empty():
 		return -1
+	var has_frontline := has_active_frontline(enemies)
 	if target_index >= 0 and target_index < enemies.size() and int(enemies[target_index].get("hp", 0)) > 0:
-		if not is_backline_protected(enemies, enemies[target_index]):
+		if not is_backline_protected_by_frontline(enemies[target_index], has_frontline):
 			return target_index
 	for i in range(enemies.size()):
 		if int(enemies[i].get("hp", 0)) > 0:
-			if not is_backline_protected(enemies, enemies[i]):
+			if not is_backline_protected_by_frontline(enemies[i], has_frontline):
 				return i
 	return -1
 
 
 # 检查目标是否为 backline 且有存活的前排保护，用于有效目标验证
 static func is_backline_protected(enemies: Array[Dictionary], target: Dictionary) -> bool:
+	return is_backline_protected_by_frontline(target, has_active_frontline(enemies))
+
+
+static func is_backline_protected_by_frontline(target: Dictionary, has_frontline: bool) -> bool:
 	if not target.get("traits", []).has("backline"):
 		return false
-	for e in enemies:
-		if int(e.get("hp", 0)) > 0 and (e.get("traits", []).has("tank") or e.get("traits", []).has("guard")):
-			return true
-	return false
+	return has_frontline
 
 
 static func clear_enemy_taunts(enemies: Array[Dictionary]) -> void:

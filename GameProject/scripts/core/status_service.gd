@@ -23,6 +23,7 @@ const EFFECT_PERCENT := "percent"
 const EFFECT_MULTIPLY := "multiply"
 
 var trigger_service := TriggerService.new()
+var condition_evaluator := ConditionEvaluator.new()
 
 
 func _init() -> void:
@@ -107,7 +108,7 @@ func resolve_stat(target: Dictionary, base_value: float, stat_key: String, conte
 
 
 func evaluate_condition(target: Dictionary, condition: Dictionary, context: Dictionary) -> bool:
-	return ConditionEvaluator.new().evaluate(target, condition, context)
+	return condition_evaluator.evaluate(target, condition, context)
 
 
 func fire_trigger(target: Dictionary, event: String, context: Dictionary) -> void:

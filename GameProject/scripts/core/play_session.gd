@@ -23,6 +23,7 @@ const ActionContext = preload("res://scripts/core/action_context.gd")
 const ActionPipeline = preload("res://scripts/core/action_pipeline.gd")
 
 const MAX_CHARGES := 5
+const BATTLE_LOG_LIMIT := 200
 
 var simulator := RunSimulator.new()
 var rewards := RewardService.new()
@@ -277,6 +278,7 @@ func get_roster_player(selected_class: String) -> Dictionary:
 func save_game() -> bool:
 	if phase == "menu" or player.is_empty():
 		return false
+	_trim_battle_log()
 	var profile := save_profile.read_profile(Callable(self, "_persistent_player_snapshot"))
 	var roster := _dictionary(profile.get("roster", {}))
 	roster[class_id] = _persistent_player_snapshot(player)
@@ -1068,7 +1070,18 @@ func _state_name(card_id: String) -> String:
 
 
 func _save_data() -> Dictionary:
+	_trim_battle_log()
 	return run_state_serializer.save_data(self)
+
+
+func _trim_battle_log() -> void:
+	var overflow := battle_log.size() - BATTLE_LOG_LIMIT
+	if overflow <= 0:
+		return
+	var trimmed: Array[String] = []
+	for i in range(overflow, battle_log.size()):
+		trimmed.append(battle_log[i])
+	battle_log = trimmed
 
 
 func _roster_player_or_new(selected_class: String) -> Dictionary:

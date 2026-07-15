@@ -16,7 +16,7 @@ func test_save_round_trip() -> void:
 	var session = session_script.new()
 	session.delete_save()
 	session.start_new_game("warrior")
-	session.player_attack(0)
+	TestHelpers.force_win(session)
 	session.battle_log.append("save_marker")
 	assert_true(session.save_game(), "save should succeed")
 	var loaded = session_script.new()
@@ -27,7 +27,7 @@ func test_save_round_trip() -> void:
 	assert_equal(int(loaded.battle_index), int(session.battle_index), "loaded battle")
 	assert_equal(int(loaded.player["hp"]), int(session.player["hp"]), "loaded hp")
 	assert_equal(loaded.enemies.size(), session.enemies.size(), "loaded enemy count")
-	assert_true(loaded.battle_log.has("save_marker"), "loaded battle log")
+	assert_true(not loaded.battle_log.has("save_marker"), "battle log should not persist")
 	loaded.delete_save()
 
 

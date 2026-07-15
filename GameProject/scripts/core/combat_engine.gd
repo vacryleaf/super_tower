@@ -11,6 +11,7 @@ const ChargeService = preload("res://scripts/core/charge_service.gd")
 const CharacterService = preload("res://scripts/core/character_service.gd")
 const StatusService = preload("res://scripts/core/status_service.gd")
 const TriggerEvents = preload("res://scripts/core/trigger_events.gd")
+const SkillActionService = preload("res://scripts/core/skill_action_service.gd")
 
 const MAX_ROUNDS := 40
 
@@ -57,172 +58,174 @@ func run_battle(player: Dictionary, encounter: Dictionary, tower_floor: int, bat
 				_damage_lowest_enemy(enemies, attack_damage, log, "attack_charge_repeat")
 			energy = mini(DataCatalog.ENERGY_MAX, energy + DataCatalog.ATTACK_ENERGY)
 
-		# 尝试使用技能
-		if _should_use_skill_in_sim(player, energy, skill_cooldowns) and _alive_count(enemies) > 0:
-			var skill_id := _first_skill_id(player)
-			var skill: Dictionary = DataCatalog.SKILLS[skill_id]
-			var skill_type := String(skill.get("type", "attack"))
-			if skill_type == "attack":
-				var skill_damage := _skill_damage(player)
-				if skill_damage > 0:
-					skill_damage = charge_sim.apply_attack_modifiers(skill_damage, charge_state, skill_id)
-					var is_aoe := bool(skill.get("aoe", false))
-					var extra_hits_sim := int(status_service.resolve_stat(player, float(player.get("extra_hits", 0)), StatusService.STAT_EXTRA_HITS))
-					var hits := maxi(1, int(skill.get("hits", 1)) + extra_hits_sim)
-					# 护甲削减（碎裂斩等）
-					var armor_reduce := float(skill.get("armor_reduce", 0.0))
-					if armor_reduce > 0.0:
-						var target_idx := _lowest_hp_enemy_index(enemies)
-						if target_idx >= 0:
-							var old_armor := int(enemies[target_idx].get("armor", 0))
-							enemies[target_idx]["armor"] = maxi(0, int(round(float(old_armor) * (1.0 - armor_reduce))))
-							log.append("skill_armor_reduce:%s:%d->%d" % [enemies[target_idx]["name"], old_armor, int(enemies[target_idx]["armor"])])
-					# AOE / 单目标分支
-					if is_aoe:
-						for _hit in range(hits):
-							for enemy in enemies:
-								if int(enemy["hp"]) <= 0:
-									continue
-								_damage_enemy_direct(enemy, skill_damage, log, "skill")
-						for _i in range(charge_sim.consume_repeats(charge_state, "attack", skill_id)):
-							for _hit2 in range(hits):
+			# 尝试使用技能
+			if _should_use_skill_in_sim(player, energy, skill_cooldowns) and _alive_count(enemies) > 0:
+				var skill_id := _first_skill_id(player)
+				var skill: Dictionary = DataCatalog.SKILLS[skill_id]
+				var skill_type := String(skill.get("type", "attack"))
+				if SkillActionService.has_actions(skill):
+					player_block += _execute_player_action_skill_in_sim(player, enemies, skill_id, skill, log, charge_state, counter_state)
+				elif skill_type == "attack":
+					var skill_damage := _skill_damage(player)
+					if skill_damage > 0:
+						skill_damage = charge_sim.apply_attack_modifiers(skill_damage, charge_state, skill_id)
+						var is_aoe := bool(skill.get("aoe", false))
+						var extra_hits_sim := int(status_service.resolve_stat(player, float(player.get("extra_hits", 0)), StatusService.STAT_EXTRA_HITS))
+						var hits := maxi(1, int(skill.get("hits", 1)) + extra_hits_sim)
+						# 护甲削减（碎裂斩等）
+						var armor_reduce := float(skill.get("armor_reduce", 0.0))
+						if armor_reduce > 0.0:
+							var target_idx := _lowest_hp_enemy_index(enemies)
+							if target_idx >= 0:
+								var old_armor := int(enemies[target_idx].get("armor", 0))
+								enemies[target_idx]["armor"] = maxi(0, int(round(float(old_armor) * (1.0 - armor_reduce))))
+								log.append("skill_armor_reduce:%s:%d->%d" % [enemies[target_idx]["name"], old_armor, int(enemies[target_idx]["armor"])])
+						# AOE / 单目标分支
+						if is_aoe:
+							for _hit in range(hits):
 								for enemy in enemies:
 									if int(enemy["hp"]) <= 0:
 										continue
-									_damage_enemy_direct(enemy, skill_damage, log, "skill_charge_repeat")
-					else:
-						for _hit in range(hits):
-							_damage_lowest_enemy(enemies, skill_damage, log, "skill")
-						for _i in range(charge_sim.consume_repeats(charge_state, "attack", skill_id)):
-							for _hit2 in range(hits):
-								_damage_lowest_enemy(enemies, skill_damage, log, "skill_charge_repeat")
-					# 溅射（爆裂猛击等）
-					if bool(skill.get("splash", false)):
-						var splash_mult := float(skill.get("splash_multiplier", 1.0))
-						var splash_damage := maxi(1, int(round(float(skill_damage) * splash_mult)))
-						var main_target := _lowest_hp_enemy_index(enemies)
-						if main_target >= 0:
-							for offset in [-1, 1]:
-								var splash_idx: int = main_target + offset
-								if splash_idx >= 0 and splash_idx < enemies.size() and splash_idx != main_target:
-									if int(enemies[splash_idx]["hp"]) > 0:
-										_damage_enemy_direct(enemies[splash_idx], splash_damage, log, "skill_splash")
-					# 自身格挡（爆裂猛击等）
-					var self_block_mult := float(skill.get("self_block_multiplier", 0.0))
-					if self_block_mult > 0.0:
-						var block_gain := maxi(1, int(round(float(player.get("block_power", player.get("defense", 1))) * self_block_mult)))
-						player_block += block_gain
-						log.append("skill_self_block:%s:%d" % [skill_id, block_gain])
-					# 追加 AOE（碎裂斩等）
-					var aoe_multiplier := float(skill.get("aoe_multiplier", 0.0))
-					if aoe_multiplier > 0.0:
-						var base_attack: float = status_service.resolve_stat(player, float(player["attack"]), StatusService.STAT_ATTACK)
-						var aoe_damage := maxi(1, int(round(base_attack * aoe_multiplier)))
+									_damage_enemy_direct(enemy, skill_damage, log, "skill")
+							for _i in range(charge_sim.consume_repeats(charge_state, "attack", skill_id)):
+								for _hit2 in range(hits):
+									for enemy in enemies:
+										if int(enemy["hp"]) <= 0:
+											continue
+										_damage_enemy_direct(enemy, skill_damage, log, "skill_charge_repeat")
+						else:
+							for _hit in range(hits):
+								_damage_lowest_enemy(enemies, skill_damage, log, "skill")
+							for _i in range(charge_sim.consume_repeats(charge_state, "attack", skill_id)):
+								for _hit2 in range(hits):
+									_damage_lowest_enemy(enemies, skill_damage, log, "skill_charge_repeat")
+						# 溅射（爆裂猛击等）
+						if bool(skill.get("splash", false)):
+							var splash_mult := float(skill.get("splash_multiplier", 1.0))
+							var splash_damage := maxi(1, int(round(float(skill_damage) * splash_mult)))
+							var main_target := _lowest_hp_enemy_index(enemies)
+							if main_target >= 0:
+								for offset in [-1, 1]:
+									var splash_idx: int = main_target + offset
+									if splash_idx >= 0 and splash_idx < enemies.size() and splash_idx != main_target:
+										if int(enemies[splash_idx]["hp"]) > 0:
+											_damage_enemy_direct(enemies[splash_idx], splash_damage, log, "skill_splash")
+						# 自身格挡（爆裂猛击等）
+						var self_block_mult := float(skill.get("self_block_multiplier", 0.0))
+						if self_block_mult > 0.0:
+							var block_gain := maxi(1, int(round(float(player.get("block_power", player.get("defense", 1))) * self_block_mult)))
+							player_block += block_gain
+							log.append("skill_self_block:%s:%d" % [skill_id, block_gain])
+						# 追加 AOE（碎裂斩等）
+						var aoe_multiplier := float(skill.get("aoe_multiplier", 0.0))
+						if aoe_multiplier > 0.0:
+							var base_attack: float = status_service.resolve_stat(player, float(player["attack"]), StatusService.STAT_ATTACK)
+							var aoe_damage := maxi(1, int(round(base_attack * aoe_multiplier)))
+							for enemy in enemies:
+								if int(enemy["hp"]) <= 0:
+									continue
+								_damage_enemy_direct(enemy, aoe_damage, log, "skill_aoe_followup")
+						# 反击状态（反击风暴等）
+						var counter_mult := float(skill.get("counter_attack_multiplier", 0.0))
+						var counter_charges := int(skill.get("counter_charges", 0))
+						if counter_mult > 0.0 and counter_charges > 0:
+							counter_state["charges"] = int(counter_state["charges"]) + counter_charges
+							counter_state["multiplier"] = maxf(float(counter_state["multiplier"]), counter_mult)
+						# 削弱（真空斩/重砍等）
+						var weaken_mult := float(skill.get("weaken_multiplier", 0.0))
+						if weaken_mult > 0.0:
+							var weaken_target := _lowest_hp_enemy_index(enemies)
+							if weaken_target >= 0:
+								var weaken_status := {
+									"id": skill_id,
+									"name": skill["name"],
+									"kind": "debuff",
+									"stack": "replace",
+									"effects": [{"stat": "attack", "type": "multiply", "value": weaken_mult}],
+									"duration": 2
+								}
+								status_service.add_status(enemies[weaken_target], weaken_status)
+					# 铁血清算：回复 + 清debuff + DOT
+					var heal_percent := float(skill.get("heal_percent", 0.0))
+					if heal_percent > 0.0:
+						var heal_amount := maxi(1, int(round(float(skill_damage) * heal_percent)))
+						player["hp"] = mini(int(player["max_hp"]), int(player["hp"]) + heal_amount)
+						log.append("skill_heal:%s:%d" % [skill_id, heal_amount])
+					if bool(skill.get("clear_debuffs", false)):
+						log.append("clear_debuffs:%s" % skill_id)
+					var dot_mult := float(skill.get("dot_multiplier", 0.0))
+					var dot_duration := int(skill.get("dot_duration", 0))
+					if dot_mult > 0.0 and dot_duration > 0:
+						var dot_damage := maxi(1, int(round(float(player["attack"]) * dot_mult)))
+						var dot_status := {
+							"id": skill_id + "_dot",
+							"name": skill["name"] + " DOT",
+							"kind": "debuff",
+							"stack": "replace",
+							"tick_effects": [{"stat": "hp", "type": "flat", "value": float(-dot_damage)}],
+							"duration": dot_duration
+						}
 						for enemy in enemies:
 							if int(enemy["hp"]) <= 0:
 								continue
-							_damage_enemy_direct(enemy, aoe_damage, log, "skill_aoe_followup")
-					# 反击状态（反击风暴等）
-					var counter_mult := float(skill.get("counter_attack_multiplier", 0.0))
-					var counter_charges := int(skill.get("counter_charges", 0))
-					if counter_mult > 0.0 and counter_charges > 0:
-						counter_state["charges"] = int(counter_state["charges"]) + counter_charges
-						counter_state["multiplier"] = maxf(float(counter_state["multiplier"]), counter_mult)
-					# 削弱（真空斩/重砍等）
-					var weaken_mult := float(skill.get("weaken_multiplier", 0.0))
-					if weaken_mult > 0.0:
-						var weaken_target := _lowest_hp_enemy_index(enemies)
-						if weaken_target >= 0:
-							var weaken_status := {
-								"id": skill_id,
-								"name": skill["name"],
-								"kind": "debuff",
-								"stack": "replace",
-								"effects": [{"stat": "attack", "type": "multiply", "value": weaken_mult}],
-								"duration": 2
-							}
-							status_service.add_status(enemies[weaken_target], weaken_status)
-				# 铁血清算：回复 + 清debuff + DOT
-				var heal_percent := float(skill.get("heal_percent", 0.0))
-				if heal_percent > 0.0:
-					var heal_amount := maxi(1, int(round(float(skill_damage) * heal_percent)))
-					player["hp"] = mini(int(player["max_hp"]), int(player["hp"]) + heal_amount)
-					log.append("skill_heal:%s:%d" % [skill_id, heal_amount])
-				if bool(skill.get("clear_debuffs", false)):
-					log.append("clear_debuffs:%s" % skill_id)
-				var dot_mult := float(skill.get("dot_multiplier", 0.0))
-				var dot_duration := int(skill.get("dot_duration", 0))
-				if dot_mult > 0.0 and dot_duration > 0:
-					var dot_damage := maxi(1, int(round(float(player["attack"]) * dot_mult)))
-					var dot_status := {
-						"id": skill_id + "_dot",
-						"name": skill["name"] + " DOT",
-						"kind": "debuff",
-						"stack": "replace",
-						"tick_effects": [{"stat": "hp", "type": "flat", "value": float(-dot_damage)}],
-						"duration": dot_duration
-					}
-					for enemy in enemies:
-						if int(enemy["hp"]) <= 0:
-							continue
-						status_service.add_status(enemy, dot_status)
-					log.append("dot:%s:%d:%d" % [skill_id, dot_damage, dot_duration])
-			elif skill_type == "defense" or skill_type == "stance":
-				var block_gain := maxi(1, int(round(float(player.get("block_power", player.get("defense", 1))) * (float(skill.get("multiplier", skill.get("block_multiplier", 1.0))) + char_service.skill_multiplier_bonus(player, skill_id, "defense")))))
-				block_gain = charge_sim.apply_defense_modifiers(block_gain, charge_state, skill_id)
-				player_block += block_gain
-				for _i in range(charge_sim.consume_repeats(charge_state, "defense", skill_id)):
+							status_service.add_status(enemy, dot_status)
+						log.append("dot:%s:%d:%d" % [skill_id, dot_damage, dot_duration])
+				elif skill_type == "defense" or skill_type == "stance":
+					var block_gain := maxi(1, int(round(float(player.get("block_power", player.get("defense", 1))) * (float(skill.get("multiplier", skill.get("block_multiplier", 1.0))) + char_service.skill_multiplier_bonus(player, skill_id, "defense")))))
+					block_gain = charge_sim.apply_defense_modifiers(block_gain, charge_state, skill_id)
 					player_block += block_gain
-				if skill_type == "stance":
-					counter_state["charges"] = int(counter_state["charges"]) + 1
-					counter_state["multiplier"] = maxf(float(counter_state["multiplier"]), float(skill.get("counter_multiplier", 1.0)) + char_service.skill_multiplier_bonus(player, skill_id, "attack"))
-			elif skill_type == "heal":
-				_skill_damage(player)
-			elif skill_type == "buff":
-				var effects: Array[Dictionary] = skill.get("effects", [])
-				if effects.is_empty():
-					var bonus: float = char_service.skill_multiplier_bonus(player, skill_id, "attack")
-					var multiplier: float = float(skill.get("attack_multiplier", 1.0)) + bonus
-					effects = [{"stat": "attack", "type": "multiply", "value": multiplier}]
-				var status := {
-					"id": skill_id,
-					"name": skill["name"],
-					"kind": "buff",
-					"stack": "replace",
-					"effects": effects,
-					"duration": int(skill.get("duration", -1))
-				}
-				var tick_effects: Array = skill.get("tick_effects", [])
-				if not tick_effects.is_empty():
-					status["tick_effects"] = tick_effects
-				var reflect_mult := float(skill.get("reflect_multiplier", 0.0))
-				if reflect_mult > 0.0:
-					status["reflect_multiplier"] = reflect_mult
-				var deferred_pct := float(skill.get("deferred_damage_percent", 0.0))
-				if deferred_pct > 0.0:
-					status["deferred_damage_percent"] = deferred_pct
-				status_service.add_status(player, status)
-				log.append("buff:%s" % skill_id)
-			elif skill_type == "duel":
-				duel_target_index = _lowest_hp_enemy_index(enemies)
-				if duel_target_index >= 0:
-					var duel_buff := {
+					for _i in range(charge_sim.consume_repeats(charge_state, "defense", skill_id)):
+						player_block += block_gain
+					if skill_type == "stance":
+						counter_state["charges"] = int(counter_state["charges"]) + 1
+						counter_state["multiplier"] = maxf(float(counter_state["multiplier"]), float(skill.get("counter_multiplier", 1.0)) + char_service.skill_multiplier_bonus(player, skill_id, "attack"))
+				elif skill_type == "heal":
+					_skill_damage(player)
+				elif skill_type == "buff":
+					var effects: Array[Dictionary] = skill.get("effects", [])
+					if effects.is_empty():
+						var bonus: float = char_service.skill_multiplier_bonus(player, skill_id, "attack")
+						var multiplier: float = float(skill.get("attack_multiplier", 1.0)) + bonus
+						effects = [{"stat": "attack", "type": "multiply", "value": multiplier}]
+					var status := {
 						"id": skill_id,
 						"name": skill["name"],
 						"kind": "buff",
 						"stack": "replace",
-						"effects": [{"stat": "attack", "type": "multiply", "value": float(skill.get("attack_multiplier", 2.0))}],
-						"duration": -1
+						"effects": effects,
+						"duration": int(skill.get("duration", -1))
 					}
-					status_service.add_status(player, duel_buff)
-					log.append("duel:%s:%s" % [skill_id, enemies[duel_target_index]["name"]])
-			elif skill_type == "deflect":
-				perfect_deflect = true
-				log.append("deflect:%s" % skill_id)
-			energy -= maxi(0, int(skill.get("energy_cost", 0)) + int(status_service.resolve_stat(player, 0.0, StatusService.STAT_ENERGY_COST)))
-			var cooldown := int(skill.get("cooldown", 0))
-			if cooldown > 0:
-				skill_cooldowns[skill_id] = cooldown
+					var tick_effects: Array = skill.get("tick_effects", [])
+					if not tick_effects.is_empty():
+						status["tick_effects"] = tick_effects
+					var reflect_mult := float(skill.get("reflect_multiplier", 0.0))
+					if reflect_mult > 0.0:
+						status["reflect_multiplier"] = reflect_mult
+					var deferred_pct := float(skill.get("deferred_damage_percent", 0.0))
+					if deferred_pct > 0.0:
+						status["deferred_damage_percent"] = deferred_pct
+					status_service.add_status(player, status)
+					log.append("buff:%s" % skill_id)
+				elif skill_type == "duel":
+					duel_target_index = _lowest_hp_enemy_index(enemies)
+					if duel_target_index >= 0:
+						var duel_buff := {
+							"id": skill_id,
+							"name": skill["name"],
+							"kind": "buff",
+							"stack": "replace",
+							"effects": [{"stat": "attack", "type": "multiply", "value": float(skill.get("attack_multiplier", 2.0))}],
+							"duration": -1
+						}
+						status_service.add_status(player, duel_buff)
+						log.append("duel:%s:%s" % [skill_id, enemies[duel_target_index]["name"]])
+				elif skill_type == "deflect":
+					perfect_deflect = true
+					log.append("deflect:%s" % skill_id)
+				energy -= maxi(0, int(skill.get("energy_cost", 0)) + int(status_service.resolve_stat(player, 0.0, StatusService.STAT_ENERGY_COST)))
+				var cooldown := int(skill.get("cooldown", 0))
+				if cooldown > 0:
+					skill_cooldowns[skill_id] = cooldown
 
 		# 冷却回合递减
 		var expired: Array[String] = []
@@ -325,6 +328,219 @@ func _build_enemies(encounter: Dictionary, tower_floor: int) -> Array[Dictionary
 	return CombatRules.build_enemies(encounter, tower_floor)
 
 
+func _execute_player_action_skill_in_sim(player: Dictionary, enemies: Array[Dictionary], skill_id: String, skill: Dictionary, log: Array[String], charge_state: Dictionary, counter_state: Dictionary) -> int:
+	var attack_repeat_bonus := -1
+	var defense_repeat_bonus := -1
+	var block_gain := 0
+	for action in SkillActionService.actions(skill):
+		var action_type := String(action.get("type", ""))
+		match action_type:
+			SkillActionService.ACTION_DAMAGE:
+				var damage_repeat_bonus := 0
+				if bool(action.get("repeat_with_charge", true)):
+					if attack_repeat_bonus < 0:
+						attack_repeat_bonus = charge_sim.consume_repeats(charge_state, "attack", skill_id)
+					damage_repeat_bonus = attack_repeat_bonus
+				_execute_action_damage_in_sim(player, enemies, skill_id, skill, action, log, charge_state, damage_repeat_bonus)
+			SkillActionService.ACTION_MODIFY_ARMOR:
+				_execute_action_modify_armor_in_sim(enemies, skill, action, log)
+			SkillActionService.ACTION_APPLY_STATUS:
+				_execute_action_apply_status_in_sim(player, enemies, skill_id, action)
+			SkillActionService.ACTION_GAIN_BLOCK:
+				var block_repeat_bonus := 0
+				if String(action.get("charge_tag", "")) == "defense" and bool(action.get("repeat_with_charge", true)):
+					if defense_repeat_bonus < 0:
+						defense_repeat_bonus = charge_sim.consume_repeats(charge_state, "defense", skill_id)
+					block_repeat_bonus = defense_repeat_bonus
+				block_gain += _action_block_amount_in_sim(player, skill_id, action, charge_state, block_repeat_bonus)
+			SkillActionService.ACTION_GAIN_DODGE:
+				_execute_action_gain_dodge_in_sim(player, action)
+			SkillActionService.ACTION_INTERRUPT:
+				_execute_action_interrupt_in_sim(enemies, skill, action, log)
+			SkillActionService.ACTION_SET_COUNTER_ATTACK:
+				var charges := int(action.get("charges", 0))
+				if charges > 0:
+					counter_state["charges"] = int(counter_state["charges"]) + charges
+					var multiplier: float = float(action.get("multiplier", 1.0))
+					var bonus_stat := String(action.get("skill_bonus_stat", ""))
+					if bonus_stat != "":
+						multiplier += char_service.skill_multiplier_bonus(player, skill_id, bonus_stat)
+					counter_state["multiplier"] = maxf(float(counter_state["multiplier"]), multiplier)
+			SkillActionService.ACTION_CLEAR_DEBUFFS:
+				status_service.clear_debuffs(player)
+			SkillActionService.ACTION_HEAL:
+				_execute_action_heal_in_sim(player, skill_id, action)
+			SkillActionService.ACTION_SET_DUEL:
+				_execute_action_set_duel_in_sim(player, enemies, skill_id, skill, action, log)
+			SkillActionService.ACTION_SET_DEFLECT:
+				perfect_deflect = true
+				log.append("deflect:%s" % skill_id)
+	return block_gain
+
+
+func _execute_action_damage_in_sim(player: Dictionary, enemies: Array[Dictionary], skill_id: String, skill: Dictionary, action: Dictionary, log: Array[String], charge_state: Dictionary, repeat_bonus: int) -> void:
+	var targets := _action_target_indexes_in_sim(enemies, action)
+	if targets.is_empty():
+		return
+	var extra_hits := int(status_service.resolve_stat(player, float(player.get("extra_hits", 0)), StatusService.STAT_EXTRA_HITS)) if bool(action.get("include_extra_hits", true)) else 0
+	var hits := maxi(1, int(action.get("hits", skill.get("hits", 1))) + extra_hits)
+	var multiplier: float = float(action.get("multiplier", skill.get("multiplier", 1.0))) + char_service.skill_multiplier_bonus(player, skill_id, "attack")
+	var repeat_count := 1 + repeat_bonus if bool(action.get("repeat_with_charge", true)) else 1
+	for _repeat in range(repeat_count):
+		for target in targets:
+			for _hit in range(hits):
+				if _alive_count(enemies) <= 0:
+					return
+				if target < 0 or target >= enemies.size() or int(enemies[target]["hp"]) <= 0:
+					continue
+				var damage := _action_attack_value_in_sim(player, skill_id, multiplier)
+				damage = charge_sim.apply_attack_modifiers(damage, charge_state, skill_id)
+				_damage_enemy_direct(enemies[target], damage, log, "skill_action")
+
+
+func _execute_action_modify_armor_in_sim(enemies: Array[Dictionary], skill: Dictionary, action: Dictionary, log: Array[String]) -> void:
+	var targets := _action_target_indexes_in_sim(enemies, action)
+	var multiplier: float = float(action.get("multiplier", 1.0))
+	for target in targets:
+		if target < 0 or target >= enemies.size() or int(enemies[target]["hp"]) <= 0:
+			continue
+		var old_armor := int(enemies[target].get("armor", 0))
+		enemies[target]["armor"] = maxi(0, int(round(float(old_armor) * multiplier)))
+		if old_armor != int(enemies[target]["armor"]):
+			log.append("skill_action_armor:%s:%d->%d" % [skill["name"], old_armor, int(enemies[target]["armor"])])
+
+
+func _execute_action_apply_status_in_sim(player: Dictionary, enemies: Array[Dictionary], skill_id: String, action: Dictionary) -> void:
+	var status: Dictionary = _resolved_action_status_in_sim(player, skill_id, action)
+	if status.is_empty():
+		return
+	var target_mode := String(action.get("target", SkillActionService.TARGET_SELECTED))
+	if target_mode == SkillActionService.TARGET_SELF:
+		status_service.add_status(player, status)
+		return
+	for target in _action_target_indexes_in_sim(enemies, action):
+		if target >= 0 and target < enemies.size() and int(enemies[target]["hp"]) > 0:
+			status_service.add_status(enemies[target], status)
+
+
+func _resolved_action_status_in_sim(player: Dictionary, skill_id: String, action: Dictionary) -> Dictionary:
+	var status: Dictionary = action.get("status", {})
+	if status.is_empty():
+		return {}
+	var result := status.duplicate(true)
+	for effect in result.get("effects", []):
+		var bonus_stat := String(effect.get("skill_bonus_stat", ""))
+		if bonus_stat == "":
+			continue
+		effect["value"] = float(effect.get("value", 0.0)) + char_service.skill_multiplier_bonus(player, skill_id, bonus_stat)
+		effect.erase("skill_bonus_stat")
+	for tick in result.get("tick_effects", []):
+		if not tick.has("source_stat"):
+			continue
+		var stat := String(tick.get("source_stat", ""))
+		var multiplier := float(tick.get("source_multiplier", 1.0))
+		var amount := maxi(1, int(round(float(player.get(stat, 0)) * multiplier)))
+		tick.erase("source_stat")
+		tick.erase("source_multiplier")
+		tick["value"] = -amount if bool(tick.get("negative", false)) else amount
+		tick.erase("negative")
+	return result
+
+
+func _action_block_amount_in_sim(player: Dictionary, skill_id: String, action: Dictionary, charge_state: Dictionary, repeat_bonus: int = 0) -> int:
+	var amount := int(action.get("amount", 0))
+	if amount <= 0:
+		var stat := String(action.get("stat", "block_power"))
+		var multiplier: float = float(action.get("multiplier", 1.0))
+		var bonus_stat := String(action.get("skill_bonus_stat", ""))
+		if bonus_stat != "":
+			multiplier += char_service.skill_multiplier_bonus(player, skill_id, bonus_stat)
+		var base_value: float = float(player.get(stat, player.get("block_power", 1)))
+		var resolved_value: float = status_service.resolve_stat(player, base_value, StatusService.STAT_DEFENSE)
+		amount = maxi(1, int(round(resolved_value * multiplier)))
+	if bool(action.get("apply_defense_charge", false)):
+		amount = charge_sim.apply_defense_modifiers(amount, charge_state, skill_id)
+	var total_amount := amount
+	for _i in range(repeat_bonus):
+		total_amount += amount
+	return total_amount
+
+
+func _execute_action_gain_dodge_in_sim(player: Dictionary, action: Dictionary) -> void:
+	var gained := maxi(1, int(action.get("layers", 1)))
+	player["dodge_layers"] = int(player.get("dodge_layers", 0)) + gained
+
+
+func _execute_action_interrupt_in_sim(enemies: Array[Dictionary], skill: Dictionary, action: Dictionary, log: Array[String]) -> void:
+	for target in _action_target_indexes_in_sim(enemies, action):
+		if target >= 0 and target < enemies.size() and int(enemies[target]["hp"]) > 0:
+			enemies[target]["interrupted"] = true
+			log.append("skill_action_interrupt:%s:%s" % [skill["name"], enemies[target]["name"]])
+
+
+func _execute_action_heal_in_sim(player: Dictionary, skill_id: String, action: Dictionary) -> void:
+	var amount := int(action.get("amount", 0))
+	if amount <= 0:
+		var stat := String(action.get("stat", "attack"))
+		var multiplier: float = float(action.get("multiplier", 1.0))
+		var bonus_stat := String(action.get("skill_bonus_stat", stat))
+		if bonus_stat != "":
+			multiplier += char_service.skill_multiplier_bonus(player, skill_id, bonus_stat)
+		amount = maxi(1, int(round(float(player.get(stat, 0)) * multiplier)))
+	if bool(action.get("resolve_heal", true)):
+		var resolved_heal: float = status_service.resolve_stat(player, float(amount), StatusService.STAT_HEAL)
+		amount = maxi(1, int(round(resolved_heal)))
+	player["hp"] = mini(int(player["max_hp"]), int(player["hp"]) + amount)
+
+
+func _execute_action_set_duel_in_sim(player: Dictionary, enemies: Array[Dictionary], skill_id: String, skill: Dictionary, action: Dictionary, log: Array[String]) -> void:
+	duel_target_index = _lowest_hp_enemy_index(enemies)
+	if duel_target_index < 0:
+		return
+	var multiplier: float = float(action.get("multiplier", 1.0))
+	var bonus_stat := String(action.get("skill_bonus_stat", ""))
+	if bonus_stat != "":
+		multiplier += char_service.skill_multiplier_bonus(player, skill_id, bonus_stat)
+	var duel_buff := {
+		"id": skill_id,
+		"name": skill["name"],
+		"kind": "buff",
+		"stack": "replace",
+		"effects": [{"stat": "attack", "type": "multiply", "value": multiplier}],
+		"duration": int(action.get("duration", -1))
+	}
+	status_service.add_status(player, duel_buff)
+	log.append("duel:%s:%s" % [skill_id, enemies[duel_target_index]["name"]])
+
+
+func _action_attack_value_in_sim(player: Dictionary, skill_id: String, multiplier: float) -> int:
+	var resolved_attack: float = status_service.resolve_stat(player, float(player["attack"]), StatusService.STAT_ATTACK)
+	return maxi(1, int(round(resolved_attack * multiplier)))
+
+
+func _action_target_indexes_in_sim(enemies: Array[Dictionary], action: Dictionary) -> Array[int]:
+	var target_mode := String(action.get("target", SkillActionService.TARGET_SELECTED))
+	var result: Array[int] = []
+	match target_mode:
+		SkillActionService.TARGET_ALL_ENEMIES:
+			for i in range(enemies.size()):
+				if int(enemies[i]["hp"]) > 0:
+					result.append(i)
+		SkillActionService.TARGET_ADJACENT:
+			var center := _lowest_hp_enemy_index(enemies)
+			if center < 0:
+				return result
+			for offset in [-1, 1]:
+				var idx: int = center + offset
+				if idx >= 0 and idx < enemies.size() and int(enemies[idx]["hp"]) > 0:
+					result.append(idx)
+		_:
+			var selected := _lowest_hp_enemy_index(enemies)
+			if selected >= 0:
+				result.append(selected)
+	return result
+
+
 func scale_enemy(unit: Dictionary, tower_floor: int, rank: String, formation_scale: float = 1.0) -> Dictionary:
 	return Combatant.scaled_enemy(unit, tower_floor, rank, formation_scale)
 
@@ -368,12 +584,13 @@ func _damage_lowest_enemy(enemies: Array[Dictionary], amount: int, log: Array[St
 	var target_index := _active_taunt_target(enemies)
 	var target_hp := 999999
 	if target_index < 0:
+		var has_frontline := CombatRules.has_active_frontline(enemies)
 		for i in range(enemies.size()):
 			var enemy := enemies[i]
 			if enemy["hp"] <= 0:
 				continue
 			# 有前排存活时跳过 backline 目标
-			if CombatRules.is_backline_protected(enemies, enemy):
+			if CombatRules.is_backline_protected_by_frontline(enemy, has_frontline):
 				continue
 			if enemy["hp"] < target_hp:
 				target_hp = enemy["hp"]
@@ -389,12 +606,13 @@ func _damage_lowest_enemy(enemies: Array[Dictionary], amount: int, log: Array[St
 
 
 func _apply_damage_to_player(player: Dictionary, block: int, damage: int) -> Dictionary:
-	var player_unit := Combatant.from_player(player, block, 0, status_service)
+	var player_unit := Combatant.from_player(player, block, int(player.get("dodge_layers", 0)), status_service)
 	# 应用玩家身上的 damage_taken 乘数（mark 等特性施加的易伤 debuff）
 	var damage_taken_mult: float = status_service.resolve_stat(player_unit, 1.0, StatusService.STAT_DAMAGE_TAKEN)
 	var adjusted_damage := maxi(1, int(round(float(damage) * damage_taken_mult)))
 	var result := Combatant.apply_damage(player_unit, adjusted_damage)
 	var synced := Combatant.sync_to_player(player_unit, player)
+	player["dodge_layers"] = int(synced["dodge_layers"])
 	# 延迟伤害追踪
 	if not bool(result["dodged"]):
 		var deferred_pct := 0.0
@@ -659,16 +877,14 @@ func _lowest_hp_enemy_index(enemies: Array[Dictionary]) -> int:
 	if target_index >= 0:
 		return target_index
 	var target_hp := 999999
+	var has_frontline := CombatRules.has_active_frontline(enemies)
 	for i in range(enemies.size()):
 		var enemy := enemies[i]
 		if enemy["hp"] <= 0:
 			continue
-		if CombatRules.is_backline_protected(enemies, enemy):
+		if CombatRules.is_backline_protected_by_frontline(enemy, has_frontline):
 			continue
 		if enemy["hp"] < target_hp:
 			target_hp = enemy["hp"]
 			target_index = i
 	return target_index
-
-
-

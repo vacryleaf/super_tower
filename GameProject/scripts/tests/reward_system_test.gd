@@ -190,6 +190,8 @@ func test_skill_bound_charge_only_triggers_on_that_skill() -> void:
 	var after_attack := 999 - int(session.player["attack"])
 	assert_equal(int(session.enemies[0]["hp"]), after_attack, "normal attack should not consume skill-bound charge")
 	var skill: Dictionary = DataCatalog.SKILLS[skill_id]
+	session.has_acted = false
+	session.energy = int(skill.get("energy_cost", 0))
 	session.use_skill(0, 0)
 	var expected_skill_damage := int(round(float(session.player["attack"]) * float(skill.get("multiplier", 1.0)))) + bonus
 	var expected_hp := after_attack - expected_skill_damage

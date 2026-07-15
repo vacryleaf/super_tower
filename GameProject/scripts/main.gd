@@ -386,10 +386,10 @@ func _run_action(action: Callable) -> void:
 	await combat_feedback.play_action_feedback(session.last_events.duplicate(true), enemy_card_nodes, player_status_node, Callable(self, "_label"))
 	input_locked = false
 	selected_heal_target = -1
-	_persist_session()
 	if session.phase == "battle":
 		_refresh_battle_ui()
 	else:
+		_persist_session()
 		_request_game_render()
 
 
@@ -598,14 +598,13 @@ func _on_pre_run_action(action: String, arg: String) -> void:
 			pre_run_view.step = maxi(0, pre_run_view.step - 1)
 			if pre_run_view.step == 0:
 				pre_run_view.selected_class = ""
-		"start_game":
-			session.start_new_game(pre_run_view.selected_class, pre_run_view.start_floor)
-			pre_run_view.reset()
-			camp_screen = ""
-			_persist_session()
-			selected_target = 0
-			_request_game_render()
-			return
+			"start_game":
+				session.start_new_game(pre_run_view.selected_class, pre_run_view.start_floor)
+				pre_run_view.reset()
+				camp_screen = ""
+				selected_target = 0
+				_request_game_render()
+				return
 	_request_menu_render()
 
 

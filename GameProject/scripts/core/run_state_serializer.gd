@@ -39,8 +39,7 @@ func save_data(session: RefCounted) -> Dictionary:
 		"pending_charge_effects": session.pending_charge_effects,
 		"reward_options": session.reward_options,
 		"pending_reward": session.pending_reward,
-		"reward_targets": session.reward_targets,
-		"battle_log": session.battle_log
+		"reward_targets": session.reward_targets
 	}
 
 
@@ -88,7 +87,7 @@ func load_save_data(session: RefCounted, data: Dictionary) -> bool:
 	session.reward_options = _dictionary_array(data.get("reward_options", []))
 	session.pending_reward = _dictionary(data.get("pending_reward", {}))
 	session.reward_targets = _dictionary_array(data.get("reward_targets", []))
-	session.battle_log = _string_array(data.get("battle_log", []))
+	session.battle_log.clear()
 	session.last_events.clear()
 	if session.phase == "battle" and (session.current_encounter.is_empty() or session.enemies.is_empty()):
 		session._start_current_battle()
@@ -124,13 +123,4 @@ func _dictionary_array(value: Variant) -> Array[Dictionary]:
 	for item in value:
 		if typeof(item) == TYPE_DICTIONARY:
 			result.append((item as Dictionary).duplicate(true))
-	return result
-
-
-func _string_array(value: Variant) -> Array[String]:
-	var result: Array[String] = []
-	if typeof(value) != TYPE_ARRAY:
-		return result
-	for item in value:
-		result.append(String(item))
 	return result

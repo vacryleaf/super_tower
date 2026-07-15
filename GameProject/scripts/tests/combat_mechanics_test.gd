@@ -145,11 +145,12 @@ func test_skill_multiplier_effects() -> void:
 		"traits": []
 	}]
 	archer.enemies = marked_enemies
-	archer.energy = 12
+	archer.energy = int(DataCatalog.SKILLS["hunter_mark"]["energy_cost"])
 	archer.use_skill(0, 0)
 	assert_true(archer.enemies[0].get("statuses", []).size() > 0, "hunter mark should add a debuff status to enemy")
 	var dmg_mult: float = archer.status_service.resolve_stat(archer.enemies[0], 1.0, StatusService.STAT_DAMAGE_TAKEN)
 	assert_true(dmg_mult > 1.0, "hunter mark should increase damage taken multiplier")
+	archer.has_acted = false
 	archer.player_attack(0)
 	assert_true(int(archer.enemies[0]["hp"]) < 90, "hunter mark should amplify following attack damage")
 
@@ -163,7 +164,7 @@ func test_counter_stance_and_multihit_dodge() -> void:
 	warrior.player["attack"] = 10
 	var counter_enemies: Array[Dictionary] = [TestHelpers.test_enemy("反击测试敌人", 100, 1, [])]
 	warrior.enemies = counter_enemies
-	warrior.energy = 12
+	warrior.energy = int(DataCatalog.SKILLS["counter_stance"]["energy_cost"])
 	warrior.use_skill(0, 0)
 	warrior._enemy_attack(warrior.enemies[0], 0, false)
 	assert_true(int(warrior.enemies[0]["hp"]) < 100, "counter stance should counterattack after being hit")
@@ -176,7 +177,7 @@ func test_counter_stance_and_multihit_dodge() -> void:
 	var dodging_enemies: Array[Dictionary] = [TestHelpers.test_enemy("闪避测试敌人", 100, 0, [])]
 	dodging_enemies[0]["dodge_layers"] = 1
 	archer.enemies = dodging_enemies
-	archer.energy = 12
+	archer.energy = int(DataCatalog.SKILLS["quick_shot"]["energy_cost"])
 	archer.use_skill(0, 0)
 	assert_equal(int(archer.enemies[0]["hp"]), 82, "quick shot should only lose its first hit to one dodge layer")
 
@@ -210,7 +211,7 @@ func test_enemy_skill_execution() -> void:
 		"name": "技能测试敌人",
 		"rank": "normal",
 		"max_hp": 100,
-		"hp": 100,
+		"hp": 20,
 		"attack": 10,
 		"defense": 3,
 		"armor": 0,
@@ -246,11 +247,11 @@ func test_enemy_skill_execution() -> void:
 		"block": 0,
 		"dodge_layers": 0,
 		"taunt": 0,
-		"traits": [],
+		"traits": ["fortify"],
 		"skills": ["enemy_fortify"],
 		"innate_skills": {"attack_1": "innate_attack_1", "defend": "innate_defend", "dodge": "innate_dodge"}
 	}
-	session.enemies = [defend_enemy] as Array[Dictionary]
+	session.enemies = [defend_enemy, TestHelpers.test_enemy("防御旁观敌人", 10, 0, [])] as Array[Dictionary]
 	session.end_turn()
 	var used_defend := false
 	for entry in session.battle_log:

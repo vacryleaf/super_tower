@@ -26,7 +26,7 @@
         "base_defense": 1,
         "base_block": 5,
         "resource": "rage",
-        "first_skill": "heavy_slash"
+        "first_skill": "po_jun"
       },
       "archer": {
         "name": "弓箭手",
@@ -39,16 +39,16 @@
       }
     },
     "skills": {
-      "heavy_slash": {"name": "重劈", "class": "warrior", "type": "attack", "cost": 2, "multiplier": 2.25, "hits": 1},
-      "shield_wall": {"name": "盾墙", "class": "warrior", "type": "defense", "cost": 2, "multiplier": 2.4},
-      "counter_stance": {"name": "反击架势", "class": "warrior", "type": "stance", "cost": 2, "block_multiplier": 1.2, "counter_multiplier": 1.35},
-      "war_cry": {"name": "战吼", "class": "warrior", "type": "buff", "cost": 2, "attack_multiplier": 1.25},
-      "precise_shot": {"name": "精准射击", "class": "archer", "type": "attack", "cost": 2, "multiplier": 2.1, "hits": 1},
-      "quick_shot": {"name": "连珠箭", "class": "archer", "type": "attack", "cost": 2, "multiplier": 0.6, "hits": 4, "damage_type": "physical"},
-      "hunter_mark": {"name": "猎人标记", "class": "archer", "type": "debuff", "cost": 2, "mark_multiplier": 1.35, "weaken_multiplier": 0.75},
-      "roll": {"name": "翻滚", "class": "archer", "type": "dodge", "cost": 2, "block_multiplier": 1.2, "dodge_layers": 1},
-      "first_aid": {"name": "急救", "class": "common", "type": "heal", "cost": 2, "heal_multiplier": 0.25},
-      "tactical_retreat": {"name": "战术后撤", "class": "common", "type": "dodge", "cost": 2, "block_multiplier": 0.9, "dodge_layers": 1}
+      "po_jun": {"name": "破军", "class": "warrior", "type": "attack", "energy_cost": 8, "cooldown": 0, "multiplier": 2.0, "hits": 1, "armor_reduce": 0.3, "damage_type": "physical"},
+      "shield_wall": {"name": "盾墙", "class": "warrior", "type": "defense", "energy_cost": 18, "cooldown": 0, "multiplier": 2.4},
+      "counter_stance": {"name": "反击架势", "class": "warrior", "type": "stance", "energy_cost": 18, "cooldown": 0, "block_multiplier": 1.2, "counter_multiplier": 1.35},
+      "war_cry": {"name": "战吼", "class": "warrior", "type": "buff", "energy_cost": 0, "cooldown": 3, "attack_multiplier": 1.25},
+      "precise_shot": {"name": "精准射击", "class": "archer", "type": "attack", "energy_cost": 12, "cooldown": 0, "multiplier": 2.1, "hits": 1, "armor_reduce": 0.3, "damage_type": "physical"},
+      "quick_shot": {"name": "连珠箭", "class": "archer", "type": "attack", "energy_cost": 30, "cooldown": 0, "multiplier": 0.6, "hits": 4, "damage_type": "physical"},
+      "hunter_mark": {"name": "猎人标记", "class": "archer", "type": "debuff", "energy_cost": 18, "cooldown": 0, "mark_multiplier": 1.35, "weaken_multiplier": 0.75},
+      "roll": {"name": "翻滚", "class": "archer", "type": "dodge", "energy_cost": 0, "cooldown": 3, "block_multiplier": 1.2, "dodge_layers": 1},
+      "first_aid": {"name": "急救", "class": "common", "type": "heal", "energy_cost": 18, "cooldown": 0, "heal_multiplier": 0.25},
+      "tactical_retreat": {"name": "战术后撤", "class": "common", "type": "dodge", "energy_cost": 0, "cooldown": 3, "block_multiplier": 0.9, "dodge_layers": 1}
     },
     "equipment_sets": {
       "moon_pair": {"name": "清辉流霜", "tiers": ["2: 其余3件套以上要求-1"]}
