@@ -21,6 +21,7 @@ const BattleState = preload("res://scripts/core/battle_state.gd")
 const ActionSource = preload("res://scripts/core/action_source.gd")
 const ActionContext = preload("res://scripts/core/action_context.gd")
 const ActionPipeline = preload("res://scripts/core/action_pipeline.gd")
+const SetEffectService = preload("res://scripts/core/set_effect_service.gd")
 
 const MAX_CHARGES := 5
 const BATTLE_LOG_LIMIT := 200
@@ -36,6 +37,7 @@ var reward_apply := RewardApplyService.new()
 var run_state_serializer := RunStateSerializer.new()
 var enemy_rules := EnemyActionRules.new()
 var status_service := StatusService.new()
+var set_effect_service := SetEffectService.new()
 var rng := RandomNumberGenerator.new()
 
 var battle_state := BattleState.new()
@@ -416,35 +418,15 @@ func _draw_state_buff() -> String:
 
 
 func _apply_opening_set_effects() -> void:
-	var set_effects: Dictionary = player.get("active_set_effects", {})
-	for action in set_effects.get("on_battle_start", []):
-		var action_type := String(action.get("action", ""))
-		match action_type:
-			"weaken_enemies":
-				var weaken_value := float(action.get("value", 0.0))
-				if weaken_value > 0.0:
-					enemy_attack_multiplier = 1.0 - weaken_value
-					battle_log.append("套装效果：所有敌人伤害降低 %.0f%%。" % (weaken_value * 100.0))
-			"gain_block":
-				var block_value := int(action.get("value", 0))
-				if block_value > 0:
-					_add_player_block(block_value)
-					battle_log.append("套装效果：首回合获得 %d 点格挡。" % block_value)
-			"gain_dodge":
-				var dodge_value := int(action.get("value", 0))
-				if dodge_value > 0:
-					_add_player_dodge(dodge_value)
-					battle_log.append("套装效果：首回合获得 %d 层躲避。" % dodge_value)
-			"apply_status":
-				var status_to_apply: Dictionary = action.get("status", {})
-				if not status_to_apply.is_empty():
-					status_service.add_status(player, status_to_apply)
-					battle_log.append("套装效果：获得 %s。" % String(status_to_apply.get("name", "")))
-			"set_innate_skill":
-				var slot := String(action.get("slot", ""))
-				var new_skill_id := String(action.get("skill_id", ""))
-				if slot != "" and new_skill_id != "" and player["innate_skills"].has(slot):
-					player["innate_skills"][slot] = new_skill_id
+	var state := {
+		"enemy_attack_multiplier": enemy_attack_multiplier,
+		"player_block": player_block,
+		"dodge_layers": dodge_layers
+	}
+	var result := set_effect_service.apply_battle_start(player, state, battle_log, status_service)
+	enemy_attack_multiplier = float(result.get("enemy_attack_multiplier", 1.0))
+	player_block = int(result.get("player_block", 0))
+	dodge_layers = int(result.get("dodge_layers", 0))
 
 
 func player_attack(target_index: int) -> void:

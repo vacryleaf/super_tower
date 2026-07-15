@@ -12,6 +12,8 @@ const CharacterService = preload("res://scripts/core/character_service.gd")
 const StatusService = preload("res://scripts/core/status_service.gd")
 const TriggerEvents = preload("res://scripts/core/trigger_events.gd")
 const SkillActionService = preload("res://scripts/core/skill_action_service.gd")
+const SetEffectService = preload("res://scripts/core/set_effect_service.gd")
+const ActionSource = preload("res://scripts/core/action_source.gd")
 
 const MAX_ROUNDS := 40
 
@@ -19,6 +21,19 @@ var enemy_rules := EnemyActionRules.new()
 var charge_sim := ChargeSimulator.new()
 var char_service := CharacterService.new()
 var status_service := StatusService.new()
+var set_effect_service := SetEffectService.new()
+var player: Dictionary = {}
+var active_enemies: Array[Dictionary] = []
+var active_log: Array[String] = []
+var sim_counters: Dictionary = {}
+var battle_attack_multiplier := 1.0
+var enemy_attack_multiplier := 1.0
+var pending_state_card := ""
+var focus_combo_multiplier := 1.0
+var meticulous_stacks := 0
+var seek_bloom_stacks := 0
+var ranger_hit_count := 0
+var dodge_streak := 0
 var duel_target_index := -1
 var perfect_deflect := false
 var deferred_damage := 0.0
@@ -34,29 +49,56 @@ func run_battle(player: Dictionary, encounter: Dictionary, tower_floor: int, bat
 	var first_strike_done := false
 	var charge_state := charge_sim.build_charge_state(player)
 	var counter_state := {"charges": 0, "multiplier": 1.0}
+	self.player = player
+	active_enemies = enemies
+	active_log = log
+	sim_counters = {}
+	battle_attack_multiplier = 1.0
+	enemy_attack_multiplier = 1.0
+	pending_state_card = ""
+	focus_combo_multiplier = 1.0
+	meticulous_stacks = 0
+	seek_bloom_stacks = 0
+	ranger_hit_count = 0
+	dodge_streak = 0
 	duel_target_index = -1
 	perfect_deflect = false
 	deferred_damage = 0.0
+	player["statuses"] = []
+	player["dodge_layers"] = 0
+	var opening_state := {
+		"enemy_attack_multiplier": enemy_attack_multiplier,
+		"player_block": player_block,
+		"dodge_layers": int(player.get("dodge_layers", 0))
+	}
+	var opening_result := set_effect_service.apply_battle_start(player, opening_state, log, status_service)
+	enemy_attack_multiplier = float(opening_result.get("enemy_attack_multiplier", 1.0))
+	player_block = int(opening_result.get("player_block", 0))
+	player["dodge_layers"] = int(opening_result.get("dodge_layers", 0))
 
 	if _has_first_strike(enemies):
 		first_strike_done = true
 		var first_result := _apply_enemy_attack(player, enemies[0], 0, player_block, log, true, -1, counter_state)
 		player_block = int(first_result["block"])
+	status_service.fire_trigger(player, TriggerEvents.ON_BATTLE_START, {"battle_log": log, "session": self})
 
 	while player["hp"] > 0 and _alive_count(enemies) > 0 and rounds < MAX_ROUNDS:
 		rounds += 1
 		player_block = 0
 		perfect_deflect = false
+		ranger_hit_count = 0
+		sim_counters["ranger_hit_count"] = 0
 		charge_sim.charge_one_for_round(charge_state)
+		status_service.fire_trigger(player, TriggerEvents.ON_TURN_START, {"battle_log": log, "session": self, "round_index": rounds, "not_attacked_last_turn": false})
 
 		# 每回合一次攻击
 		if _alive_count(enemies) > 0:
-			var attack_damage := int(status_service.resolve_stat(player, float(player["attack"]), StatusService.STAT_ATTACK)) + _state_bonus(player, "attack")
-			attack_damage = charge_sim.apply_attack_modifiers(attack_damage, charge_state)
-			_damage_lowest_enemy(enemies, attack_damage, log, "attack")
+			_execute_player_innate_attack_in_sim(player, enemies, log, charge_state)
 			for _i in range(charge_sim.consume_repeats(charge_state, "attack")):
-				_damage_lowest_enemy(enemies, attack_damage, log, "attack_charge_repeat")
-			energy = mini(DataCatalog.ENERGY_MAX, energy + DataCatalog.ATTACK_ENERGY)
+				_execute_player_innate_attack_in_sim(player, enemies, log, charge_state, "attack_charge_repeat")
+			var innate_skill_id := _player_attack_skill_id(player)
+			var innate_skill: Dictionary = DataCatalog.INNATE_SKILLS.get(innate_skill_id, DataCatalog.INNATE_SKILLS["innate_attack_1"])
+			energy = mini(DataCatalog.ENERGY_MAX, energy + int(innate_skill.get("energy_gain", DataCatalog.ATTACK_ENERGY)))
 
 			# 尝试使用技能
 			if _should_use_skill_in_sim(player, energy, skill_cooldowns) and _alive_count(enemies) > 0:
@@ -578,6 +620,36 @@ func _first_skill_id(player: Dictionary) -> String:
 	return String(player["equipped_skills"][0])
 
 
+func _player_attack_skill_id(player: Dictionary) -> String:
+	var innate_skills: Dictionary = player.get("innate_skills", {})
+	var skill_id := String(innate_skills.get("attack_1", "innate_attack_1"))
+	if DataCatalog.INNATE_SKILLS.has(skill_id):
+		return skill_id
+	return "innate_attack_1"
+
+
+func _execute_player_innate_attack_in_sim(player: Dictionary, enemies: Array[Dictionary], log: Array[String], charge_state: Dictionary, source: String = "attack") -> void:
+	var skill_id := _player_attack_skill_id(player)
+	var skill: Dictionary = DataCatalog.INNATE_SKILLS[skill_id]
+	var hits := maxi(1, int(skill.get("hits", 1)))
+	var damage := _player_innate_attack_value_in_sim(player, skill_id, skill)
+	damage = charge_sim.apply_attack_modifiers(damage, charge_state)
+	for _hit in range(hits):
+		if _alive_count(enemies) <= 0:
+			break
+		_damage_lowest_enemy_from_player(player, enemies, damage, log, source)
+	status_service.fire_trigger(player, TriggerEvents.ON_ATTACK_COMPLETE, {
+		"battle_log": log, "session": self, "skill_id": skill_id, "source": player
+	})
+
+
+func _player_innate_attack_value_in_sim(player: Dictionary, skill_id: String, skill: Dictionary) -> int:
+	var multiplier := float(skill.get("multiplier", 1.0))
+	var resolved_attack: float = status_service.resolve_stat(player, float(player["attack"]), StatusService.STAT_ATTACK)
+	var modifiers := ModifierPipeline.collect_from_session(self, "attack", {"skill_id": skill_id, "skill_multiplier": multiplier}, ActionSource.ACTIVE_ATTACK)
+	return maxi(1, int(round(ModifierPipeline.resolve(resolved_attack, modifiers)))) + _state_bonus(player, "attack")
+
+
 func _damage_lowest_enemy(enemies: Array[Dictionary], amount: int, log: Array[String], source: String) -> void:
 	if amount <= 0:
 		return
@@ -603,6 +675,47 @@ func _damage_lowest_enemy(enemies: Array[Dictionary], amount: int, log: Array[St
 		log.append("%s:%s:dodge" % [source, target["name"]])
 		return
 	log.append("%s:%s:%d" % [source, target["name"], int(result["damage"])])
+
+
+func _damage_lowest_enemy_from_player(player: Dictionary, enemies: Array[Dictionary], amount: int, log: Array[String], source: String) -> void:
+	if amount <= 0:
+		return
+	var target_index := _active_taunt_target(enemies)
+	var target_hp := 999999
+	if target_index < 0:
+		var has_frontline := CombatRules.has_active_frontline(enemies)
+		for i in range(enemies.size()):
+			var enemy := enemies[i]
+			if enemy["hp"] <= 0:
+				continue
+			if CombatRules.is_backline_protected_by_frontline(enemy, has_frontline):
+				continue
+			if enemy["hp"] < target_hp:
+				target_hp = enemy["hp"]
+				target_index = i
+	if target_index < 0:
+		return
+	_damage_enemy_index_from_player(player, enemies, target_index, amount, log, source)
+
+
+func _damage_enemy_index_from_player(player: Dictionary, enemies: Array[Dictionary], target_index: int, amount: int, log: Array[String], source: String) -> void:
+	if target_index < 0 or target_index >= enemies.size() or amount <= 0:
+		return
+	var target := enemies[target_index]
+	if int(target.get("hp", 0)) <= 0:
+		return
+	var result := Combatant.apply_damage(target, amount)
+	if bool(result["dodged"]):
+		log.append("%s:%s:dodge" % [source, target["name"]])
+		status_service.fire_trigger(target, TriggerEvents.ON_DODGE, {"battle_log": log, "session": self, "source": player})
+		return
+	var damage := int(result["damage"])
+	log.append("%s:%s:%d" % [source, target["name"], damage])
+	var hit_context := {"battle_log": log, "session": self, "source": player, "target": target, "damage": damage}
+	status_service.fire_trigger(player, TriggerEvents.ON_HIT_DEALT, hit_context)
+	status_service.fire_trigger(target, TriggerEvents.ON_HIT_RECEIVED, hit_context)
+	if int(target.get("hp", 0)) <= 0:
+		status_service.fire_trigger(player, TriggerEvents.ON_KILL, hit_context)
 
 
 func _apply_damage_to_player(player: Dictionary, block: int, damage: int) -> Dictionary:
@@ -644,10 +757,15 @@ func _apply_enemy_attack(player: Dictionary, enemy: Dictionary, enemy_index: int
 		was_hit = was_hit or hit
 		log.append("enemy_attack:%s:%d" % [enemy["name"], damage])
 		if hit:
-			status_service.fire_trigger(enemy, TriggerEvents.ON_HIT_DEALT, {
-				"battle_log": log, "session": null, "round_index": round_index,
+			var hit_context := {
+				"battle_log": log, "session": self, "round_index": round_index,
 				"source": enemy, "target": player, "damage": damage
-			})
+			}
+			status_service.fire_trigger(enemy, TriggerEvents.ON_HIT_DEALT, hit_context)
+			status_service.fire_trigger(player, TriggerEvents.ON_HIT_RECEIVED, hit_context)
+		else:
+			dodge_streak += 1
+			status_service.fire_trigger(player, TriggerEvents.ON_DODGE, {"battle_log": log, "session": self, "source": enemy})
 	if was_hit:
 		_trigger_counter_attack(player, enemy, enemy_index, log, counter_state)
 		_sim_reflect_damage(player, enemy, enemy_index, log)
@@ -665,12 +783,12 @@ func _enemy_attack_segments(enemy: Dictionary, round_index: int, first_strike: b
 	var segments := enemy_rules.attack_segments(enemy, round_index, first_strike)
 	var base_attack := float(enemy["attack"])
 	var resolved_attack: float = status_service.resolve_stat(enemy, base_attack, StatusService.STAT_ATTACK)
-	if abs(resolved_attack - base_attack) < 0.001:
+	var total_multiplier := enemy_attack_multiplier * (resolved_attack / maxf(1.0, base_attack))
+	if abs(total_multiplier - 1.0) < 0.001:
 		return segments
-	var ratio := resolved_attack / maxf(1.0, base_attack)
 	var result: Array[int] = []
 	for damage in segments:
-		result.append(maxi(1, int(round(float(damage) * ratio))))
+		result.append(maxi(1, int(round(float(damage) * total_multiplier))))
 	return result
 
 
@@ -693,6 +811,45 @@ func _incoming_damage(enemies: Array[Dictionary], round_index: int) -> int:
 				total += CombatRules.skill_attack_value_for_actor(enemy, skill_id) * hits
 		actions += 1
 	return total
+
+
+func get_counter(name: String) -> int:
+	match name:
+		"meticulous_stacks": return meticulous_stacks
+		"seek_bloom_stacks": return seek_bloom_stacks
+		"ranger_hit_count": return ranger_hit_count
+		_: return int(sim_counters.get(name, 0))
+
+
+func set_counter(name: String, value: int) -> void:
+	sim_counters[name] = value
+	match name:
+		"meticulous_stacks": meticulous_stacks = value
+		"seek_bloom_stacks": seek_bloom_stacks = value
+		"ranger_hit_count": ranger_hit_count = value
+
+
+func _opposing_units(actor: Dictionary) -> Array[Dictionary]:
+	if actor == player:
+		return active_enemies
+	var result: Array[Dictionary] = []
+	result.append(player)
+	return result
+
+
+func find_enemy_index(target: Dictionary) -> int:
+	for i in range(active_enemies.size()):
+		if active_enemies[i] == target:
+			return i
+	return -1
+
+
+func deal_damage(ctx: Dictionary) -> void:
+	var target_index := int(ctx.get("target_index", 0))
+	var damage := int(ctx.get("final_damage", ctx.get("base_damage", 0)))
+	if target_index < 0 or target_index >= active_enemies.size():
+		return
+	_damage_enemy_index_from_player(player, active_enemies, target_index, damage, active_log, "trigger")
 
 
 

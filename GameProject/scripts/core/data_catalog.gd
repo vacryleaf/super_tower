@@ -83,6 +83,7 @@ const INNATE_SKILLS := {
 	"innate_attack_2": {"name": "攻击·贰", "type": "attack", "multiplier": 1.0, "hits": 1, "damage_type": "physical", "energy_gain": 4},
 	"innate_attack_3": {"name": "攻击·叁", "type": "attack", "multiplier": 1.0, "hits": 1, "damage_type": "physical", "energy_gain": 4},
 	"innate_attack_4": {"name": "攻击·肆", "type": "attack", "multiplier": 1.0, "hits": 1, "damage_type": "physical", "energy_gain": 4},
+	"ranger_flurry": {"name": "游侠连射", "type": "attack", "multiplier": 0.3, "hits": 4, "damage_type": "physical", "energy_gain": 4},
 	"innate_defend": {"name": "防御", "type": "defense", "multiplier": 1.0, "energy_gain": 3},
 	"innate_dodge": {"name": "闪避", "type": "dodge", "dodge_layers": 1, "energy_gain": 2}
 }

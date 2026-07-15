@@ -229,7 +229,7 @@ func execute_skill(session: RefCounted, skill_id: String, target_index: int, act
 				session.battle_log.append("%s：接下来受到攻击时反击 %d 次，倍率 x%.2f。" % [skill["name"], counter_charges, counter_mult])
 
 			session.status_service.fire_trigger(session.player, TriggerEvents.ON_ATTACK_COMPLETE, {
-				"battle_log": session.battle_log, "session": session, "skill_id": skill_id
+				"battle_log": session.battle_log, "session": session, "skill_id": skill_id, "source": session.player
 			})
 			# 铁血清算：回复造成伤害的百分比
 			var heal_percent := float(skill.get("heal_percent", 0.0))
