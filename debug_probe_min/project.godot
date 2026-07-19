@@ -1,0 +1,13 @@
+config_version=5
+
+[application]
+
+config/name="Godot Probe Min"
+run/main_scene="res://scenes/main.tscn"
+config/features=PackedStringArray("4.5")
+config/use_custom_user_dir=true
+config/custom_user_dir_name="GodotProbeMin"
+
+[rendering]
+
+renderer/rendering_method="gl_compatibility"
