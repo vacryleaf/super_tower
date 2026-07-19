@@ -53,12 +53,12 @@ func player_status(session: Variant, class_label: String, label_factory: Callabl
 		box.add_child(UIHelpers.avatar_for(class_key))
 	var labels := {
 		"class": label_factory.call(class_label, 18),
-		"action": label_factory.call("能量 %d/%d" % [session.energy, DataCatalog.ENERGY_MAX], 15),
-		"hp": label_factory.call("hp %d/%d" % [int(session.player["hp"]), int(session.player["max_hp"])], 15),
-		"block": label_factory.call("格挡 %d" % session.player_block, 15),
-		"block_power": label_factory.call("格挡值 %d" % int(session.player["block_power"]), 15),
-		"attack": label_factory.call("攻击 %d" % int(session.player["attack"]), 15),
-		"armor": label_factory.call("护甲 %d" % int(session.player["defense"]), 15)
+		"action": label_factory.call("能量 %d/%d" % [int(session.energy), DataCatalog.ENERGY_MAX], 15),
+		"hp": label_factory.call("hp %d/%d" % [int(session.player.get("hp", 1)), int(session.player.get("max_hp", session.player.get("base_max_hp", 1)))], 15),
+		"block": label_factory.call("格挡 %d" % int(session.player_block), 15),
+		"block_power": label_factory.call("格挡值 %d" % int(session.player.get("block_power", 0)), 15),
+		"attack": label_factory.call("攻击 %d" % int(session.player.get("attack", 0)), 15),
+		"armor": label_factory.call("护甲 %d" % int(session.player.get("defense", 0)), 15)
 	}
 	for key in ["class", "action", "hp", "block", "block_power", "attack", "armor"]:
 		box.add_child(labels[key])

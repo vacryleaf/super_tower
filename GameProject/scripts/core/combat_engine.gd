@@ -591,6 +591,8 @@ func _should_use_skill_in_sim(player: Dictionary, energy: int, skill_cooldowns: 
 	if player["equipped_skills"].is_empty():
 		return false
 	var skill_id := _first_skill_id(player)
+	if skill_id == "" or not DataCatalog.SKILLS.has(skill_id):
+		return false
 	var skill: Dictionary = DataCatalog.SKILLS[skill_id]
 	var energy_cost := maxi(0, int(skill.get("energy_cost", 0)) + int(status_service.resolve_stat(player, 0.0, StatusService.STAT_ENERGY_COST)))
 	if energy < energy_cost:
@@ -602,7 +604,9 @@ func _should_use_skill_in_sim(player: Dictionary, energy: int, skill_cooldowns: 
 
 
 func _skill_damage(player: Dictionary) -> int:
-	var skill_id: String = player["equipped_skills"][0]
+	var skill_id: String = _first_skill_id(player)
+	if skill_id == "" or not DataCatalog.SKILLS.has(skill_id):
+		return 0
 	var skill: Dictionary = DataCatalog.SKILLS[skill_id]
 	if skill.get("type", "") == "heal":
 		var healed := maxi(1, int(round(float(player["max_hp"]) * (float(skill.get("heal_multiplier", 0.0)) + char_service.skill_multiplier_bonus(player, skill_id, "hp")))))
@@ -617,7 +621,11 @@ func _skill_damage(player: Dictionary) -> int:
 func _first_skill_id(player: Dictionary) -> String:
 	if player["equipped_skills"].is_empty():
 		return ""
-	return String(player["equipped_skills"][0])
+	for skill_id in player["equipped_skills"]:
+		var id := String(skill_id)
+		if id != "" and DataCatalog.SKILLS.has(id):
+			return id
+	return ""
 
 
 func _player_attack_skill_id(player: Dictionary) -> String:

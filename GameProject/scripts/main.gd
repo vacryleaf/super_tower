@@ -1,54 +1,55 @@
 extends Control
 
-const DataCatalog = preload("res://scripts/core/data_catalog.gd")
-const PlaySession = preload("res://scripts/core/play_session.gd")
-const BattleView = preload("res://scripts/ui/battle_view.gd")
-const RewardView = preload("res://scripts/ui/reward_view.gd")
-const EquipmentOverlay = preload("res://scripts/ui/equipment_overlay.gd")
-const CampView = preload("res://scripts/ui/camp_view.gd")
-const SkillShopView = preload("res://scripts/ui/skill_shop_view.gd")
-const SkillManageView = preload("res://scripts/ui/skill_manage_view.gd")
-const EquipmentManageView = preload("res://scripts/ui/equipment_manage_view.gd")
-const ItemCollectionView = preload("res://scripts/ui/item_collection_view.gd")
-const EncyclopediaView = preload("res://scripts/ui/encyclopedia_view.gd")
-const BestiaryView = preload("res://scripts/ui/bestiary_view.gd")
-const ClassDetailView = preload("res://scripts/ui/class_detail_view.gd")
-const PreRunView = preload("res://scripts/ui/pre_run_view.gd")
-const ActionBarView = preload("res://scripts/ui/action_bar_view.gd")
-const CombatLogView = preload("res://scripts/ui/combat_log_view.gd")
-const EquipmentView = preload("res://scripts/ui/equipment_view.gd")
-const RunHudView = preload("res://scripts/ui/run_hud_view.gd")
-const EndScreenView = preload("res://scripts/ui/end_screen_view.gd")
-const TraitCatalog = preload("res://scripts/core/trait_catalog.gd")
-
-const CombatFeedback = preload("res://scripts/ui/combat_feedback.gd")
-
-const CJK_FONT = preload("res://fonts/Arial Unicode.ttf")
+var DataCatalog
+var PlaySession
+var DebugLogger
+var UIHelpers
+var BattleView
+var RewardView
+var EquipmentOverlay
+var CampView
+var SkillShopView
+var SkillManageView
+var EquipmentManageView
+var ItemCollectionView
+var EncyclopediaView
+var BestiaryView
+var ClassDetailView
+var PreRunView
+var ActionBarView
+var CombatLogView
+var EquipmentView
+var RunHudView
+var EndScreenView
+var TraitCatalog
+var CombatFeedback
 
 @onready var root: VBoxContainer = $Root
 
-var session := PlaySession.new()
-var combat_feedback := CombatFeedback.new(self)
-var battle_view: BattleView = BattleView.new()
-var reward_view: RewardView = RewardView.new()
-var equipment_overlay: EquipmentOverlay = EquipmentOverlay.new()
-var camp_view: CampView = CampView.new()
-var skill_shop_view: SkillShopView = SkillShopView.new()
-var skill_manage_view: SkillManageView = SkillManageView.new()
-var equipment_manage_view: EquipmentManageView = EquipmentManageView.new()
-var item_collection_view: ItemCollectionView = ItemCollectionView.new()
-var encyclopedia_view: EncyclopediaView = EncyclopediaView.new()
-var bestiary_view: BestiaryView = BestiaryView.new()
-var class_detail_view: ClassDetailView = ClassDetailView.new()
-var pre_run_view: PreRunView = PreRunView.new()
+var debug_mode := OS.is_debug_build()
+var session
+var debug_logger
+var combat_feedback
+var battle_view
+var reward_view
+var equipment_overlay
+var camp_view
+var skill_shop_view
+var skill_manage_view
+var equipment_manage_view
+var item_collection_view
+var encyclopedia_view
+var bestiary_view
+var class_detail_view
+var pre_run_view
 var camp_screen := ""
 var selected_class_key := ""
-var action_bar_view: ActionBarView = ActionBarView.new()
-var combat_log_view: CombatLogView = CombatLogView.new()
-var equipment_view: EquipmentView = EquipmentView.new()
-var run_hud_view: RunHudView = RunHudView.new()
-var end_screen_view: EndScreenView = EndScreenView.new()
-var trait_catalog: TraitCatalog = TraitCatalog.new()
+var action_bar_view
+var combat_log_view
+var equipment_view
+var run_hud_view
+var end_screen_view
+var trait_catalog
 var selected_target := 0
 var selected_heal_target := -1
 var render_queued := false
@@ -67,12 +68,79 @@ var log_text_node: RichTextLabel = null
 
 
 func _ready() -> void:
-	var default_theme := Theme.new()
-	default_theme.set_font("font", "Label", CJK_FONT)
-	default_theme.set_font("font", "Button", CJK_FONT)
-	default_theme.set_font("font", "RichTextLabel", CJK_FONT)
-	root.theme = default_theme
+	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
+	DisplayServer.window_set_position(Vector2i(40, 40))
+	DisplayServer.window_set_size(Vector2i(1280, 720))
+	DisplayServer.window_set_title("Super Tower (DEBUG)" if debug_mode else "Super Tower")
+	DataCatalog = load("res://scripts/core/data_catalog.gd")
+	PlaySession = load("res://scripts/core/play_session.gd")
+	DebugLogger = load("res://scripts/core/debug_logger.gd")
+	UIHelpers = load("res://scripts/ui/ui_helpers.gd")
+	BattleView = load("res://scripts/ui/battle_view.gd")
+	RewardView = load("res://scripts/ui/reward_view.gd")
+	EquipmentOverlay = load("res://scripts/ui/equipment_overlay.gd")
+	CampView = load("res://scripts/ui/camp_view.gd")
+	SkillShopView = load("res://scripts/ui/skill_shop_view.gd")
+	SkillManageView = load("res://scripts/ui/skill_manage_view.gd")
+	EquipmentManageView = load("res://scripts/ui/equipment_manage_view.gd")
+	ItemCollectionView = load("res://scripts/ui/item_collection_view.gd")
+	EncyclopediaView = load("res://scripts/ui/encyclopedia_view.gd")
+	BestiaryView = load("res://scripts/ui/bestiary_view.gd")
+	ClassDetailView = load("res://scripts/ui/class_detail_view.gd")
+	PreRunView = load("res://scripts/ui/pre_run_view.gd")
+	ActionBarView = load("res://scripts/ui/action_bar_view.gd")
+	CombatLogView = load("res://scripts/ui/combat_log_view.gd")
+	EquipmentView = load("res://scripts/ui/equipment_view.gd")
+	RunHudView = load("res://scripts/ui/run_hud_view.gd")
+	EndScreenView = load("res://scripts/ui/end_screen_view.gd")
+	TraitCatalog = load("res://scripts/core/trait_catalog.gd")
+	CombatFeedback = load("res://scripts/ui/combat_feedback.gd")
+	_install_default_theme()
+	debug_logger = DebugLogger.new()
+	debug_logger.configure("main", debug_mode)
+	session = PlaySession.new()
+	session.debug_mode = debug_mode
+	session.debug_logger = debug_logger
+	_debug_log("main ready debug_mode=%s" % str(debug_mode))
+	battle_view = BattleView.new()
+	reward_view = RewardView.new()
+	equipment_overlay = EquipmentOverlay.new()
+	camp_view = CampView.new()
+	skill_shop_view = SkillShopView.new()
+	skill_manage_view = SkillManageView.new()
+	equipment_manage_view = EquipmentManageView.new()
+	item_collection_view = ItemCollectionView.new()
+	encyclopedia_view = EncyclopediaView.new()
+	bestiary_view = BestiaryView.new()
+	class_detail_view = ClassDetailView.new()
+	pre_run_view = PreRunView.new()
+	action_bar_view = ActionBarView.new()
+	combat_log_view = CombatLogView.new()
+	equipment_view = EquipmentView.new()
+	run_hud_view = RunHudView.new()
+	end_screen_view = EndScreenView.new()
+	trait_catalog = TraitCatalog.new()
+	combat_feedback = CombatFeedback.new(self)
+	_debug_log("views initialized")
 	_render_menu()
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	if camp_screen == "pre_run" and event is InputEventKey:
+		var key_event := event as InputEventKey
+		if key_event.pressed and not key_event.echo and key_event.keycode == KEY_ESCAPE:
+			get_viewport().set_input_as_handled()
+			_on_manage_close()
+
+
+func _install_default_theme() -> void:
+	var font: Font = load("res://fonts/Arial Unicode.ttf")
+	if font == null:
+		return
+	var inherited_theme := Theme.new()
+	for type_name in ["Label", "Button", "RichTextLabel", "LineEdit", "TextEdit", "CheckBox", "OptionButton"]:
+		inherited_theme.set_font("font", type_name, font)
+	theme = inherited_theme
 
 
 func _request_game_render() -> void:
@@ -102,21 +170,26 @@ func _clear_overlay_layers() -> void:
 
 
 func _add_camp_background() -> void:
-	var bg := TextureRect.new()
-	bg.texture = load("res://img/营地.png")
-	bg.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	bg.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(bg)
-	move_child(bg, 0)
+	_add_fullscreen_background("res://img/营地.png", Color(0.13, 0.12, 0.16))
 
 
 func _add_battle_background() -> void:
-	var bg := TextureRect.new()
-	bg.texture = load("res://img/boss_arena.png")
-	bg.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	bg.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	_add_fullscreen_background("res://img/boss_arena.png", Color(0.18, 0.09, 0.09))
+
+
+func _add_fullscreen_background(path: String, fallback_color: Color) -> void:
+	var texture: Texture2D = UIHelpers.texture_from_png(path) if UIHelpers != null else null
+	var bg: Control
+	if texture != null:
+		var image_bg := TextureRect.new()
+		image_bg.texture = texture
+		image_bg.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		image_bg.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+		bg = image_bg
+	else:
+		var color_bg := ColorRect.new()
+		color_bg.color = fallback_color
+		bg = color_bg
 	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(bg)
@@ -125,6 +198,7 @@ func _add_battle_background() -> void:
 
 func _render_menu() -> void:
 	render_queued = false
+	_debug_log("render_menu camp_screen=%s" % camp_screen)
 	_clear_root()
 	if camp_screen != "":
 		_render_camp_screen()
@@ -135,6 +209,7 @@ func _render_menu() -> void:
 
 func _render_game() -> void:
 	render_queued = false
+	_debug_log("render_game phase=%s floor=%d battle=%d message=%s" % [session.phase, session.floor_index, session.battle_index, session.message])
 	_clear_root()
 	if session.is_boss_battle():
 		_add_battle_background()
@@ -160,6 +235,7 @@ func _render_game() -> void:
 
 
 func _render_battle() -> void:
+	_debug_log("render_battle enemies=%d allies=%d" % [session.enemies.size(), session.allies.size()])
 	enemy_card_nodes.clear()
 	player_status_node = null
 	player_status_labels.clear()
@@ -253,7 +329,9 @@ func _ally_card_text(index: int) -> String:
 
 
 func _render_player_status(parent: Control) -> void:
-	var status: Dictionary = battle_view.player_status(session, DataCatalog.CLASSES[session.class_id]["name"], Callable(self, "_label"), session.class_id)
+	var class_data: Dictionary = DataCatalog.CLASSES.get(session.class_id, {})
+	var player_class_name := String(class_data.get("name", "角色"))
+	var status: Dictionary = battle_view.player_status(session, player_class_name, Callable(self, "_label"), session.class_id)
 	player_status_node = status["panel"]
 	player_status_labels = status["labels"]
 	player_status_node.gui_input.connect(_on_player_status_clicked)
@@ -282,6 +360,7 @@ func _show_equipment_overlay() -> void:
 
 
 func _on_continue_pressed() -> void:
+	_debug_log("continue pressed")
 	if session.load_game():
 		selected_target = 0
 		equipment_open = false
@@ -297,6 +376,7 @@ func _on_class_detail(class_key: String) -> void:
 func _on_end_run_to_camp_pressed() -> void:
 	if input_locked:
 		return
+	_debug_log("end_run_to_camp pressed")
 	session.end_run_to_camp()
 	selected_target = 0
 	equipment_open = false
@@ -306,6 +386,7 @@ func _on_end_run_to_camp_pressed() -> void:
 
 func _on_equipment_toggle_pressed() -> void:
 	equipment_open = not equipment_open
+	_debug_log("equipment_toggle open=%s" % str(equipment_open))
 	_request_game_render()
 
 
@@ -317,6 +398,7 @@ func _on_equipment_close_pressed() -> void:
 func _on_enemy_card_pressed(index: int) -> void:
 	selected_target = index
 	selected_heal_target = -1
+	_debug_log("enemy_selected index=%d" % index)
 
 
 func _on_player_status_clicked(event: InputEvent) -> void:
@@ -327,22 +409,27 @@ func _on_player_status_clicked(event: InputEvent) -> void:
 
 
 func _on_attack_pressed() -> void:
+	_debug_log("ui_attack target=%d" % selected_target)
 	_run_action(Callable(session, "player_attack").bind(selected_target))
 
 
 func _on_defend_pressed() -> void:
+	_debug_log("ui_defend")
 	_run_action(Callable(session, "player_defend"))
 
 
 func _on_dodge_pressed() -> void:
+	_debug_log("ui_dodge")
 	_run_action(Callable(session, "player_dodge"))
 
 
 func _on_end_turn_pressed() -> void:
+	_debug_log("ui_end_turn")
 	_run_action(Callable(session, "end_turn"))
 
 
 func _on_skill_pressed(index: int) -> void:
+	_debug_log("ui_skill slot=%d" % index)
 	var skill_id: String = session.player["equipped_skills"][index]
 	var skill: Dictionary = DataCatalog.SKILLS.get(skill_id, {})
 	if String(skill.get("type", "")) == "heal":
@@ -356,10 +443,12 @@ func _on_skill_pressed(index: int) -> void:
 
 
 func _on_charge_pressed(charge_id: String) -> void:
+	_debug_log("ui_charge %s" % charge_id)
 	_run_action(Callable(session, "use_charge").bind(charge_id))
 
 
 func _on_reward_pressed(index: int) -> void:
+	_debug_log("reward_pressed index=%d" % index)
 	session.choose_reward(index)
 	_persist_session()
 	selected_target = 0
@@ -367,6 +456,7 @@ func _on_reward_pressed(index: int) -> void:
 
 
 func _on_reward_target_pressed(index: int) -> void:
+	_debug_log("reward_target_pressed index=%d" % index)
 	session.choose_reward_target(index)
 	_persist_session()
 	selected_target = 0
@@ -374,18 +464,23 @@ func _on_reward_target_pressed(index: int) -> void:
 
 
 func _on_return_to_menu_pressed() -> void:
+	_debug_log("return_to_menu pressed")
 	session = PlaySession.new()
+	session.debug_mode = debug_mode
+	session.debug_logger = debug_logger
 	_request_menu_render()
 
 
 func _run_action(action: Callable) -> void:
 	if input_locked:
 		return
+	_debug_log("run_action begin phase=%s" % session.phase)
 	input_locked = true
 	action.call()
 	await combat_feedback.play_action_feedback(session.last_events.duplicate(true), enemy_card_nodes, player_status_node, Callable(self, "_label"))
 	input_locked = false
 	selected_heal_target = -1
+	_debug_log("run_action end phase=%s message=%s" % [session.phase, session.message])
 	if session.phase == "battle":
 		_refresh_battle_ui()
 	else:
@@ -478,6 +573,7 @@ func _pending_state_text() -> String:
 
 
 func _persist_session() -> void:
+	_debug_log("persist_session phase=%s floor=%d battle=%d" % [session.phase, session.floor_index, session.battle_index])
 	session.save_game()
 
 
@@ -496,7 +592,6 @@ func _label(text_value: String, font_size: int) -> Label:
 	label.text = text_value
 	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	label.add_theme_font_size_override("font_size", font_size)
-	label.add_theme_font_override("font", CJK_FONT)
 	return label
 
 
@@ -532,6 +627,12 @@ func _rank_label(rank: String) -> String:
 		"boss":
 			return "首领"
 	return rank
+
+
+func _debug_log(message: String) -> void:
+	if debug_logger != null and debug_mode and debug_logger.has_method("log"):
+		debug_logger.log(message)
+
 
 func _on_shop_pressed() -> void:
 	session.phase = "skill_shop"
@@ -588,23 +689,80 @@ func _on_pre_run_pressed() -> void:
 
 
 func _on_pre_run_action(action: String, arg: String) -> void:
-	match action:
-		"select_class":
-			pre_run_view.selected_class = arg
-			pre_run_view.step = 1
-		"next_step":
-			pre_run_view.step = mini(4, pre_run_view.step + 1)
-		"prev_step":
-			pre_run_view.step = maxi(0, pre_run_view.step - 1)
-			if pre_run_view.step == 0:
-				pre_run_view.selected_class = ""
-			"start_game":
-				session.start_new_game(pre_run_view.selected_class, pre_run_view.start_floor)
-				pre_run_view.reset()
-				camp_screen = ""
-				selected_target = 0
-				_request_game_render()
-				return
+	if action == "select_class":
+		pre_run_view.selected_class = arg
+		pre_run_view.browse_mode = "equipment"
+		pre_run_view.selected_equipment_tab = "head"
+		pre_run_view.selected_equipment_slot = "head"
+		pre_run_view.selected_skill_filter = "skill_1"
+		pre_run_view.selected_consumable_slot = 1
+		pre_run_view.floor_menu_open = false
+		pre_run_view.hover_kind = ""
+		pre_run_view.hover_id = ""
+		pre_run_view.hover_slot = ""
+		var roster: Dictionary = session.get_roster_player(arg)
+		if roster.is_empty() and session.simulator != null:
+			roster = session.simulator.create_character(arg)
+		pre_run_view.start_floor = maxi(1, int(roster.get("highest_floor", 0)) - 3)
+	elif action == "focus_equipment_slot":
+		pre_run_view.browse_mode = "equipment"
+		pre_run_view.selected_equipment_slot = arg
+		pre_run_view.selected_equipment_tab = "ring" if arg.begins_with("ring") else arg
+		pre_run_view.floor_menu_open = false
+		pre_run_view.hover_kind = ""
+	elif action == "focus_skill_filter":
+		pre_run_view.browse_mode = "skills"
+		pre_run_view.selected_skill_filter = arg
+		pre_run_view.floor_menu_open = false
+		pre_run_view.hover_kind = ""
+	elif action == "focus_consumable_slot":
+		pre_run_view.browse_mode = "consumable"
+		pre_run_view.selected_equipment_tab = "consumable"
+		pre_run_view.selected_consumable_slot = maxi(1, int(arg))
+		pre_run_view.floor_menu_open = false
+		pre_run_view.hover_kind = ""
+	elif action == "hover_equipment":
+		var parts := arg.split("|")
+		if parts.size() >= 2:
+			pre_run_view.hover_kind = "equipment"
+			pre_run_view.hover_slot = pre_run_view.selected_equipment_slot if pre_run_view.selected_equipment_slot != "" else String(parts[0])
+			pre_run_view.hover_id = String(parts[1])
+	elif action == "hover_skill":
+		pre_run_view.hover_kind = "skill"
+		pre_run_view.hover_slot = ""
+		pre_run_view.hover_id = arg
+	elif action == "hover_consumable":
+		pre_run_view.hover_kind = "consumable"
+		pre_run_view.hover_slot = ""
+		pre_run_view.hover_id = arg
+	elif action == "equip_item":
+		if pre_run_view.selected_class != "" and arg != "":
+			var slot: String = pre_run_view.selected_equipment_slot
+			if slot == "":
+				slot = pre_run_view.selected_equipment_tab
+			session.swap_equipment(pre_run_view.selected_class, slot, arg)
+	elif action == "equip_skill":
+		if pre_run_view.selected_class != "" and pre_run_view.selected_skill_filter.begins_with("skill_"):
+			var slot_index := int(pre_run_view.selected_skill_filter.replace("skill_", ""))
+			session.set_skill_slot(pre_run_view.selected_class, slot_index, arg)
+	elif action == "equip_consumable":
+		if pre_run_view.selected_class != "" and arg != "":
+			session.set_consumable_slot(pre_run_view.selected_class, pre_run_view.selected_consumable_slot, arg)
+	elif action == "select_floor":
+		pre_run_view.start_floor = maxi(1, int(arg))
+		pre_run_view.floor_menu_open = false
+	elif action == "toggle_floor_menu":
+		pass
+	elif action == "start_game":
+		if pre_run_view.selected_class == "":
+			_request_menu_render()
+			return
+		session.start_new_game(pre_run_view.selected_class, pre_run_view.start_floor)
+		pre_run_view.reset()
+		camp_screen = ""
+		selected_target = 0
+		_request_game_render()
+		return
 	_request_menu_render()
 
 

@@ -151,6 +151,12 @@ func _refresh_list() -> void:
 		button.alignment = HORIZONTAL_ALIGNMENT_LEFT
 		button.custom_minimum_size = Vector2(190, 32)
 		button.disabled = not unlocked
+		if unlocked:
+			var icon := _unit_texture(unit)
+			if icon != null:
+				button.icon = icon
+				button.icon_alignment = HORIZONTAL_ALIGNMENT_LEFT
+				button.add_theme_constant_override("h_separation", 8)
 		if i == _selected_index:
 			button.flat = false
 		button.pressed.connect(_on_select_unit.bind(i))
@@ -174,15 +180,10 @@ func _refresh_detail() -> void:
 		return
 
 	var entry: Dictionary = _bestiary[unit["id"]]
+	var image := _unit_image(unit, Vector2(160, 160))
+	if image != null:
+		_detail_container.add_child(image)
 	_detail_container.add_child(_label_factory.call(unit["name"], 24))
-	var avatar_path := _enemy_avatar_path(unit["id"])
-	if avatar_path != "":
-		var avatar := TextureRect.new()
-		avatar.texture = load(avatar_path)
-		avatar.custom_minimum_size = Vector2(64, 64)
-		avatar.expand_mode = TextureRect.EXPAND_FIT_WIDTH_PROPORTIONAL
-		avatar.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		_detail_container.add_child(avatar)
 	_detail_container.add_child(_label_factory.call("等级：%s" % UIHelpers.rank_label(unit["rank"]), 16))
 	_detail_container.add_child(_label_factory.call("生命×%.2f  攻击×%.2f  护甲×%.2f" % [unit["hp"], unit["attack"], unit["defense"]], 14))
 
@@ -202,6 +203,25 @@ func _refresh_detail() -> void:
 		_detail_container.add_child(_label_factory.call("技能：%s" % "、".join(skill_names), 15))
 
 	_detail_container.add_child(_label_factory.call("击败次数：%d" % int(entry.get("defeated_count", 0)), 14))
+
+
+func _unit_texture(unit: Dictionary) -> Texture2D:
+	var path := _enemy_avatar_path(String(unit.get("id", "")))
+	if path == "":
+		return null
+	return UIHelpers.texture_from_png(path)
+
+
+func _unit_image(unit: Dictionary, size: Vector2) -> TextureRect:
+	var texture := _unit_texture(unit)
+	if texture == null:
+		return null
+	var image := TextureRect.new()
+	image.texture = texture
+	image.custom_minimum_size = size
+	image.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	image.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	return image
 
 
 func _enemy_avatar_path(enemy_id: String) -> String:

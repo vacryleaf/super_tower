@@ -44,12 +44,11 @@ func render(
 	_class_visible = false
 	_encyclopedia_visible = false
 
-	root.add_child(label_factory.call("塔下营地", 30))
-	root.add_child(label_factory.call("可玩版本：新手引导、手动战斗、奖励选择、装备、技能和 1-10 层流程。", 16))
+	root.add_child(label_factory.call("营地", 30))
 
 	if session.has_active_run():
 		var continue_button := Button.new()
-		continue_button.text = "继续当前派遣"
+		continue_button.text = "继续作战"
 		continue_button.custom_minimum_size = Vector2(190, 46)
 		continue_button.pressed.connect(continue_callback)
 		root.add_child(continue_button)

@@ -2,6 +2,7 @@ extends RefCounted
 class_name ActionBarView
 
 const DataCatalog = preload("res://scripts/core/data_catalog.gd")
+const UIHelpers = preload("res://scripts/ui/ui_helpers.gd")
 
 
 func render(
@@ -130,15 +131,14 @@ func _action_button(text_value: String, callback: Callable, input_locked: bool, 
 	button.text = text_value
 	button.custom_minimum_size = Vector2(112, 46)
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	if icon_path != "":
+		var icon := UIHelpers.texture_from_png(icon_path)
+		if icon != null:
+			button.icon = icon
+			button.icon_alignment = HORIZONTAL_ALIGNMENT_LEFT
+			button.add_theme_constant_override("h_separation", 8)
 	button.disabled = input_locked
 	button.pressed.connect(callback)
-	if icon_path != "":
-		var icon := TextureRect.new()
-		icon.texture = load(icon_path)
-		icon.custom_minimum_size = Vector2(24, 24)
-		icon.expand_mode = TextureRect.EXPAND_FIT_WIDTH_PROPORTIONAL
-		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		button.icon = icon.texture
 	return button
 
 

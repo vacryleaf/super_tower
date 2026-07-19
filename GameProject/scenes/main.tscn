@@ -26,10 +26,10 @@ grow_vertical = 2
 [node name="Title" type="Label" parent="Root"]
 layout_mode = 2
 theme_override_font_sizes/font_size = 28
-text = "Super Tower Prototype"
+text = "超级爬塔"
 
 [node name="Summary" type="RichTextLabel" parent="Root"]
 layout_mode = 2
 size_flags_vertical = 3
 bbcode_enabled = true
-text = "Loading simulation..."
+text = "正在准备游戏..."

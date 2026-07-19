@@ -136,6 +136,17 @@ const EQUIPMENT := {
 	"ranger_gloves": {"class": "archer", "slot": "hands", "name": "游侠护手", "hp": 2, "attack": 2, "armor": 0, "block": 0, "set_id": "ranger"}
 }
 
+const CONSUMABLES := {
+	"minor_heal": {"name": "小型治疗剂", "desc": "战前携带的基础恢复品。", "kind": "heal", "value": 18},
+	"iron_skin": {"name": "铁肤药剂", "desc": "战前携带的防护药剂。", "kind": "armor", "value": 2},
+	"swift_step": {"name": "迅步药水", "desc": "战前携带的机动药水。", "kind": "dodge", "value": 1},
+	"rage_draught": {"name": "狂怒药剂", "desc": "战前携带的进攻药剂。", "kind": "attack", "value": 3},
+	"focus_tea": {"name": "凝神茶", "desc": "战前携带的专注饮品。", "kind": "skill", "value": 1},
+	"emergency_kit": {"name": "应急包", "desc": "战前携带的保命工具。", "kind": "block", "value": 2}
+}
+
+const STARTER_CONSUMABLES := ["minor_heal", "iron_skin", "swift_step", "rage_draught", "focus_tea", "emergency_kit"]
+
 const EQUIPMENT_SETS := {
 	"moon_pair": {
 		"name": "清辉流霜",

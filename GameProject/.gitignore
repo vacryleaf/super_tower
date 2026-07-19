@@ -1,3 +1,7 @@
 .godot/
 *.uid
 .DS_Store
+debug/*.log
+debug/godot_appdata/
+debug/godot_localappdata/
+!debug/.gitkeep

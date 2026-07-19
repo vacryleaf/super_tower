@@ -13,7 +13,7 @@ func create_character(class_id: String) -> Dictionary:
 	var class_data: Dictionary = DataCatalog.CLASSES[class_id]
 	var player := {
 		"class_id": class_id,
-			"side": "player",
+		"side": "player",
 		"base_max_hp": int(class_data["max_hp"]),
 		"base_attack": int(class_data["base_attack"]),
 		"base_defense": int(class_data["base_defense"]),
@@ -32,6 +32,8 @@ func create_character(class_id: String) -> Dictionary:
 		"skill_attachments": {},
 		"equipment": {},
 		"equipment_ids": [],
+		"consumables": [],
+		"consumable_ids": [],
 		"unlocked_skills": [],
 		"equipped_skills": [],
 		"innate_skills": {
@@ -49,6 +51,7 @@ func create_character(class_id: String) -> Dictionary:
 		"elite_rewards": 0,
 		"tutorial_restarts": 0
 	}
+	_ensure_player_schema(player)
 	recalculate_player_stats(player, true)
 	return player
 
@@ -152,12 +155,12 @@ func attachment_stat_kind(kind: String) -> String:
 	return ChargeService.attachment_stat_kind(kind)
 
 
+func ensure_player_schema(player: Dictionary) -> void:
+	_ensure_player_schema(player)
+
+
 func recalculate_player_stats(player: Dictionary, reset_hp: bool) -> void:
-	if not player.has("base_block"):
-		var class_data: Dictionary = DataCatalog.CLASSES[String(player.get("class_id", "warrior"))]
-		player["base_block"] = int(class_data.get("base_block", 1))
-	if not player.has("block_bonus"):
-		player["block_bonus"] = 0
+	_ensure_player_schema(player)
 	var hp := int(player["base_max_hp"]) + int(player["max_hp_bonus"])
 	var attack := int(player["base_attack"]) + int(player["attack_bonus"])
 	var defense := int(player["base_defense"]) + int(player["defense_bonus"])
@@ -225,6 +228,84 @@ func recalculate_player_stats(player: Dictionary, reset_hp: bool) -> void:
 		player["hp"] = hp
 	else:
 		player["hp"] = mini(hp, int(player["hp"]) + maxi(0, hp - old_max))
+
+
+func _ensure_player_schema(player: Dictionary) -> void:
+	var class_data := _class_data_for(String(player.get("class_id", "warrior")))
+	if not player.has("class_id") or String(player.get("class_id", "")) == "":
+		player["class_id"] = String(class_data.get("class_id", "warrior"))
+	if not player.has("side"):
+		player["side"] = "player"
+	if not player.has("base_max_hp"):
+		player["base_max_hp"] = int(class_data.get("max_hp", 1))
+	if not player.has("base_attack"):
+		player["base_attack"] = int(class_data.get("base_attack", 1))
+	if not player.has("base_defense"):
+		player["base_defense"] = int(class_data.get("base_defense", 0))
+	if not player.has("base_block"):
+		player["base_block"] = int(class_data.get("base_block", 1))
+	if not player.has("max_hp_bonus"):
+		player["max_hp_bonus"] = 0
+	if not player.has("attack_bonus"):
+		player["attack_bonus"] = 0
+	if not player.has("defense_bonus"):
+		player["defense_bonus"] = 0
+	if not player.has("block_bonus"):
+		player["block_bonus"] = 0
+	if not player.has("skill_bonus"):
+		player["skill_bonus"] = 0
+	if not player.has("equipment"):
+		player["equipment"] = {}
+	if not player.has("equipment_ids"):
+		player["equipment_ids"] = []
+	if not player.has("consumables"):
+		player["consumables"] = []
+	while player["consumables"].size() < 5:
+		player["consumables"].append("")
+	if not player.has("consumable_ids"):
+		player["consumable_ids"] = []
+	if player["consumable_ids"].is_empty():
+		player["consumable_ids"] = DataCatalog.STARTER_CONSUMABLES.duplicate()
+	if not player.has("unlocked_skills"):
+		player["unlocked_skills"] = []
+	if not player.has("equipped_skills"):
+		player["equipped_skills"] = []
+	while player["equipped_skills"].size() < 4:
+		player["equipped_skills"].append("")
+	if not player.has("innate_skills"):
+		player["innate_skills"] = {
+			"attack_1": "innate_attack_1",
+			"defend": "innate_defend",
+			"dodge": "innate_dodge"
+		}
+	if not player.has("equipment_attachments"):
+		player["equipment_attachments"] = {}
+	if not player.has("skill_attachments"):
+		player["skill_attachments"] = {}
+	if not player.has("set_counts"):
+		player["set_counts"] = {}
+	if not player.has("active_set_effects"):
+		player["active_set_effects"] = {}
+	if not player.has("statuses"):
+		player["statuses"] = []
+	var equipment_dict := _dictionary(player.get("equipment", {}))
+	if player["equipment_ids"].is_empty() and not equipment_dict.is_empty():
+		for item_id in equipment_dict.values():
+			var item_id_text := String(item_id)
+			if item_id_text != "" and not player["equipment_ids"].has(item_id_text):
+				player["equipment_ids"].append(item_id_text)
+
+
+func _class_data_for(class_id: String) -> Dictionary:
+	if DataCatalog.CLASSES.has(class_id):
+		return DataCatalog.CLASSES[class_id]
+	return DataCatalog.CLASSES["warrior"]
+
+
+func _dictionary(value: Variant) -> Dictionary:
+	if typeof(value) == TYPE_DICTIONARY:
+		return (value as Dictionary).duplicate(true)
+	return {}
 
 
 func _equipment_set_counts(player: Dictionary) -> Dictionary:

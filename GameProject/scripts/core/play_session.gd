@@ -26,6 +26,8 @@ const SetEffectService = preload("res://scripts/core/set_effect_service.gd")
 const MAX_CHARGES := 5
 const BATTLE_LOG_LIMIT := 200
 
+var debug_logger: Variant = null
+var debug_mode := false
 var simulator := RunSimulator.new()
 var rewards := RewardService.new()
 var save_profile := SaveProfile.new()
@@ -251,14 +253,17 @@ func start_new_game(selected_class: String, start_floor: int = 0) -> void:
 	class_id = selected_class
 	_load_account()
 	player = _roster_player_or_new(selected_class)
-	if start_floor >= 2:
-		player["tutorial_completed"] = true
+	simulator._recalculate_player_stats(player, false)
+	if start_floor >= 1:
+		if start_floor >= 2:
+			player["tutorial_completed"] = true
 		floor_index = start_floor
 	else:
 		floor_index = 2 if bool(player.get("tutorial_completed", false)) else 1
 	battle_index = 1
 	phase = "battle"
 	message = "派遣%s进入高塔。" % DataCatalog.CLASSES[selected_class]["name"]
+	_debug_log("start_new_game class=%s floor=%d tutorial=%s" % [selected_class, floor_index, str(is_tutorial())])
 	_start_current_battle()
 
 
@@ -274,7 +279,10 @@ func has_active_run() -> bool:
 func get_roster_player(selected_class: String) -> Dictionary:
 	var profile := save_profile.read_profile(Callable(self, "_persistent_player_snapshot"))
 	var roster := _dictionary(profile.get("roster", {}))
-	return _dictionary(roster.get(selected_class, {}))
+	var player := _dictionary(roster.get(selected_class, {}))
+	if not player.is_empty():
+		simulator._recalculate_player_stats(player, false)
+	return player
 
 
 func save_game() -> bool:
@@ -294,7 +302,9 @@ func save_game() -> bool:
 		profile["active_run"] = {}
 	else:
 		profile["active_run"] = _save_data()
-	return save_profile.write_profile(profile)
+	var ok := save_profile.write_profile(profile)
+	_debug_log("save_game ok=%s phase=%s floor=%d battle=%d" % [str(ok), phase, floor_index, battle_index])
+	return ok
 
 
 func end_run_to_camp() -> bool:
@@ -315,6 +325,7 @@ func end_run_to_camp() -> bool:
 	if not save_profile.write_profile(profile):
 		return false
 	_reset_to_camp_state()
+	_debug_log("end_run_to_camp floor=%d battle=%d" % [floor_index, battle_index])
 	return true
 
 
@@ -323,6 +334,7 @@ func load_game() -> bool:
 	var active_run := _dictionary(profile.get("active_run", {}))
 	if active_run.is_empty():
 		return false
+	_debug_log("load_game active_run floor=%d battle=%d" % [int(active_run.get("floor_index", 0)), int(active_run.get("battle_index", 0))])
 	return _load_save_data(active_run)
 
 
@@ -369,6 +381,7 @@ func _start_current_battle() -> void:
 	battle_log.clear()
 	phase = "battle"
 	message = _battle_title()
+	_debug_log("battle_start %s floor=%d battle=%d enemies=%d" % [String(current_encounter.get("name", current_encounter.get("id", "战斗"))), floor_index, battle_index, enemies.size()])
 	_apply_opening_set_effects()
 	if _has_first_strike():
 		_enemy_attack(enemies[0], 0, true)
@@ -411,6 +424,7 @@ func _begin_player_turn() -> void:
 	message = "你的回合。状态 Buff：%s" % _state_name(pending_state_card)
 	if charged_label != "":
 		message += " 随机充能：%s。" % charged_label
+	_debug_log("turn_start round=%d energy=%d hp=%d/%d block=%d" % [round_index, energy, int(player.get("hp", 0)), int(player.get("max_hp", player.get("base_max_hp", 0))), player_block])
 
 
 func _draw_state_buff() -> String:
@@ -431,31 +445,38 @@ func _apply_opening_set_effects() -> void:
 
 func player_attack(target_index: int) -> void:
 	attacked_this_turn = true
+	_debug_log("player_attack target=%d energy=%d" % [target_index, energy])
 	battle_service.player_attack(self, target_index)
 
 
 func player_defend() -> void:
+	_debug_log("player_defend energy=%d" % energy)
 	battle_service.player_defend(self)
 
 
 func player_dodge() -> void:
+	_debug_log("player_dodge energy=%d" % energy)
 	battle_service.player_dodge(self)
 
 
 func use_skill(slot_index: int, target_index: int) -> void:
 	attacked_this_turn = true
+	_debug_log("use_skill slot=%d target=%d energy=%d" % [slot_index, target_index, energy])
 	battle_service.use_skill(self, slot_index, target_index)
 
 
 func end_turn() -> void:
+	_debug_log("end_turn round=%d energy=%d" % [round_index, energy])
 	battle_service.end_turn(self)
 
 
 func choose_reward(index: int) -> void:
+	_debug_log("choose_reward index=%d" % index)
 	reward_apply.choose_reward(self, index)
 
 
 func choose_reward_target(index: int) -> void:
+	_debug_log("choose_reward_target index=%d" % index)
 	reward_apply.choose_reward_target(self, index)
 
 
@@ -684,10 +705,12 @@ func deal_damage(ctx: Dictionary) -> void:
 
 
 func _on_victory() -> void:
+	_debug_log("victory floor=%d battle=%d" % [floor_index, battle_index])
 	run_progress.on_victory(self)
 
 
 func _on_defeat() -> void:
+	_debug_log("defeat floor=%d battle=%d" % [floor_index, battle_index])
 	run_progress.on_defeat(self)
 
 
@@ -760,6 +783,11 @@ func _sample_rewards_with_core(pool: Array[Dictionary], count: int) -> Array[Dic
 
 func _is_core_growth_reward(reward: Dictionary) -> bool:
 	return RewardService.is_core_growth_reward(reward)
+
+
+func _debug_log(message: String) -> void:
+	if debug_mode and debug_logger != null and debug_logger.has_method("log"):
+		debug_logger.log(message)
 
 
 func _remove_matching_reward(rewards: Array[Dictionary], target: Dictionary) -> void:
@@ -1125,11 +1153,42 @@ func set_skill_slot(class_key: String, slot: int, skill_id: String) -> void:
 	var idx := slot - 1
 	if idx < 0 or idx >= 4:
 		return
+	if skill_id != "" and not player_data.get("unlocked_skills", []).has(skill_id):
+		return
 	if String(equipped[idx]) == skill_id:
 		equipped[idx] = ""
 	else:
 		equipped[idx] = skill_id
 	player_data["equipped_skills"] = equipped
+	roster[class_key] = player_data
+	profile["roster"] = roster
+	save_profile.write_profile(profile)
+
+
+func set_consumable_slot(class_key: String, slot: int, item_id: String) -> void:
+	var profile := save_profile.read_profile(Callable(self, "_persistent_player_snapshot"))
+	var roster: Dictionary = profile.get("roster", {})
+	if not roster.has(class_key):
+		return
+	var player_data: Dictionary = roster[class_key]
+	var equipped: Array = player_data.get("consumables", [])
+	while equipped.size() < 5:
+		equipped.append("")
+	var idx := slot - 1
+	if idx < 0 or idx >= 5:
+		return
+	if String(equipped[idx]) == item_id:
+		equipped[idx] = ""
+	else:
+		var displaced_slot := -1
+		for i in range(equipped.size()):
+			if String(equipped[i]) == item_id:
+				displaced_slot = i
+				break
+		if displaced_slot >= 0:
+			equipped[displaced_slot] = String(equipped[idx])
+		equipped[idx] = item_id
+	player_data["consumables"] = equipped
 	roster[class_key] = player_data
 	profile["roster"] = roster
 	save_profile.write_profile(profile)

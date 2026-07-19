@@ -16,7 +16,7 @@ func on_victory(session: Variant) -> void:
 func on_defeat(session: Variant) -> void:
 	if session.is_tutorial():
 		session.player["tutorial_restarts"] += 1
-		session.player["hp"] = session.player["max_hp"]
+		session.player["hp"] = int(session.player.get("max_hp", session.player.get("base_max_hp", 1)))
 		session.message = "新手引导失败保护：当前战斗已重开。"
 		session._start_current_battle()
 	else:
@@ -47,10 +47,12 @@ func advance_after_reward(session: Variant) -> void:
 
 
 func apply_limited_post_battle_recovery(session: Variant) -> void:
-	var cap := int(floor(float(session.player["max_hp"]) * 0.80))
-	if int(session.player["hp"]) >= cap:
+	var max_hp := int(session.player.get("max_hp", session.player.get("base_max_hp", 1)))
+	var hp := int(session.player.get("hp", max_hp))
+	var cap := int(floor(float(max_hp) * 0.80))
+	if hp >= cap:
 		return
-	session.player["hp"] = mini(cap, int(session.player["hp"]) + post_reward_heal_amount(session))
+	session.player["hp"] = mini(cap, hp + post_reward_heal_amount(session))
 
 
 func post_reward_heal_amount(session: Variant) -> int:
@@ -60,4 +62,5 @@ func post_reward_heal_amount(session: Variant) -> int:
 		ratio = 0.35
 	elif encounter_type == "elite":
 		ratio = 0.18
-	return maxi(4, int(round(float(session.player["max_hp"]) * ratio)))
+	var max_hp := int(session.player.get("max_hp", session.player.get("base_max_hp", 1)))
+	return maxi(4, int(round(float(max_hp) * ratio)))

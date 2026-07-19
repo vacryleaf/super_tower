@@ -20,14 +20,32 @@ const CATEGORIES := [
 ]
 
 
-static func avatar_for(class_key: String) -> TextureRect:
-	var path := "res://img/warrior.png" if class_key == "warrior" else "res://img/archer.png"
-	var avatar := TextureRect.new()
-	avatar.texture = load(path)
-	avatar.custom_minimum_size = Vector2(64, 64)
-	avatar.expand_mode = TextureRect.EXPAND_FIT_WIDTH_PROPORTIONAL
-	avatar.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	return avatar
+static func avatar_for(class_key: String) -> Control:
+	var texture := texture_from_png("res://img/%s.png" % class_key)
+	if texture != null:
+		var portrait := TextureRect.new()
+		portrait.texture = texture
+		portrait.custom_minimum_size = Vector2(88, 88)
+		portrait.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		portrait.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		return portrait
+
+	var panel := PanelContainer.new()
+	panel.custom_minimum_size = Vector2(88, 88)
+	var label := Label.new()
+	label.text = "战士" if class_key == "warrior" else "弓箭手"
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	label.autowrap_mode = TextServer.AUTOWRAP_OFF
+	panel.add_child(label)
+	return panel
+
+
+static func texture_from_png(path: String) -> Texture2D:
+	var image := Image.load_from_file(ProjectSettings.globalize_path(path))
+	if image == null:
+		return null
+	return ImageTexture.create_from_image(image)
 
 
 static func skill_type_name(skill: Dictionary) -> String:
