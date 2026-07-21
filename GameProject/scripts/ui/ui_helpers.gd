@@ -15,7 +15,7 @@ const CATEGORIES := [
 	["套装效果", "set_effects"],
 	["技能", "skills"],
 	["职业", "classes"],
-	["特性", "traits"],
+	["被动技能", "traits"],
 	["怪物图鉴", "bestiary"],
 ]
 

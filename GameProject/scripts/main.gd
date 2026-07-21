@@ -754,13 +754,13 @@ func _refresh_battle_ui() -> void:
 		if is_instance_valid(button) and index < session.enemies.size():
 			var selected := ">" if int(index) == selected_target else ""
 			button.text = _enemy_card_text(int(index), selected)
-			button.tooltip_text = trait_catalog.tooltip(session.enemies[index]["traits"])
+			button.tooltip_text = trait_catalog.tooltip(session.enemies[index].get("passive_skills", []))
 			button.disabled = int(session.enemies[index]["hp"]) <= 0
 	for index in ally_card_nodes.keys():
 		var ally_button: Button = ally_card_nodes[index]
 		if is_instance_valid(ally_button) and index < session.allies.size():
 			ally_button.text = _ally_card_text(int(index))
-			ally_button.tooltip_text = trait_catalog.tooltip(session.allies[index]["traits"])
+			ally_button.tooltip_text = trait_catalog.tooltip(session.allies[index].get("passive_skills", []))
 			ally_button.disabled = int(session.allies[index]["hp"]) <= 0
 	if player_status_labels.has("action"):
 		player_status_labels["action"].text = "能量 %d/%d" % [session.energy, DataCatalog.ENERGY_MAX]

@@ -165,12 +165,12 @@ func _find_button(node: Node, text_value: String) -> Button:
 
 
 func _assert_enemy_tooltip(node: Node) -> void:
-	var enemy_button := _find_button_containing(node, "特性：")
+	var enemy_button := _find_button_containing(node, "被动技能：")
 	if enemy_button == null:
-		failures.append("missing enemy card with traits")
+		failures.append("missing enemy card with passive skills")
 		return
 	if String(enemy_button.tooltip_text).is_empty():
-		failures.append("enemy traits tooltip should not be empty")
+		failures.append("enemy passive skills tooltip should not be empty")
 
 
 func _find_button_containing(node: Node, text_value: String) -> Button:

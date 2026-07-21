@@ -758,6 +758,7 @@ func _apply_enemy_attack(player: Dictionary, enemy: Dictionary, enemy_index: int
 		log.append("perfect_deflect:%s:%d" % [enemy["name"], total_reflect])
 		return {"block": block, "hit": false}
 	var was_hit := false
+	var dodge_counted := false
 	for damage in _enemy_attack_segments(enemy, round_index, first_strike):
 		var result := _apply_damage_to_player(player, block, damage)
 		block = int(result["block"])
@@ -772,7 +773,9 @@ func _apply_enemy_attack(player: Dictionary, enemy: Dictionary, enemy_index: int
 			status_service.fire_trigger(enemy, TriggerEvents.ON_HIT_DEALT, hit_context)
 			status_service.fire_trigger(player, TriggerEvents.ON_HIT_RECEIVED, hit_context)
 		else:
-			dodge_streak += 1
+			if not dodge_counted:
+				dodge_streak += 1
+				dodge_counted = true
 			status_service.fire_trigger(player, TriggerEvents.ON_DODGE, {"battle_log": log, "session": self, "source": enemy})
 	if was_hit:
 		_trigger_counter_attack(player, enemy, enemy_index, log, counter_state)

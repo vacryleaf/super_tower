@@ -8,6 +8,7 @@ func run() -> void:
 	test_player_armor_baseline_is_low()
 	test_basic_equipment_values()
 	test_enemy_roles_include_tank_taunt_and_backline()
+	test_monster_groups_are_complete()
 	test_cunning_masks_enemy_intent()
 	test_skill_costs_minimum_two()
 	test_external_resource_manifests()
@@ -62,18 +63,33 @@ func test_enemy_roles_include_tank_taunt_and_backline() -> void:
 	var has_taunt_tank := false
 	var has_backline := false
 	for unit in DataCatalog.NORMAL_UNITS + DataCatalog.ELITE_UNITS + DataCatalog.BOSS_UNITS:
-		var traits: Array = unit.get("traits", [])
-		has_taunt_tank = has_taunt_tank or (traits.has("tank") and traits.has("taunt"))
-		has_backline = has_backline or traits.has("backline")
+		var passive_skills: Array = unit.get("passive_skills", [])
+		assert_equal(passive_skills.size(), 4, "%s should have four passive skill slots" % String(unit.get("name", "unit")))
+		has_taunt_tank = has_taunt_tank or (passive_skills.has("tank") and passive_skills.has("taunt"))
+		has_backline = has_backline or passive_skills.has("backline")
 	assert_true(has_taunt_tank, "enemy catalog should include taunting tank")
 	assert_true(has_backline, "enemy catalog should include backline output")
+
+
+func test_monster_groups_are_complete() -> void:
+	var group_ids := DataCatalog.monster_group_ids()
+	assert_true(not group_ids.is_empty(), "monster groups should not be empty")
+	for group_id in group_ids:
+		var group_name := DataCatalog.monster_group_name(group_id)
+		assert_true(group_name != "", "%s should have a name" % group_id)
+		assert_true(not DataCatalog.monster_group_units(group_id, "normal").is_empty(), "%s should have normal units" % group_id)
+		assert_true(not DataCatalog.monster_group_units(group_id, "elite").is_empty(), "%s should have elite units" % group_id)
+		assert_true(not DataCatalog.monster_group_units(group_id, "boss").is_empty(), "%s should have boss units" % group_id)
+	for rank in ["normal", "elite", "boss"]:
+		for unit in DataCatalog.monster_group_units("rat", rank):
+			assert_true(unit.get("passive_skills", []).has("swarm"), "%s should have swarm passive" % String(unit.get("name", "rat unit")))
 
 
 func test_cunning_masks_enemy_intent() -> void:
 	var has_cunning := false
 	for unit in DataCatalog.NORMAL_UNITS + DataCatalog.ELITE_UNITS + DataCatalog.BOSS_UNITS:
-		var traits: Array = unit.get("traits", [])
-		has_cunning = has_cunning or traits.has("cunning")
+		var passive_skills: Array = unit.get("passive_skills", [])
+		has_cunning = has_cunning or passive_skills.has("cunning")
 	assert_true(has_cunning, "enemy catalog should include cunning enemies")
 
 	var session_script = load("res://scripts/core/play_session.gd")
@@ -89,7 +105,7 @@ func test_cunning_masks_enemy_intent() -> void:
 		"armor": 0,
 		"dodge_layers": 0,
 		"taunt": 0,
-		"traits": ["cunning", "evade"]
+		"passive_skills": ["cunning", "evade", "", ""]
 	}]
 	session.enemies = enemies
 	assert_equal(session.enemy_intent_text(0), "狡诈", "cunning should mask true intent")

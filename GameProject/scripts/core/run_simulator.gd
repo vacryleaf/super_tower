@@ -12,6 +12,12 @@ var combat := CombatEngine.new()
 var encounters := EncounterService.new()
 var character := CharacterService.new()
 var simulation_rewards := SimulationRewardPolicy.new()
+var rng := RandomNumberGenerator.new()
+var _floor_groups: Dictionary = {}
+
+
+func _init() -> void:
+	rng.seed = 1
 
 
 func create_character(class_id: String) -> Dictionary:
@@ -47,6 +53,7 @@ func run_campaign(class_id: String, target_floor: int = 10) -> Dictionary:
 	var tutorial := run_tutorial(class_id)
 	if not tutorial["success"]:
 		return tutorial
+	_floor_groups.clear()
 
 	var player: Dictionary = tutorial["player"]
 	var floor_summaries: Array[Dictionary] = [{
@@ -118,20 +125,45 @@ func run_formal_floor(player: Dictionary, tower_floor: int) -> Dictionary:
 	}
 
 
-func generate_encounter(tower_floor: int, battle_index: int) -> Dictionary:
-	return encounters.generate_encounter(tower_floor, battle_index)
+func select_floor_group_id(source_rng: Variant = null) -> String:
+	if source_rng != null and source_rng is RandomNumberGenerator:
+		return encounters.select_floor_group_id(source_rng)
+	return encounters.select_floor_group_id(rng)
+
+
+func generate_encounter(tower_floor: int, battle_index: int, floor_group_id: String = "") -> Dictionary:
+	var resolved_group_id := _floor_group_id_for_floor(tower_floor, floor_group_id)
+	return encounters.generate_encounter(tower_floor, battle_index, resolved_group_id)
+
+
+func _floor_group_id_for_floor(tower_floor: int, floor_group_id: String = "") -> String:
+	if floor_group_id != "":
+		_floor_groups[tower_floor] = floor_group_id
+		return floor_group_id
+	if _floor_groups.has(tower_floor):
+		return String(_floor_groups[tower_floor])
+	var group_ids := DataCatalog.monster_group_ids()
+	if group_ids.is_empty():
+		return ""
+	var seed_value := int(rng.seed)
+	if seed_value == 0:
+		seed_value = 1
+	var index: int = int(abs(hash("%d:%d" % [seed_value, tower_floor]))) % group_ids.size()
+	var selected := String(group_ids[index])
+	_floor_groups[tower_floor] = selected
+	return selected
 
 
 func _normal_encounter(tower_floor: int, battle_index: int) -> Dictionary:
-	return encounters.normal_encounter(tower_floor, battle_index)
+	return encounters.normal_encounter(tower_floor, battle_index, _floor_group_id_for_floor(tower_floor))
 
 
 func _elite_encounter(tower_floor: int, battle_index: int) -> Dictionary:
-	return encounters.elite_encounter(tower_floor, battle_index)
+	return encounters.elite_encounter(tower_floor, battle_index, _floor_group_id_for_floor(tower_floor))
 
 
 func _boss_encounter(tower_floor: int) -> Dictionary:
-	return encounters.boss_encounter(tower_floor)
+	return encounters.boss_encounter(tower_floor, _floor_group_id_for_floor(tower_floor))
 
 
 func _formation_from_units(id: String, battle_type: String, indexes: Array[int], scales: Array[float]) -> Dictionary:
@@ -150,8 +182,8 @@ func _prepare_unit(source: Dictionary, rank: String, scale: float) -> Dictionary
 	return encounters.prepare_unit(source, rank, scale)
 
 
-func _low_unit(unit_name: String, scale: float, traits: Array) -> Dictionary:
-	return encounters.low_unit(unit_name, scale, traits)
+func _low_unit(unit_name: String, scale: float, passive_skills: Array) -> Dictionary:
+	return encounters.low_unit(unit_name, scale, passive_skills)
 
 
 func _apply_battle_pressure(encounter: Dictionary, battle_index: int) -> Dictionary:

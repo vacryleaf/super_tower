@@ -36,6 +36,7 @@ func create_character(class_id: String) -> Dictionary:
 		"consumable_ids": [],
 		"unlocked_skills": [],
 		"equipped_skills": [],
+		"passive_skills": ["", "", "", ""],
 		"innate_skills": {
 			"attack_1": "innate_attack_1",
 			"defend": "innate_defend",
@@ -281,6 +282,13 @@ func _ensure_player_schema(player: Dictionary) -> void:
 		player["equipped_skills"] = []
 	while player["equipped_skills"].size() < 4:
 		player["equipped_skills"].append("")
+	if not player.has("passive_skills"):
+		player["passive_skills"] = player.get("traits", [])
+	while player["passive_skills"].size() < 4:
+		player["passive_skills"].append("")
+	if player["passive_skills"].size() > 4:
+		player["passive_skills"].resize(4)
+	player.erase("traits")
 	if not player.has("innate_skills"):
 		player["innate_skills"] = {
 			"attack_1": "innate_attack_1",

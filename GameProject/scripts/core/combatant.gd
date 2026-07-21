@@ -26,7 +26,7 @@ static func from_player(player: Dictionary, current_block: int = 0, current_dodg
 		"block": maxi(0, current_block),
 		"dodge_layers": maxi(0, current_dodge),
 		"taunt": 0,
-		"traits": player.get("traits", []),
+		"passive_skills": passive_skill_slots(player.get("passive_skills", [])),
 		"energy": int(player.get("energy", 0)),
 		"skill_cooldowns": player.get("skill_cooldowns", {}).duplicate(),
 		"controlled_by": "player"
@@ -43,7 +43,7 @@ static func sync_to_player(combatant: Dictionary, player: Dictionary) -> Diction
 
 static func from_enemy_unit(unit: Dictionary, encounter_type: String, tower_floor: int) -> Dictionary:
 	var rank := String(unit.get("rank", encounter_type))
-	var traits: Array = unit.get("traits", [])
+	var passive_skills := passive_skill_slots(unit.get("passive_skills", unit.get("traits", [])))
 	var skills: Array = unit.get("skills", [])
 	if unit.has("hp") and typeof(unit["hp"]) == TYPE_INT:
 		var fixed_defense := int(unit.get("defense", 0))
@@ -53,8 +53,8 @@ static func from_enemy_unit(unit: Dictionary, encounter_type: String, tower_floo
 			int(unit.get("hp", 1)),
 			int(unit.get("attack", 1)),
 			fixed_defense,
-			_enemy_base_armor(unit, fixed_defense, traits),
-			traits,
+			_enemy_base_armor(unit, fixed_defense, passive_skills),
+			passive_skills,
 			skills
 		)
 	return scaled_enemy(unit, tower_floor, rank, float(unit.get("formation_scale", 1.0)))
@@ -85,7 +85,7 @@ static func scaled_enemy(unit: Dictionary, tower_floor: int, rank: String, forma
 	var hp := maxi(1, int(round(base_hp * growth * float(unit.get("hp", 1.0)) * rank_hp * formation_scale)))
 	var attack := maxi(1, int(round(base_attack * growth * float(unit.get("attack", 1.0)) * rank_attack * formation_scale)))
 	var defense := maxi(0, int(round(base_defense * growth * float(unit.get("defense", 1.0)) * rank_defense * formation_scale)))
-	var traits: Array = unit.get("traits", [])
+	var passive_skills := passive_skill_slots(unit.get("passive_skills", unit.get("traits", [])))
 	var skills: Array = unit.get("skills", [])
 	return _enemy_dictionary(
 		String(unit.get("name", unit.get("id", "enemy"))),
@@ -93,8 +93,8 @@ static func scaled_enemy(unit: Dictionary, tower_floor: int, rank: String, forma
 		hp,
 		attack,
 		defense,
-		_enemy_base_armor(unit, defense, traits),
-		traits,
+		_enemy_base_armor(unit, defense, passive_skills),
+		passive_skills,
 		skills
 	)
 
@@ -172,7 +172,11 @@ static func damage_after_armor(combatant: Dictionary, raw_damage: int) -> int:
 
 
 static func normalize_enemy(enemy: Dictionary) -> void:
-	var traits: Array = enemy.get("traits", [])
+	if not enemy.has("passive_skills"):
+		enemy["passive_skills"] = enemy.get("traits", [])
+	enemy["passive_skills"] = passive_skill_slots(enemy["passive_skills"])
+	enemy.erase("traits")
+	var passive_skills: Array = enemy["passive_skills"]
 	var defense := int(enemy.get("defense", 0))
 	if not enemy.has("side"):
 		enemy["side"] = "enemy"
@@ -184,7 +188,7 @@ static func normalize_enemy(enemy: Dictionary) -> void:
 		enemy["dodge_layers"] = 0
 	if not enemy.has("taunt"):
 		enemy["taunt"] = 0
-	if traits.has("thick_skin") and int(enemy.get("armor", 0)) <= 0:
+	if passive_skills.has("thick_skin") and int(enemy.get("armor", 0)) <= 0:
 		enemy["armor"] = maxi(1, defense)
 	elif not enemy.has("armor"):
 		enemy["armor"] = 0
@@ -204,19 +208,19 @@ static func normalize_enemy(enemy: Dictionary) -> void:
 
 
 static func _apply_trait_statuses(enemy: Dictionary) -> void:
-	var traits: Array = enemy.get("traits", [])
-	if traits.is_empty():
+	var passive_skills := passive_skill_slots(enemy.get("passive_skills", enemy.get("traits", [])))
+	if passive_skills.filter(func(skill_id): return skill_id != "").is_empty():
 		return
 	var statuses: Array = enemy.get("statuses", [])
 
-	if traits.has("claw"):
+	if passive_skills.has("claw"):
 		statuses.append({
 			"id": "trait_claw", "name": "利爪", "kind": "buff", "stack": "replace",
 			"effects": [{"stat": "attack", "type": "multiply", "value": 1.15}],
 			"duration": -1
 		})
 
-	if traits.has("enrage"):
+	if passive_skills.has("enrage"):
 		statuses.append({
 			"id": "trait_enrage", "name": "激怒", "kind": "buff", "stack": "replace",
 			"effects": [],
@@ -226,7 +230,7 @@ static func _apply_trait_statuses(enemy: Dictionary) -> void:
 			"duration": -1
 		})
 
-	if traits.has("revive"):
+	if passive_skills.has("revive"):
 		statuses.append({
 			"id": "trait_revive", "name": "复苏", "kind": "buff", "stack": "replace",
 			"effects": [],
@@ -238,7 +242,7 @@ static func _apply_trait_statuses(enemy: Dictionary) -> void:
 			"duration": -1
 		})
 
-	if traits.has("fortify"):
+	if passive_skills.has("fortify"):
 		statuses.append({
 			"id": "trait_fortify", "name": "固守", "kind": "buff", "stack": "replace",
 			"effects": [],
@@ -251,7 +255,7 @@ static func _apply_trait_statuses(enemy: Dictionary) -> void:
 		})
 
 	# 破甲：命中玩家时施加护甲降低 debuff（defense × 0.80，持续 2 回合）
-	if traits.has("break_armor"):
+	if passive_skills.has("break_armor"):
 		statuses.append({
 			"id": "trait_break_armor", "name": "破甲", "kind": "buff", "stack": "replace",
 			"effects": [],
@@ -271,7 +275,7 @@ static func _apply_trait_statuses(enemy: Dictionary) -> void:
 		})
 
 	# 标记：命中玩家时施加易伤 debuff（damage_taken × 1.25，持续 2 回合）
-	if traits.has("mark"):
+	if passive_skills.has("mark"):
 		statuses.append({
 			"id": "trait_mark", "name": "标记", "kind": "buff", "stack": "replace",
 			"effects": [],
@@ -291,7 +295,7 @@ static func _apply_trait_statuses(enemy: Dictionary) -> void:
 		})
 
 	# 法盾：每 3 回合获得 1 层护盾，减伤 50% 持续 1 回合
-	if traits.has("spell_shield"):
+	if passive_skills.has("spell_shield"):
 		statuses.append({
 			"id": "trait_spell_shield", "name": "法盾", "kind": "buff", "stack": "replace",
 			"effects": [],
@@ -311,7 +315,7 @@ static func _apply_trait_statuses(enemy: Dictionary) -> void:
 		})
 
 	# 充能：每 3 回合充能一次，下次攻击力翻倍
-	if traits.has("charge"):
+	if passive_skills.has("charge"):
 		statuses.append({
 			"id": "trait_charge", "name": "充能", "kind": "buff", "stack": "replace",
 			"effects": [],
@@ -331,7 +335,7 @@ static func _apply_trait_statuses(enemy: Dictionary) -> void:
 		})
 
 	# 阶段：HP 越低攻击越高（30%-60%: ×1.30, <30%: ×1.60）
-	if traits.has("phase"):
+	if passive_skills.has("phase"):
 		statuses.append({
 			"id": "trait_phase", "name": "阶段", "kind": "buff", "stack": "replace",
 			"effects": [],
@@ -343,7 +347,7 @@ static func _apply_trait_statuses(enemy: Dictionary) -> void:
 		})
 
 	# 召唤：每 4 回合标记准备召唤，由 check_summon 创建弱化分身
-	if traits.has("summon"):
+	if passive_skills.has("summon"):
 		statuses.append({
 			"id": "trait_summon", "name": "召唤", "kind": "buff", "stack": "replace",
 			"effects": [],
@@ -362,7 +366,7 @@ static func _apply_trait_statuses(enemy: Dictionary) -> void:
 			"duration": -1
 		})
 
-	if traits.has("tutorial_ramp"):
+	if passive_skills.has("tutorial_ramp"):
 		statuses.append({
 			"id": "trait_tutorial_ramp", "name": "考官压力", "kind": "buff", "stack": "replace",
 			"effects": [],
@@ -386,7 +390,7 @@ static func _apply_trait_statuses(enemy: Dictionary) -> void:
 	enemy["statuses"] = statuses
 
 
-static func _enemy_dictionary(unit_name: String, rank: String, hp: int, attack: int, defense: int, armor: int, traits: Array, skills: Array = []) -> Dictionary:
+static func _enemy_dictionary(unit_name: String, rank: String, hp: int, attack: int, defense: int, armor: int, passive_skills: Array, skills: Array = []) -> Dictionary:
 	var enemy := {
 		"name": unit_name,
 		"side": "enemy",
@@ -400,7 +404,7 @@ static func _enemy_dictionary(unit_name: String, rank: String, hp: int, attack: 
 		"block": 0,
 		"dodge_layers": 0,
 		"taunt": 0,
-		"traits": traits,
+		"passive_skills": passive_skill_slots(passive_skills),
 		"skills": skills.duplicate(),
 		"innate_skills": {
 			"attack_1": "innate_attack_1",
@@ -414,8 +418,19 @@ static func _enemy_dictionary(unit_name: String, rank: String, hp: int, attack: 
 	return enemy
 
 
-static func _enemy_base_armor(unit: Dictionary, defense: int, traits: Array) -> int:
+static func _enemy_base_armor(unit: Dictionary, defense: int, passive_skills: Array) -> int:
 	var armor := int(unit.get("armor", 0))
-	if traits.has("thick_skin"):
+	if passive_skills.has("thick_skin"):
 		armor += maxi(1, defense)
 	return armor
+
+
+static func passive_skill_slots(source_skills: Array) -> Array[String]:
+	var slots: Array[String] = []
+	for skill_id in source_skills:
+		if slots.size() >= 4:
+			break
+		slots.append(String(skill_id))
+	while slots.size() < 4:
+		slots.append("")
+	return slots

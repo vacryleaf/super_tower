@@ -7,10 +7,11 @@ const Combatant = preload("res://scripts/core/combatant.gd")
 
 func save_data(session: RefCounted) -> Dictionary:
 	return {
-		"version": 2,
+		"version": 3,
 		"class_id": session.class_id,
 		"floor_index": session.floor_index,
 		"battle_index": session.battle_index,
+		"floor_group_id": session.floor_group_id,
 		"phase": session.phase,
 		"message": session.message,
 		"player": session.player,
@@ -57,6 +58,7 @@ func load_save_data(session: RefCounted, data: Dictionary) -> bool:
 		session.player["class_id"] = session.class_id
 	session.floor_index = int(data.get("floor_index", 1))
 	session.battle_index = int(data.get("battle_index", 1))
+	session.floor_group_id = String(data.get("floor_group_id", ""))
 	session.phase = String(data.get("phase", "battle"))
 	session.message = String(data.get("message", "继续游戏。"))
 	session.current_encounter = _dictionary(data.get("current_encounter", {}))

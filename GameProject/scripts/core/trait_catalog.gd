@@ -64,19 +64,21 @@ const DESCRIPTIONS := {
 }
 
 
-static func labels(traits: Array) -> String:
-	if traits.is_empty():
+static func labels(passive_skills: Array) -> String:
+	var active_skills := passive_skills.filter(func(skill_id): return skill_id != "")
+	if active_skills.is_empty():
 		return "无"
 	var result: Array[String] = []
-	for trait_id in traits:
-		result.append(LABELS.get(trait_id, trait_id))
+	for skill_id in active_skills:
+		result.append(LABELS.get(skill_id, skill_id))
 	return "、".join(result)
 
 
-func tooltip(traits: Array) -> String:
-	if traits.is_empty():
-		return "特性：无\n该敌人没有额外战斗规则。"
-	var lines: Array[String] = ["特性说明"]
-	for trait_id in traits:
-		lines.append(DESCRIPTIONS.get(trait_id, "%s：暂无说明。" % trait_id))
+func tooltip(passive_skills: Array) -> String:
+	var active_skills := passive_skills.filter(func(skill_id): return skill_id != "")
+	if active_skills.is_empty():
+		return "被动技能：无\n该单位没有额外战斗规则。"
+	var lines: Array[String] = ["被动技能说明"]
+	for skill_id in active_skills:
+		lines.append(DESCRIPTIONS.get(skill_id, "%s：暂无说明。" % skill_id))
 	return "\n".join(lines)

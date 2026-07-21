@@ -47,15 +47,23 @@ func test_encounter_generation() -> void:
 	for tower_floor in range(2, 11):
 		var counts := {"normal": 0, "elite": 0, "boss": 0}
 		var has_multi_enemy := false
+		var floor_group_id := ""
 		for battle_index in range(1, 11):
 			var encounter := simulator.generate_encounter(tower_floor, battle_index)
 			counts[encounter["type"]] += 1
+			var encounter_group_id := String(encounter.get("group_id", ""))
+			assert_true(encounter_group_id != "", "floor %d battle %d should have a monster group" % [tower_floor, battle_index])
+			if floor_group_id == "":
+				floor_group_id = encounter_group_id
+			else:
+				assert_equal(encounter_group_id, floor_group_id, "floor %d should keep one monster group" % tower_floor)
 			if encounter["units"].size() > 1:
 				has_multi_enemy = true
 			assert_true(encounter["units"].size() >= 1, "encounter has at least one enemy")
 		assert_equal(int(counts["normal"]), 7, "floor %d normal count" % tower_floor)
 		assert_equal(int(counts["elite"]), 2, "floor %d elite count" % tower_floor)
 		assert_equal(int(counts["boss"]), 1, "floor %d boss count" % tower_floor)
+		assert_true(floor_group_id in DataCatalog.monster_group_ids(), "floor %d group should be valid" % tower_floor)
 		if tower_floor >= 3:
 			assert_true(has_multi_enemy, "floor %d should include at least one multi-enemy formation" % tower_floor)
 

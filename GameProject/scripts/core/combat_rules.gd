@@ -72,7 +72,7 @@ static func is_backline_protected(enemies: Array[Dictionary], target: Dictionary
 
 
 static func is_backline_protected_by_frontline(target: Dictionary, has_frontline: bool) -> bool:
-	if not target.get("traits", []).has("backline"):
+	if not target.get("passive_skills", []).has("backline"):
 		return false
 	return has_frontline
 
@@ -207,7 +207,7 @@ static func enemy_attack_segments(session: RefCounted, enemy: Dictionary, first_
 # 检查敌方队伍中是否有存活的前排单位（tank/guard），用于 backline 特性判断
 static func has_active_frontline(enemies: Array[Dictionary]) -> bool:
 	for e in enemies:
-		if int(e.get("hp", 0)) > 0 and (e.get("traits", []).has("tank") or e.get("traits", []).has("guard")):
+		if int(e.get("hp", 0)) > 0 and (e.get("passive_skills", []).has("tank") or e.get("passive_skills", []).has("guard")):
 			return true
 	return false
 
@@ -231,7 +231,7 @@ static func check_split(enemies: Array[Dictionary], log: Array[String]) -> void:
 	for enemy in enemies:
 		if int(enemy.get("hp", 0)) <= 0:
 			continue
-		if not enemy.get("traits", []).has("split"):
+		if not enemy.get("passive_skills", []).has("split"):
 			continue
 		if enemy.get("split_triggered", false):
 			continue
@@ -268,8 +268,9 @@ static func check_summon(enemies: Array[Dictionary], log: Array[String]) -> void
 		clone["armor"] = maxi(0, int(round(float(clone.get("armor", 0)) * SUMMON_MINION_SCALE)))
 		clone["block_power"] = maxi(1, int(round(float(clone.get("block_power", 1)) * SUMMON_MINION_SCALE)))
 		# 移除克隆体的召唤特性防止无限链
-		var clone_traits: Array = clone.get("traits", [])
-		clone_traits.erase("summon")
+		var clone_passive_skills: Array = clone.get("passive_skills", [])
+		clone_passive_skills.erase("summon")
+		clone["passive_skills"] = clone_passive_skills
 		# 清除克隆体上的召唤相关状态
 		var clone_statuses: Array = clone.get("statuses", [])
 		for i in range(clone_statuses.size() - 1, -1, -1):
@@ -295,19 +296,19 @@ static func apply_end_round_traits(player: Dictionary, enemies: Array[Dictionary
 	for enemy in enemies:
 		if int(enemy.get("hp", 0)) <= 0:
 			continue
-		var traits: Array = enemy.get("traits", [])
+		var passive_skills: Array = enemy.get("passive_skills", [])
 		# 诅咒：每 N 回合对玩家造成直接伤害
-		if traits.has("curse") and round_index % CURSE_INTERVAL == 0:
+		if passive_skills.has("curse") and round_index % CURSE_INTERVAL == 0:
 			player["hp"] = maxi(0, int(player["hp"]) - CURSE_DAMAGE)
 		# 腐蚀：每回合给玩家施加护甲降低 debuff
-		if traits.has("corrode") and status_service != null:
+		if passive_skills.has("corrode") and status_service != null:
 			status_service.add_status(player, {
 				"id": "corrode_debuff", "name": "腐蚀", "kind": "debuff", "stack": "replace",
 				"effects": [{"stat": "defense", "type": "multiply", "value": CORRODE_DEFENSE_MULTIPLIER}],
 				"duration": CORRODE_DURATION
 			})
 		# 辅助：每 N 回合治疗血量最低的友军
-		if traits.has("support") and round_index % SUPPORT_INTERVAL == 0:
+		if passive_skills.has("support") and round_index % SUPPORT_INTERVAL == 0:
 			var lowest_ally: Dictionary = find_lowest_hp_ally(enemies, enemy)
 			if not lowest_ally.is_empty():
 				var heal := maxi(1, int(round(float(lowest_ally["max_hp"]) * SUPPORT_HEAL_RATIO)))
@@ -326,12 +327,12 @@ static func apply_arena_effects(player: Dictionary, enemies: Array[Dictionary], 
 	for enemy in enemies:
 		if int(enemy.get("hp", 0)) <= 0:
 			continue
-		var traits: Array = enemy.get("traits", [])
-		if traits.has("toxic_mist"):
+		var passive_skills: Array = enemy.get("passive_skills", [])
+		if passive_skills.has("toxic_mist"):
 			has_toxic_mist = true
-		if traits.has("shadow_domain"):
+		if passive_skills.has("shadow_domain"):
 			has_shadow_domain = true
-		if traits.has("blood_moon"):
+		if passive_skills.has("blood_moon"):
 			has_blood_moon = true
 	# 毒雾：每 3 回合所有单位受到 1 点 DOT 伤害
 	if has_toxic_mist and round_index % 3 == 0:

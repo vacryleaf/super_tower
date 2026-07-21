@@ -68,6 +68,11 @@ var battle_index: int:
 		return battle_state.battle_index
 	set(value):
 		battle_state.battle_index = value
+var floor_group_id: String:
+	get:
+		return battle_state.floor_group_id
+	set(value):
+		battle_state.floor_group_id = value
 var phase: String:
 	get:
 		return battle_state.phase
@@ -261,9 +266,11 @@ func start_new_game(selected_class: String, start_floor: int = 0) -> void:
 	class_id = selected_class
 	save_profile.set_slot(save_profile.current_slot())
 	_load_account()
+	rng.randomize()
 	player = _roster_player_or_new(selected_class)
 	simulator._recalculate_player_stats(player, false)
 	pending_tutorial_epilogue = false
+	floor_group_id = ""
 	if start_floor >= 1:
 		if start_floor >= 2:
 			player["tutorial_completed"] = true
@@ -358,6 +365,7 @@ func load_game(slot_index: int = -1) -> bool:
 		select_save_slot(slot_index)
 	if not save_profile.has_save(save_profile.current_slot()):
 		return false
+	rng.randomize()
 	var profile := save_profile.read_profile(Callable(self, "_persistent_player_snapshot"))
 	var active_run := _dictionary(profile.get("active_run", {}))
 	profile_loaded = not profile.is_empty()
@@ -388,6 +396,7 @@ func is_tutorial() -> bool:
 
 func _start_current_battle() -> void:
 	last_events.clear()
+	_ensure_floor_group_id()
 	current_encounter = _get_current_encounter()
 	enemies = _build_enemies(current_encounter)
 	allies = []
@@ -429,7 +438,16 @@ func _start_current_battle() -> void:
 func _get_current_encounter() -> Dictionary:
 	if is_tutorial():
 		return DataCatalog.TUTORIAL_ENCOUNTERS[battle_index - 1]
-	return simulator.generate_encounter(floor_index, battle_index)
+	return simulator.generate_encounter(floor_index, battle_index, floor_group_id)
+
+
+func _ensure_floor_group_id() -> void:
+	if is_tutorial():
+		floor_group_id = ""
+		return
+	if floor_group_id != "":
+		return
+	floor_group_id = simulator.select_floor_group_id(rng)
 
 
 func _build_enemies(encounter: Dictionary) -> Array[Dictionary]:

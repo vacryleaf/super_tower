@@ -10,8 +10,8 @@ func enemy_card(
 	index: int,
 	selected_target: int,
 	rank_label: Callable,
-	trait_labels: Callable,
-	trait_tooltip: Callable,
+	passive_skill_labels: Callable,
+	passive_skill_tooltip: Callable,
 	pressed_callback: Callable
 ) -> Button:
 	var enemy: Dictionary = session.enemies[index]
@@ -19,16 +19,16 @@ func enemy_card(
 	button.custom_minimum_size = Vector2(146, 136)
 	button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	var selected := ">" if index == selected_target else ""
-	button.text = enemy_card_text(session, index, selected, rank_label, trait_labels)
-	button.tooltip_text = trait_tooltip.call(enemy["traits"])
+	button.text = enemy_card_text(session, index, selected, rank_label, passive_skill_labels)
+	button.tooltip_text = passive_skill_tooltip.call(enemy.get("passive_skills", []))
 	button.disabled = int(enemy["hp"]) <= 0
 	button.pressed.connect(pressed_callback.bind(index))
 	return button
 
 
-func enemy_card_text(session: Variant, index: int, selected: String, rank_label: Callable, trait_labels: Callable) -> String:
+func enemy_card_text(session: Variant, index: int, selected: String, rank_label: Callable, passive_skill_labels: Callable) -> String:
 	var enemy: Dictionary = session.enemies[index]
-	return "%s%s  %s\n生命 %d/%d\n攻%d 护%d  格%d/%d\n意图：%s\n特性：%s" % [
+	return "%s%s  %s\n生命 %d/%d\n攻%d 护%d  格%d/%d\n意图：%s\n被动技能：%s" % [
 		selected,
 		enemy["name"],
 		rank_label.call(enemy["rank"]),
@@ -39,7 +39,7 @@ func enemy_card_text(session: Variant, index: int, selected: String, rank_label:
 		int(enemy.get("block", 0)),
 		int(enemy.get("block_power", enemy.get("defense", 0))),
 		session.enemy_intent_text(index),
-		trait_labels.call(enemy["traits"])
+		passive_skill_labels.call(enemy.get("passive_skills", []))
 	]
 
 
@@ -69,24 +69,24 @@ func ally_card(
 	session: Variant,
 	index: int,
 	rank_label: Callable,
-	trait_labels: Callable,
-	trait_tooltip: Callable
+	passive_skill_labels: Callable,
+	passive_skill_tooltip: Callable
 ) -> Button:
 	var ally: Dictionary = session.allies[index]
 	var button := Button.new()
 	button.custom_minimum_size = Vector2(146, 136)
 	button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	button.text = ally_card_text(session, index, rank_label, trait_labels)
-	button.tooltip_text = trait_tooltip.call(ally["traits"])
+	button.text = ally_card_text(session, index, rank_label, passive_skill_labels)
+	button.tooltip_text = passive_skill_tooltip.call(ally.get("passive_skills", []))
 	button.disabled = int(ally["hp"]) <= 0
 	return button
 
 
 
 
-func ally_card_text(session: Variant, index: int, rank_label: Callable, trait_labels: Callable) -> String:
+func ally_card_text(session: Variant, index: int, rank_label: Callable, passive_skill_labels: Callable) -> String:
 	var ally: Dictionary = session.allies[index]
-	return "%s  %s\n生命 %d/%d\n攻%d 护%d  格%d/%d\n意图：%s\n特性：%s" % [
+	return "%s  %s\n生命 %d/%d\n攻%d 护%d  格%d/%d\n意图：%s\n被动技能：%s" % [
 		ally["name"],
 		rank_label.call(ally.get("rank", "normal")),
 		int(ally["hp"]),
@@ -96,5 +96,5 @@ func ally_card_text(session: Variant, index: int, rank_label: Callable, trait_la
 		int(ally.get("block", 0)),
 		int(ally.get("block_power", ally.get("defense", 0))),
 		"支援",
-		trait_labels.call(ally.get("traits", []))
+		passive_skill_labels.call(ally.get("passive_skills", []))
 	]

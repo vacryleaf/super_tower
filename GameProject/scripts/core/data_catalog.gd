@@ -205,37 +205,77 @@ const TUTORIAL_UNLOCKS := {
 }
 
 const TUTORIAL_ENCOUNTERS := [
-	{"id": "tutorial_01", "type": "normal", "name": "攻击考官", "units": [{"name": "攻击考官", "rank": "normal", "hp": 26, "attack": 5, "defense": 0, "traits": [], "skills": ["enemy_heavy_strike"]}]},
-	{"id": "tutorial_02", "type": "normal", "name": "防御考官", "units": [{"name": "防御考官", "rank": "normal", "hp": 38, "attack": 5, "defense": 1, "traits": ["tutorial_ramp"], "skills": ["enemy_rend", "enemy_fortify"]}]},
-	{"id": "tutorial_03", "type": "normal", "name": "闪避考官", "units": [{"name": "闪避考官", "rank": "normal", "hp": 34, "attack": 6, "defense": 1, "traits": ["tutorial_evade"], "skills": ["enemy_heavy_strike", "enemy_quick_evade"]}]}
+	{"id": "tutorial_01", "type": "normal", "name": "攻击考官", "units": [{"name": "攻击考官", "rank": "normal", "hp": 26, "attack": 5, "defense": 0, "passive_skills": ["", "", "", ""], "skills": ["enemy_heavy_strike"]}]},
+	{"id": "tutorial_02", "type": "normal", "name": "防御考官", "units": [{"name": "防御考官", "rank": "normal", "hp": 38, "attack": 5, "defense": 1, "passive_skills": ["tutorial_ramp", "", "", ""], "skills": ["enemy_rend", "enemy_fortify"]}]},
+	{"id": "tutorial_03", "type": "normal", "name": "闪避考官", "units": [{"name": "闪避考官", "rank": "normal", "hp": 34, "attack": 6, "defense": 1, "passive_skills": ["tutorial_evade", "", "", ""], "skills": ["enemy_heavy_strike", "enemy_quick_evade"]}]}
 ]
 
 const NORMAL_UNITS := [
-	{"id": "normal_rat_01", "name": "腐鼠", "hp": 0.75, "attack": 0.90, "defense": 0.60, "traits": ["swarm"], "skills": ["enemy_rend", "enemy_enrage"]},
-	{"id": "normal_rat_02", "name": "尖牙鼠", "hp": 0.80, "attack": 1.05, "defense": 0.60, "traits": ["claw"], "skills": ["enemy_heavy_strike", "enemy_rend"]},
-	{"id": "normal_guard_01", "name": "生锈守卫", "hp": 1.10, "attack": 0.75, "defense": 1.30, "traits": ["thick_skin", "tank", "taunt"], "skills": ["enemy_fortify", "enemy_taunt"]},
-	{"id": "normal_guard_03", "name": "矛卫", "hp": 0.95, "attack": 1.00, "defense": 1.10, "traits": ["break_armor", "tank"], "skills": ["enemy_heavy_strike", "enemy_fortify"]},
-	{"id": "normal_shadow_01", "name": "影贼", "hp": 0.75, "attack": 1.05, "defense": 0.70, "traits": ["first_strike", "evade", "cunning"], "skills": ["enemy_quick_evade", "enemy_rend"]},
-	{"id": "normal_shadow_02", "name": "暗弩手", "hp": 0.80, "attack": 1.15, "defense": 0.70, "traits": ["mark", "backline", "cunning"], "skills": ["enemy_dark_bolt", "enemy_weaken"]},
-	{"id": "normal_caster_01", "name": "学徒术士", "hp": 0.80, "attack": 0.90, "defense": 0.80, "traits": ["curse"], "skills": ["enemy_weaken", "enemy_dark_bolt"]},
-	{"id": "normal_mutant_02", "name": "晶刺兽", "hp": 0.95, "attack": 1.05, "defense": 0.95, "traits": ["break_armor"], "skills": ["enemy_rend", "enemy_enrage"]}
+	{"id": "normal_rat_01", "name": "腐鼠", "hp": 0.75, "attack": 0.90, "defense": 0.60, "passive_skills": ["swarm", "", "", ""], "skills": ["enemy_rend", "enemy_enrage"]},
+	{"id": "normal_rat_02", "name": "尖牙鼠", "hp": 0.80, "attack": 1.05, "defense": 0.60, "passive_skills": ["swarm", "claw", "", ""], "skills": ["enemy_heavy_strike", "enemy_rend"]},
+	{"id": "normal_guard_01", "name": "生锈守卫", "hp": 1.10, "attack": 0.75, "defense": 1.30, "passive_skills": ["thick_skin", "tank", "taunt", ""], "skills": ["enemy_fortify", "enemy_taunt"]},
+	{"id": "normal_guard_03", "name": "矛卫", "hp": 0.95, "attack": 1.00, "defense": 1.10, "passive_skills": ["break_armor", "tank", "", ""], "skills": ["enemy_heavy_strike", "enemy_fortify"]},
+	{"id": "normal_shadow_01", "name": "影贼", "hp": 0.75, "attack": 1.05, "defense": 0.70, "passive_skills": ["first_strike", "evade", "cunning", ""], "skills": ["enemy_quick_evade", "enemy_rend"]},
+	{"id": "normal_shadow_02", "name": "暗弩手", "hp": 0.80, "attack": 1.15, "defense": 0.70, "passive_skills": ["mark", "backline", "cunning", ""], "skills": ["enemy_dark_bolt", "enemy_weaken"]},
+	{"id": "normal_caster_01", "name": "学徒术士", "hp": 0.80, "attack": 0.90, "defense": 0.80, "passive_skills": ["curse", "", "", ""], "skills": ["enemy_weaken", "enemy_dark_bolt"]},
+	{"id": "normal_mutant_02", "name": "晶刺兽", "hp": 0.95, "attack": 1.05, "defense": 0.95, "passive_skills": ["break_armor", "", "", ""], "skills": ["enemy_rend", "enemy_enrage"]}
 ]
 
 const ELITE_UNITS := [
-	{"id": "elite_rat_01", "name": "鼠群头目", "hp": 0.95, "attack": 1.05, "defense": 0.80, "traits": ["swarm", "summon"], "skills": ["enemy_rend", "enemy_enrage"]},
-	{"id": "elite_guard_01", "name": "铁甲队长", "hp": 1.20, "attack": 0.95, "defense": 1.50, "traits": ["guard", "fortify", "tank", "taunt"], "skills": ["enemy_fortify", "enemy_heavy_strike", "enemy_taunt"]},
-	{"id": "elite_shadow_01", "name": "暗影猎长", "hp": 0.90, "attack": 1.25, "defense": 0.90, "traits": ["first_strike", "mark", "cunning"], "skills": ["enemy_dark_bolt", "enemy_quick_evade"]},
-	{"id": "elite_caster_01", "name": "深塔祭司", "hp": 1.00, "attack": 1.00, "defense": 1.00, "traits": ["curse", "summon"], "skills": ["enemy_weaken", "enemy_dark_bolt"]},
-	{"id": "elite_mutant_01", "name": "裂塔巨兽", "hp": 1.35, "attack": 1.00, "defense": 1.25, "traits": ["thick_skin", "revive"], "skills": ["enemy_heavy_strike", "enemy_enrage"]}
+	{"id": "elite_rat_01", "name": "鼠群头目", "hp": 0.95, "attack": 1.05, "defense": 0.80, "passive_skills": ["swarm", "summon", "", ""], "skills": ["enemy_rend", "enemy_enrage"]},
+	{"id": "elite_guard_01", "name": "铁甲队长", "hp": 1.20, "attack": 0.95, "defense": 1.50, "passive_skills": ["guard", "fortify", "tank", "taunt"], "skills": ["enemy_fortify", "enemy_heavy_strike", "enemy_taunt"]},
+	{"id": "elite_shadow_01", "name": "暗影猎长", "hp": 0.90, "attack": 1.25, "defense": 0.90, "passive_skills": ["first_strike", "mark", "cunning", ""], "skills": ["enemy_dark_bolt", "enemy_quick_evade"]},
+	{"id": "elite_caster_01", "name": "深塔祭司", "hp": 1.00, "attack": 1.00, "defense": 1.00, "passive_skills": ["curse", "summon", "", ""], "skills": ["enemy_weaken", "enemy_dark_bolt"]},
+	{"id": "elite_mutant_01", "name": "裂塔巨兽", "hp": 1.35, "attack": 1.00, "defense": 1.25, "passive_skills": ["thick_skin", "revive", "", ""], "skills": ["enemy_heavy_strike", "enemy_enrage"]}
 ]
 
 const BOSS_UNITS := [
-	{"id": "boss_rat_king", "name": "腐巢鼠王", "hp": 1.00, "attack": 1.10, "defense": 0.90, "traits": ["swarm", "summon", "enrage"], "skills": ["enemy_rend", "enemy_enrage", "enemy_heavy_strike"]},
-	{"id": "boss_iron_warden", "name": "铁狱典狱长", "hp": 1.25, "attack": 1.00, "defense": 1.45, "traits": ["thick_skin", "guard", "fortify"], "skills": ["enemy_fortify", "enemy_heavy_strike", "enemy_enrage"]},
-	{"id": "boss_shadow_duke", "name": "夜幕公爵", "hp": 0.95, "attack": 1.30, "defense": 1.00, "traits": ["first_strike", "evade", "mark", "cunning", "shadow_domain"], "skills": ["enemy_dark_bolt", "enemy_quick_evade", "enemy_weaken"]},
-	{"id": "boss_deep_oracle", "name": "深塔预言者", "hp": 1.05, "attack": 1.10, "defense": 1.20, "traits": ["curse", "spell_shield", "summon", "toxic_mist"], "skills": ["enemy_weaken", "enemy_dark_bolt", "enemy_fortify"]},
-	{"id": "boss_tower_core", "name": "裂塔核心", "hp": 1.20, "attack": 1.20, "defense": 1.20, "traits": ["revive", "charge", "split", "blood_moon"], "skills": ["enemy_heavy_strike", "enemy_enrage", "enemy_rend"]}
+	{"id": "boss_rat_king", "name": "腐巢鼠王", "hp": 1.00, "attack": 1.10, "defense": 0.90, "passive_skills": ["swarm", "summon", "enrage", ""], "skills": ["enemy_rend", "enemy_enrage", "enemy_heavy_strike"]},
+	{"id": "boss_iron_warden", "name": "铁狱典狱长", "hp": 1.25, "attack": 1.00, "defense": 1.45, "passive_skills": ["thick_skin", "guard", "fortify", ""], "skills": ["enemy_fortify", "enemy_heavy_strike", "enemy_enrage"]},
+	{"id": "boss_shadow_duke", "name": "夜幕公爵", "hp": 0.95, "attack": 1.30, "defense": 1.00, "passive_skills": ["first_strike", "evade", "mark", "cunning"], "skills": ["enemy_dark_bolt", "enemy_quick_evade", "enemy_weaken"]},
+	{"id": "boss_deep_oracle", "name": "深塔预言者", "hp": 1.05, "attack": 1.10, "defense": 1.20, "passive_skills": ["curse", "spell_shield", "summon", "toxic_mist"], "skills": ["enemy_weaken", "enemy_dark_bolt", "enemy_fortify"]},
+	{"id": "boss_tower_core", "name": "裂塔核心", "hp": 1.20, "attack": 1.20, "defense": 1.20, "passive_skills": ["revive", "charge", "split", "blood_moon"], "skills": ["enemy_heavy_strike", "enemy_enrage", "enemy_rend"]}
 ]
+
+const MONSTER_GROUP_ORDER := ["rat", "guard", "shadow", "caster", "mutant"]
+
+const MONSTER_GROUPS := {
+	"rat": {
+		"name": "老鼠群落",
+		"minion_passive_skills": ["swarm"],
+		"normal_units": ["normal_rat_01", "normal_rat_02"],
+		"elite_units": ["elite_rat_01"],
+		"boss_units": ["boss_rat_king"]
+	},
+	"guard": {
+		"name": "守卫群落",
+		"minion_passive_skills": ["tank", "taunt"],
+		"normal_units": ["normal_guard_01", "normal_guard_03"],
+		"elite_units": ["elite_guard_01"],
+		"boss_units": ["boss_iron_warden"]
+	},
+	"shadow": {
+		"name": "暗影群落",
+		"minion_passive_skills": ["first_strike", "evade", "cunning"],
+		"normal_units": ["normal_shadow_01", "normal_shadow_02"],
+		"elite_units": ["elite_shadow_01"],
+		"boss_units": ["boss_shadow_duke"]
+	},
+	"caster": {
+		"name": "术士群落",
+		"minion_passive_skills": ["curse"],
+		"normal_units": ["normal_caster_01"],
+		"elite_units": ["elite_caster_01"],
+		"boss_units": ["boss_deep_oracle"]
+	},
+	"mutant": {
+		"name": "异变群落",
+		"minion_passive_skills": ["break_armor"],
+		"normal_units": ["normal_mutant_02"],
+		"elite_units": ["elite_mutant_01"],
+		"boss_units": ["boss_tower_core"]
+	}
+}
 
 
 static func get_state_weight_total() -> int:
@@ -247,6 +287,50 @@ static func get_state_weight_total() -> int:
 
 static func get_floor_battle_type(index: int) -> String:
 	return BATTLE_TYPES[index - 1]
+
+
+static func monster_group_ids() -> Array[String]:
+	var result: Array[String] = []
+	for group_id in MONSTER_GROUP_ORDER:
+		result.append(group_id)
+	return result
+
+
+static func monster_group(group_id: String) -> Dictionary:
+	return MONSTER_GROUPS.get(group_id, {})
+
+
+static func monster_group_name(group_id: String) -> String:
+	return String(monster_group(group_id).get("name", group_id))
+
+
+static func monster_group_minion_passive_skills(group_id: String) -> Array:
+	var group: Dictionary = monster_group(group_id)
+	return group.get("minion_passive_skills", [])
+
+
+static func monster_group_units(group_id: String, rank: String) -> Array[Dictionary]:
+	var group: Dictionary = monster_group(group_id)
+	var ids: Array = group.get("%s_units" % rank, [])
+	var units: Array[Dictionary] = []
+	for unit_id in ids:
+		var unit := monster_unit(String(unit_id))
+		if not unit.is_empty():
+			units.append(unit)
+	return units
+
+
+static func monster_unit(unit_id: String) -> Dictionary:
+	for unit in NORMAL_UNITS:
+		if String(unit.get("id", "")) == unit_id:
+			return unit
+	for unit in ELITE_UNITS:
+		if String(unit.get("id", "")) == unit_id:
+			return unit
+	for unit in BOSS_UNITS:
+		if String(unit.get("id", "")) == unit_id:
+			return unit
+	return {}
 
 
 static func external_table(table_name: String) -> Dictionary:

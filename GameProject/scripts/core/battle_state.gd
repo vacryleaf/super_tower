@@ -5,6 +5,7 @@ var player: Dictionary = {}
 var class_id := ""
 var floor_index := 1
 var battle_index := 1
+var floor_group_id := ""
 var phase := "menu"
 var message := ""
 var enemies: Array[Dictionary] = []
@@ -48,6 +49,7 @@ func reset() -> void:
 	class_id = ""
 	floor_index = 1
 	battle_index = 1
+	floor_group_id = ""
 	phase = "menu"
 	message = "已返回塔下营地。"
 	enemies.clear()

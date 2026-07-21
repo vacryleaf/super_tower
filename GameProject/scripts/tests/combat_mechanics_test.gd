@@ -75,7 +75,7 @@ func test_player_and_enemy_share_combatant_contract() -> void:
 		"defense": 2,
 		"traits": []
 	}, "normal", 1)
-	for key in ["side", "rank", "max_hp", "hp", "attack", "defense", "armor", "block_power", "block", "dodge_layers", "taunt", "traits"]:
+	for key in ["side", "rank", "max_hp", "hp", "attack", "defense", "armor", "block_power", "block", "dodge_layers", "taunt", "passive_skills"]:
 		assert_true(player_unit.has(key), "player combatant has %s" % key)
 		assert_true(enemy_unit.has(key), "enemy combatant has %s" % key)
 	var player_damage := Combatant.apply_damage(player_unit, 20)

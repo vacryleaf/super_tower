@@ -353,7 +353,7 @@ func _render_class_info() -> void:
 
 
 func _render_traits() -> void:
-	_detail_container.add_child(_label_factory.call("特性", 22))
+	_detail_container.add_child(_label_factory.call("被动技能", 22))
 	var all_traits: Array[String] = []
 	for trait_id in TraitCatalog.LABELS.keys():
 		all_traits.append(String(trait_id))
@@ -361,7 +361,6 @@ func _render_traits() -> void:
 	for trait_id in all_traits:
 		var label_text := "%s：%s" % [TraitCatalog.LABELS.get(trait_id, trait_id), TraitCatalog.DESCRIPTIONS.get(trait_id, "暂无说明。")]
 		_detail_container.add_child(_label_factory.call(label_text, 14))
-
 
 
 

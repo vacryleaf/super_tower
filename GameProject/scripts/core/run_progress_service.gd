@@ -38,6 +38,7 @@ func advance_after_reward(session: Variant) -> void:
 			return
 		session.floor_index += 1
 		session.battle_index = 1
+		session.floor_group_id = ""
 	else:
 		session.battle_index += 1
 	apply_limited_post_battle_recovery(session)

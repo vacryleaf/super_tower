@@ -527,6 +527,7 @@ func enemy_attack(session: RefCounted, enemy: Dictionary, enemy_index: int, firs
 		return
 	var segments := enemy_attack_segments(session, enemy, first_strike)
 	var player_unit: Dictionary = session._player_combatant()
+	var dodge_counted := false
 	# 完美偏转：免疫所有伤害并反弹给所有敌人
 	if session.perfect_deflect:
 		var total_reflect := 0
@@ -548,7 +549,9 @@ func enemy_attack(session: RefCounted, enemy: Dictionary, enemy_index: int, firs
 		if bool(result["dodged"]):
 			session.battle_log.append("躲避了 %s 的一段攻击。" % enemy["name"])
 			session.last_events.append({"kind": "dodge_enemy_attack", "target": "player", "source": enemy["name"], "amount": 0})
-			session._check_dodge_streak()
+			if not dodge_counted:
+				session._check_dodge_streak()
+				dodge_counted = true
 			session.status_service.fire_trigger(session.player, TriggerEvents.ON_DODGE, {"battle_log": session.battle_log, "session": session, "source": enemy, "target": session.player})
 			if session._has_set_modifier("dynamic:ranger_return") and int(enemy["hp"]) > 0:
 				var counter_skill_id: String = session.player["innate_skills"]["attack_1"]

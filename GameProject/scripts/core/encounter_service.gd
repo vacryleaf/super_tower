@@ -4,57 +4,76 @@ class_name EncounterService
 const DataCatalog = preload("res://scripts/core/data_catalog.gd")
 
 
-func generate_encounter(tower_floor: int, battle_index: int) -> Dictionary:
+func select_floor_group_id(rng: Variant = null) -> String:
+	var group_ids := DataCatalog.monster_group_ids()
+	if group_ids.is_empty():
+		return ""
+	if rng != null and rng is RandomNumberGenerator:
+		var generator: RandomNumberGenerator = rng
+		return String(group_ids[generator.randi_range(0, group_ids.size() - 1)])
+	return String(group_ids[0])
+
+
+func generate_encounter(tower_floor: int, battle_index: int, floor_group_id: String = "") -> Dictionary:
+	var group_id := floor_group_id if floor_group_id != "" else select_floor_group_id()
 	var battle_type := DataCatalog.get_floor_battle_type(battle_index)
 	var encounter: Dictionary
 	if battle_type == "normal":
-		encounter = normal_encounter(tower_floor, battle_index)
+		encounter = normal_encounter(tower_floor, battle_index, group_id)
 	elif battle_type == "elite":
-		encounter = elite_encounter(tower_floor, battle_index)
+		encounter = elite_encounter(tower_floor, battle_index, group_id)
 	else:
-		encounter = boss_encounter(tower_floor)
+		encounter = boss_encounter(tower_floor, group_id)
+	encounter["group_id"] = group_id
+	encounter["group_name"] = DataCatalog.monster_group_name(group_id)
 	return apply_battle_pressure(encounter, battle_index)
 
 
-func normal_encounter(tower_floor: int, battle_index: int) -> Dictionary:
+func normal_encounter(tower_floor: int, battle_index: int, group_id: String) -> Dictionary:
 	var selector := (tower_floor + battle_index) % 5
 	if selector == 0 and tower_floor >= 3:
-		return formation("enc_normal_goblin_team", "normal", [
-			low_unit("哥布林盾矛手", 0.52, ["tank", "taunt"]),
-			low_unit("哥布林投石手", 0.50, ["backline"]),
-			low_unit("哥布林斥候", 0.46, ["first_strike", "evade"])
-		])
+		return formation("enc_%s_group_%d_%d" % [group_id, tower_floor, battle_index], "normal", _group_squad(group_id, 3, [0.52, 0.50, 0.46]))
 	if selector == 1 and tower_floor >= 4:
-		return formation_from_units("enc_normal_guard_pair", "normal", [2, 3], [0.62, 0.62])
+		return formation("enc_%s_pair_%d_%d" % [group_id, tower_floor, battle_index], "normal", _group_squad(group_id, 2, [0.62, 0.62]))
 	if selector == 2 and tower_floor >= 5:
-		return formation_from_units("enc_normal_shadow_pair", "normal", [4, 5], [0.62, 0.62])
-	var unit: Dictionary = DataCatalog.NORMAL_UNITS[(tower_floor + battle_index) % DataCatalog.NORMAL_UNITS.size()]
-	return formation_from_unit("enc_normal_standard_%d_%d" % [tower_floor, battle_index], "normal", unit, 1.0)
+		return formation("enc_%s_pair_%d_%d" % [group_id, tower_floor, battle_index], "normal", _group_squad(group_id, 2, [0.62, 0.62]))
+	var unit := _group_unit(group_id, "normal", tower_floor + battle_index)
+	if unit.is_empty():
+		return formation("enc_%s_standard_%d_%d" % [group_id, tower_floor, battle_index], "normal", [_group_low_unit(group_id, 1.0)])
+	return formation_from_unit("enc_%s_standard_%d_%d" % [group_id, tower_floor, battle_index], "normal", unit, 1.0)
 
 
-func elite_encounter(tower_floor: int, battle_index: int) -> Dictionary:
+func elite_encounter(tower_floor: int, battle_index: int, group_id: String) -> Dictionary:
 	if tower_floor >= 6 and battle_index == 8:
-		var elite_unit: Dictionary = DataCatalog.ELITE_UNITS[(tower_floor + battle_index) % DataCatalog.ELITE_UNITS.size()]
-		var normal_unit: Dictionary = DataCatalog.NORMAL_UNITS[(tower_floor + battle_index + 2) % DataCatalog.NORMAL_UNITS.size()]
-		return formation("enc_elite_pair_%d_%d" % [tower_floor, battle_index], "elite", [
-			prepare_unit(elite_unit, "elite", 0.72),
-			prepare_unit(normal_unit, "normal", 0.62)
-		])
-	var unit: Dictionary = DataCatalog.ELITE_UNITS[(tower_floor + battle_index) % DataCatalog.ELITE_UNITS.size()]
-	return formation_from_unit("enc_elite_solo_%d_%d" % [tower_floor, battle_index], "elite", unit, 1.0)
+		var elite_unit := _group_unit(group_id, "elite", tower_floor + battle_index)
+		var normal_unit := _group_unit(group_id, "normal", tower_floor + battle_index + 2)
+		var units: Array[Dictionary] = []
+		if not elite_unit.is_empty():
+			units.append(prepare_unit(elite_unit, "elite", 0.72))
+		else:
+			units.append(_group_low_unit(group_id, 0.72))
+		if not normal_unit.is_empty():
+			units.append(prepare_unit(normal_unit, "normal", 0.62))
+		else:
+			units.append(_group_low_unit(group_id, 0.62))
+		return formation("enc_%s_elite_pair_%d_%d" % [group_id, tower_floor, battle_index], "elite", units)
+	var unit := _group_unit(group_id, "elite", tower_floor + battle_index)
+	if unit.is_empty():
+		return formation("enc_%s_elite_solo_%d_%d" % [group_id, tower_floor, battle_index], "elite", [_group_low_unit(group_id, 1.0)])
+	return formation_from_unit("enc_%s_elite_solo_%d_%d" % [group_id, tower_floor, battle_index], "elite", unit, 1.0)
 
 
-func boss_encounter(tower_floor: int) -> Dictionary:
-	var boss_unit: Dictionary = DataCatalog.BOSS_UNITS[tower_floor % DataCatalog.BOSS_UNITS.size()]
+func boss_encounter(tower_floor: int, group_id: String) -> Dictionary:
+	var boss_unit := _group_unit(group_id, "boss", tower_floor)
+	if boss_unit.is_empty():
+		boss_unit = DataCatalog.BOSS_UNITS[tower_floor % DataCatalog.BOSS_UNITS.size()]
 	if tower_floor >= 7 and tower_floor % 2 == 1:
-		var add_1: Dictionary = DataCatalog.NORMAL_UNITS[tower_floor % DataCatalog.NORMAL_UNITS.size()]
-		var add_2: Dictionary = DataCatalog.NORMAL_UNITS[(tower_floor + 1) % DataCatalog.NORMAL_UNITS.size()]
-		return formation("enc_boss_group_%d" % tower_floor, "boss", [
-			prepare_unit(boss_unit, "boss", 0.82),
-			prepare_unit(add_1, "normal", 0.48),
-			prepare_unit(add_2, "normal", 0.48)
-		])
-	return formation_from_unit("enc_boss_solo_%d" % tower_floor, "boss", boss_unit, 1.0)
+		var units: Array[Dictionary] = [
+			prepare_unit(boss_unit, "boss", 0.82)
+		]
+		units.append_array(_group_squad(group_id, 2, [0.48, 0.48]))
+		return formation("enc_%s_boss_group_%d" % [group_id, tower_floor], "boss", units)
+	return formation_from_unit("enc_%s_boss_solo_%d" % [group_id, tower_floor], "boss", boss_unit, 1.0)
 
 
 func formation_from_units(id: String, battle_type: String, indexes: Array[int], scales: Array[float]) -> Dictionary:
@@ -85,12 +104,12 @@ func prepare_unit(source: Dictionary, rank: String, scale: float) -> Dictionary:
 		"attack": source.get("attack", 1.0),
 		"defense": source.get("defense", 1.0),
 		"formation_scale": scale,
-		"traits": source.get("traits", []),
+		"passive_skills": source.get("passive_skills", source.get("traits", [])),
 		"skills": source.get("skills", [])
 	}
 
 
-func low_unit(unit_name: String, scale: float, traits: Array) -> Dictionary:
+func low_unit(unit_name: String, scale: float, passive_skills: Array) -> Dictionary:
 	return {
 		"name": unit_name,
 		"rank": "normal",
@@ -98,9 +117,34 @@ func low_unit(unit_name: String, scale: float, traits: Array) -> Dictionary:
 		"attack": 0.75,
 		"defense": 0.35,
 		"formation_scale": scale,
-		"traits": traits.filter(func(value): return value != ""),
+		"passive_skills": passive_skills.filter(func(value): return value != ""),
 		"skills": []
 	}
+
+
+func _group_unit(group_id: String, rank: String, index: int) -> Dictionary:
+	var units := DataCatalog.monster_group_units(group_id, rank)
+	if units.is_empty():
+		return {}
+	return units[index % units.size()]
+
+
+func _group_squad(group_id: String, count: int, scales: Array[float]) -> Array[Dictionary]:
+	var units: Array[Dictionary] = DataCatalog.monster_group_units(group_id, "normal")
+	var result: Array[Dictionary] = []
+	for i in range(count):
+		var scale := scales[i]
+		if not units.is_empty() and i < units.size():
+			result.append(prepare_unit(units[i], "normal", scale))
+		else:
+			result.append(_group_low_unit(group_id, scale))
+	return result
+
+
+func _group_low_unit(group_id: String, scale: float) -> Dictionary:
+	var group_name := DataCatalog.monster_group_name(group_id)
+	var passive_skills := DataCatalog.monster_group_minion_passive_skills(group_id)
+	return low_unit("%s杂兵" % group_name, scale, passive_skills)
 
 
 func apply_battle_pressure(encounter: Dictionary, battle_index: int) -> Dictionary:

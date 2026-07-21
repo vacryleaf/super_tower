@@ -63,7 +63,7 @@ func _unit_with_rank(unit: Dictionary, rank: String) -> Dictionary:
 		"hp": float(unit.get("hp", 1.0)),
 		"attack": float(unit.get("attack", 1.0)),
 		"defense": float(unit.get("defense", 1.0)),
-		"traits": unit.get("traits", []),
+		"passive_skills": unit.get("passive_skills", []),
 		"skills": unit.get("skills", [])
 	}
 
@@ -187,10 +187,12 @@ func _refresh_detail() -> void:
 	_detail_container.add_child(_label_factory.call("等级：%s" % UIHelpers.rank_label(unit["rank"]), 16))
 	_detail_container.add_child(_label_factory.call("生命×%.2f  攻击×%.2f  护甲×%.2f" % [unit["hp"], unit["attack"], unit["defense"]], 14))
 
-	var traits: Array = unit["traits"]
-	_detail_container.add_child(_label_factory.call("特性：%s" % TraitCatalog.labels(traits), 15))
-	for trait_id in traits:
-		var desc := String(TraitCatalog.DESCRIPTIONS.get(trait_id, ""))
+	var passive_skills: Array = unit["passive_skills"]
+	_detail_container.add_child(_label_factory.call("被动技能：%s" % TraitCatalog.labels(passive_skills), 15))
+	for skill_id in passive_skills:
+		if skill_id == "":
+			continue
+		var desc := String(TraitCatalog.DESCRIPTIONS.get(skill_id, ""))
 		if desc != "":
 			_detail_container.add_child(_label_factory.call("  %s" % desc, 13))
 
@@ -254,4 +256,3 @@ func _on_next_page() -> void:
 		_selected_index = -1
 		_refresh_list()
 		_refresh_detail()
-
