@@ -1,6 +1,7 @@
 extends RefCounted
 class_name ChargeService
 
+const DataCatalog = preload("res://scripts/core/data_catalog.gd")
 const MAX_CHARGES := 5
 
 var rng := RandomNumberGenerator.new()
@@ -10,6 +11,7 @@ func available_charges(session: Variant) -> Array[Dictionary]:
 	var charges: Array[Dictionary] = []
 	collect_charges_from_group(session, charges, "equipment", session.player.get("equipment_attachments", {}))
 	collect_charges_from_group(session, charges, "skill", session.player.get("skill_attachments", {}))
+	collect_consumable_charges(session, charges, session.player.get("consumables", []))
 	return charges
 
 
@@ -27,12 +29,19 @@ func use_charge(session: Variant, charge_id: String) -> void:
 	if charge.is_empty():
 		session.message = "没有找到可用充能。"
 		return
-	session.charge_used[charge_id] = true
-	session.charge_ready[charge_id] = false
 	apply_charge_effect(session, charge)
+	var uses_left := _charge_uses_left(session, charge)
+	uses_left = maxi(0, uses_left - 1)
+	session.charge_uses_left[charge_id] = uses_left
+	session.charge_ready[charge_id] = false
+	session.charge_used[charge_id] = uses_left <= 0
 	var label: String = session._reward_short_label(charge)
-	session.battle_log.append("发动充能：%s。" % label)
-	session.message = "已发动充能：%s。" % label
+	if uses_left > 0:
+		session.battle_log.append("发动充能：%s（剩余 %d 次）。" % [label, uses_left])
+		session.message = "已发动充能：%s（剩余 %d 次）。" % [label, uses_left]
+	else:
+		session.battle_log.append("发动充能：%s（已耗尽）。" % label)
+		session.message = "已发动充能：%s（已耗尽）。" % label
 	session.last_events.append({"kind": "charge", "target": "player", "amount": 0})
 
 
@@ -49,9 +58,36 @@ func collect_charges_from_group(session: Variant, result: Array[Dictionary], tar
 			var charge := attachment.duplicate(true)
 			charge["charge_id"] = "%s:%s:%d" % [target_type, String(target_id), i]
 			charge["source_label"] = session._target_label({"type": target_type, "id": String(target_id)})
-			charge["used"] = bool(session.charge_used.get(charge["charge_id"], false))
-			charge["ready"] = bool(session.charge_ready.get(charge["charge_id"], false))
+			charge["uses"] = maxi(1, int(charge.get("uses", 1)))
+			var uses_left := _charge_uses_left(session, charge)
+			charge["uses_left"] = uses_left
+			charge["used"] = uses_left <= 0
+			charge["ready"] = bool(session.charge_ready.get(charge["charge_id"], false)) and uses_left > 0
 			result.append(charge)
+
+
+func collect_consumable_charges(session: Variant, result: Array[Dictionary], consumables: Array) -> void:
+	for i in range(consumables.size()):
+		if result.size() >= MAX_CHARGES:
+			return
+		var item_id := String(consumables[i])
+		if item_id == "" or not DataCatalog.CONSUMABLES.has(item_id):
+			continue
+		var item: Dictionary = DataCatalog.CONSUMABLES[item_id]
+		var kind := String(item.get("kind", ""))
+		if not kind.begins_with("charge_"):
+			continue
+		var charge := item.duplicate(true)
+		charge["charge_id"] = "consumable:%d" % i
+		charge["target_type"] = "consumable"
+		charge["target_id"] = item_id
+		charge["source_label"] = session._target_label({"type": "consumable", "id": item_id})
+		charge["uses"] = maxi(1, int(charge.get("uses", 1)))
+		var uses_left := _charge_uses_left(session, charge)
+		charge["uses_left"] = uses_left
+		charge["used"] = uses_left <= 0
+		charge["ready"] = bool(session.charge_ready.get(charge["charge_id"], false)) and uses_left > 0
+		result.append(charge)
 
 
 func charge_by_id(session: Variant, charge_id: String) -> Dictionary:
@@ -81,6 +117,8 @@ func random_ready_charge(session: Variant) -> String:
 
 
 func apply_charge_effect(session: Variant, charge: Dictionary) -> void:
+	if _apply_direct_charge_effect(session, charge):
+		return
 	ensure_charge_effects(session)
 	var effects := charge_effect_bucket(session, charge)
 	apply_charge_to_bucket(effects, charge)
@@ -96,6 +134,14 @@ func charge_effect_bucket(session: Variant, charge: Dictionary) -> Dictionary:
 		session.pending_charge_effects["skills"] = skills
 		return skills[target_id]
 	return session.pending_charge_effects["global"]
+
+
+func _charge_uses_left(session: Variant, charge: Dictionary) -> int:
+	var charge_id := String(charge.get("charge_id", ""))
+	var max_uses := maxi(1, int(charge.get("uses", 1)))
+	if charge_id == "":
+		return max_uses
+	return maxi(0, int(session.charge_uses_left.get(charge_id, max_uses)))
 
 
 func apply_charge_attack_modifiers(session: Variant, base: int, skill_id: String = "") -> int:
@@ -225,6 +271,12 @@ static func consume_repeats_from_bucket(bucket: Dictionary, action_tag: String) 
 
 static func charge_count(player: Dictionary) -> int:
 	var total := 0
+	for item_id in player.get("consumables", []):
+		var consumable_id := String(item_id)
+		if consumable_id == "" or not DataCatalog.CONSUMABLES.has(consumable_id):
+			continue
+		if is_charge_kind(String(DataCatalog.CONSUMABLES[consumable_id].get("kind", ""))):
+			total += 1
 	for groups in [player.get("equipment_attachments", {}), player.get("skill_attachments", {})]:
 		for attachments in groups.values():
 			for attachment in attachments:
@@ -260,3 +312,18 @@ static func attachment_stat_kind(kind: String) -> String:
 		"extra_hits":
 			return "extra_hits"
 	return kind
+
+
+func _apply_direct_charge_effect(session: Variant, charge: Dictionary) -> bool:
+	var kind := String(charge.get("kind", ""))
+	if kind == "charge_heal_percent":
+		var heal_ratio := float(charge.get("value", 0.0))
+		if heal_ratio <= 0.0:
+			return true
+		var max_hp := int(session.player.get("max_hp", session.player.get("base_max_hp", 1)))
+		var current_hp := int(session.player.get("hp", max_hp))
+		var heal_amount := maxi(1, int(round(float(max_hp) * heal_ratio)))
+		session.player["hp"] = mini(max_hp, current_hp + heal_amount)
+		session.battle_log.append("%s 回复了 %d 点生命。" % [String(charge.get("name", "充能")), heal_amount])
+		return true
+	return false

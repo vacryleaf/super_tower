@@ -2,7 +2,6 @@ extends RefCounted
 class_name RewardService
 
 const DataCatalog = preload("res://scripts/core/data_catalog.gd")
-const MAX_CHARGES := 5
 
 var rng := RandomNumberGenerator.new()
 
@@ -17,14 +16,8 @@ func tutorial_reward(class_id: String, battle_index: int) -> Dictionary:
 	return {"kind": "tutorial_unlock", "label": label, "value": 0}
 
 
-func random_options(reward_rank: String, count: int, floor_index: int, available_charge_count: int) -> Array[Dictionary]:
+func random_options(reward_rank: String, count: int, floor_index: int) -> Array[Dictionary]:
 	var pool := reward_pool(reward_rank, floor_index)
-	if available_charge_count >= MAX_CHARGES:
-		var filtered: Array[Dictionary] = []
-		for reward in pool:
-			if not is_charge_reward(reward):
-				filtered.append(reward)
-		pool = filtered
 	return sample_rewards_with_core(pool, count)
 
 
@@ -37,32 +30,22 @@ func reward_pool(reward_rank: String, floor_index: int) -> Array[Dictionary]:
 	var attack_value := floor_value(3, floor_index)
 	var defense_value := floor_value(1, floor_index)
 	var hp_value := floor_value(6, floor_index)
-	var charge_damage := floor_value(8, floor_index)
-	var attack_multiplier := 1.15
-	var defense_multiplier := 1.15
+	var skill_power_value := 0.08
 	if reward_rank == "elite":
 		attack_value = floor_value(5, floor_index)
 		defense_value = floor_value(2, floor_index)
 		hp_value = floor_value(10, floor_index)
-		charge_damage = floor_value(12, floor_index)
-		attack_multiplier = 1.2
-		defense_multiplier = 1.25
+		skill_power_value = 0.10
 	elif reward_rank == "boss":
 		attack_value = floor_value(8, floor_index)
 		defense_value = floor_value(3, floor_index)
 		hp_value = floor_value(18, floor_index)
-		charge_damage = floor_value(18, floor_index)
-		attack_multiplier = 1.3
-		defense_multiplier = 1.35
+		skill_power_value = 0.12
 	return [
 		{"kind": "attack", "label": "%s攻击 +%d" % [prefix, attack_value], "value": attack_value},
 		{"kind": "defense", "label": "%s护甲 +%d" % [prefix, defense_value], "value": defense_value},
 		{"kind": "hp", "label": "%s生命上限 +%d" % [prefix, hp_value], "value": hp_value},
-		{"kind": "charge_bonus_damage", "label": "%s充能：下一次攻击附加 %d 点伤害" % [prefix, charge_damage], "value": charge_damage},
-		{"kind": "charge_attack_multiplier", "label": "%s充能：下一次攻击效果 x%.2f" % [prefix, attack_multiplier], "value": attack_multiplier},
-		{"kind": "charge_defense_multiplier", "label": "%s充能：下一次防御效果 x%.2f" % [prefix, defense_multiplier], "value": defense_multiplier},
-		{"kind": "charge_repeat_attack", "label": "%s充能：下一次攻击追加一次结算" % prefix, "value": 1},
-		{"kind": "charge_repeat_defense", "label": "%s充能：下一次防御追加一次结算" % prefix, "value": 1}
+		{"kind": "skill_power", "label": "%s技能倍率 +%.2f" % [prefix, skill_power_value], "value": skill_power_value}
 	]
 
 
@@ -100,7 +83,7 @@ func sample_rewards_with_core(pool: Array[Dictionary], count: int) -> Array[Dict
 
 static func reward_needs_attachment(reward: Dictionary) -> bool:
 	var kind := String(reward.get("kind", ""))
-	return ["attack", "defense", "hp", "state", "skill_power"].has(kind) or is_charge_reward(reward)
+	return ["attack", "defense", "hp", "state", "skill_power"].has(kind)
 
 
 static func is_charge_reward(reward: Dictionary) -> bool:

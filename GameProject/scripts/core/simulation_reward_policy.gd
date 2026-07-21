@@ -51,18 +51,20 @@ func _apply_normal_reward(player: Dictionary, fixed_scale: int, character: Varia
 	elif reward_cycle == 2:
 		character.attach_reward(player, character.preferred_attachment_target(player, "hp"), {"kind": "hp", "value": 6 + fixed_scale, "label": "生命上限 +%d" % (6 + fixed_scale)})
 	else:
-		character.attach_reward(player, character.preferred_attachment_target(player, "charge"), {"kind": "charge_bonus_damage", "value": 7 + fixed_scale, "label": "充能：下一次攻击附加 %d 点伤害" % (7 + fixed_scale)})
+		character.attach_reward(player, character.preferred_attachment_target(player, "skill_power"), {"kind": "skill_power", "value": 0.08, "label": "技能倍率 +0.08"})
 	player["normal_rewards"] += 1
 
 
 func _apply_elite_reward(player: Dictionary, fixed_scale: int, character: Variant) -> void:
-	var elite_cycle := int(player["elite_rewards"]) % 3
+	var elite_cycle := int(player["elite_rewards"]) % 4
 	if elite_cycle == 0:
 		character.attach_reward(player, character.preferred_attachment_target(player, "attack"), {"kind": "attack", "value": 4 + fixed_scale, "label": "攻击 +%d" % (4 + fixed_scale)})
 	elif elite_cycle == 1:
 		character.attach_reward(player, character.preferred_attachment_target(player, "hp"), {"kind": "hp", "value": 18 + fixed_scale, "label": "生命上限 +%d" % (18 + fixed_scale)})
+	elif elite_cycle == 2:
+		character.attach_reward(player, character.preferred_attachment_target(player, "defense"), {"kind": "defense", "value": 2 + fixed_scale, "label": "护甲 +%d" % (2 + fixed_scale)})
 	else:
-		character.attach_reward(player, character.preferred_attachment_target(player, "charge"), {"kind": "charge_attack_multiplier", "value": 1.2, "label": "充能：下一次攻击效果 x1.2"})
+		character.attach_reward(player, character.preferred_attachment_target(player, "skill_power"), {"kind": "skill_power", "value": 0.10, "label": "技能倍率 +0.10"})
 	player["elite_rewards"] += 1
 
 
@@ -71,8 +73,8 @@ func _apply_boss_reward(player: Dictionary, fixed_scale: int, character: Variant
 	if boss_cycle == 0:
 		character.attach_reward(player, character.preferred_attachment_target(player, "attack"), {"kind": "attack", "value": 8 + fixed_scale, "label": "攻击 +%d" % (8 + fixed_scale)})
 	elif boss_cycle == 1:
-		character.attach_reward(player, character.preferred_attachment_target(player, "charge"), {"kind": "charge_repeat_defense", "value": 1, "label": "充能：下一次防御追加一次结算"})
+		character.attach_reward(player, character.preferred_attachment_target(player, "defense"), {"kind": "defense", "value": 3 + fixed_scale, "label": "护甲 +%d" % (3 + fixed_scale)})
 	else:
-		character.attach_reward(player, character.preferred_attachment_target(player, "skill"), {"kind": "skill_power", "value": 0.10, "label": "技能倍率 +0.10"})
+		character.attach_reward(player, character.preferred_attachment_target(player, "skill"), {"kind": "skill_power", "value": 0.12, "label": "技能倍率 +0.12"})
 	character.unlock_next_skill(player)
 	player["boss_rewards"] += 1

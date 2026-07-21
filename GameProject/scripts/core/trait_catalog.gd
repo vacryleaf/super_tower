@@ -28,6 +28,8 @@ const LABELS := {
 	"toxic_mist": "毒雾",
 	"shadow_domain": "暗影领域",
 	"blood_moon": "血月"
+	,"tutorial_ramp": "考官：防御"
+	,"tutorial_evade": "考官：闪避"
 }
 
 const DESCRIPTIONS := {
@@ -57,6 +59,8 @@ const DESCRIPTIONS := {
 	"toxic_mist": "毒雾：每3回合所有单位受到1点伤害。效果在首领存活时持续。",
 	"shadow_domain": "暗影领域：暗影伤害+20%，所有治疗-50%。效果在首领存活时持续。",
 	"blood_moon": "血月：所有攻击+1，所有治疗+1。效果在首领存活时持续。"
+	,"tutorial_ramp": "考官：防御：每次成功造成伤害后，后续攻击会更强。"
+	,"tutorial_evade": "考官：闪避：每 2 回合会使用一次重攻击。"
 }
 
 

@@ -37,7 +37,7 @@ func run_manual_campaign(class_id: String) -> void:
 			session.choose_reward_target(_best_target_index(session))
 	assert_equal(session.phase, "game_over", "%s baseline manual campaign should eventually be stopped by the build gate" % class_id)
 	assert_true(int(session.floor_index) >= 2, "%s should clear the tutorial floor" % class_id)
-	assert_true(int(session.player["battles_completed"]) >= 10, "%s should complete at least 10 battles" % class_id)
+	assert_true(int(session.player["battles_completed"]) >= 3, "%s should complete the tutorial" % class_id)
 	assert_true(bool(session.player["tutorial_completed"]), "%s tutorial completed" % class_id)
 	assert_true(session.player["equipped_skills"].size() <= 4, "%s skill slots limited to 4" % class_id)
 	assert_true(guard < 2000, "%s manual campaign guard" % class_id)

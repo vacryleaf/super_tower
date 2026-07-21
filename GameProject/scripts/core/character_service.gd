@@ -108,6 +108,10 @@ func preferred_attachment_target(player: Dictionary, reward_kind: String) -> Dic
 		for skill_id in player["equipped_skills"]:
 			if String(skill_id) != "":
 				return {"type": "skill", "id": skill_id}
+	if reward_kind == "skill_power":
+		for skill_id in player["equipped_skills"]:
+			if String(skill_id) != "":
+				return {"type": "skill", "id": skill_id}
 	if reward_kind == "state" and not player["equipment_ids"].is_empty():
 		return {"type": "equipment", "id": String(player["equipment_ids"][0])}
 	if reward_kind == "charge" and not player["equipment_ids"].is_empty():
@@ -136,6 +140,11 @@ func skill_multiplier_bonus(player: Dictionary, skill_id: String, kind: String =
 		var attachment_kind := ChargeService.attachment_stat_kind(String(attachment.get("kind", "")))
 		if attachment_kind == "skill_power" or attachment_kind == kind:
 			total += ChargeService.attachment_multiplier_value(float(attachment.get("value", 0.0)))
+	var equipment_attachments: Dictionary = player.get("equipment_attachments", {})
+	for equipment_attachment_list in equipment_attachments.values():
+		for attachment in equipment_attachment_list:
+			if ChargeService.attachment_stat_kind(String(attachment.get("kind", ""))) == "skill_power":
+				total += ChargeService.attachment_multiplier_value(float(attachment.get("value", 0.0)))
 	return total
 
 

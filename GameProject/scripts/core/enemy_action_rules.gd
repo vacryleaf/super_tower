@@ -4,6 +4,10 @@ class_name EnemyActionRules
 
 func intent(enemy: Dictionary, round_index: int, player_context: Dictionary = {}, is_alone: bool = false) -> String:
 	var traits: Array = enemy["traits"]
+	if traits.has("tutorial_evade"):
+		return "dodge" if round_index % 2 == 1 else "attack"
+	if traits.has("tutorial_ramp"):
+		return "defend" if round_index % 2 == 1 else "attack"
 	if is_alone:
 		return "attack"
 	if traits.has("taunt") and int(enemy.get("taunt", 0)) <= 0 and round_index % 3 == 1:
@@ -76,6 +80,31 @@ func choose_skill(enemy: Dictionary, round_index: int, player_context: Dictionar
 	var innate: Dictionary = enemy.get("innate_skills", {})
 	var traits: Array = enemy["traits"]
 	var hp_percent: float = float(enemy["hp"]) / float(maxi(1, enemy["max_hp"]))
+
+	if traits.has("tutorial_ramp"):
+		if round_index % 2 == 0:
+			var ramp_attack := _filter_multi_hit(skills)
+			if not ramp_attack.is_empty():
+				return ramp_attack[0]
+			var fallback_attack := _filter_by_type(skills, "attack")
+			if not fallback_attack.is_empty():
+				return fallback_attack[0]
+			return innate.get("attack_1", "innate_attack_1")
+		var ramp_defense := _filter_by_type(skills, "defense")
+		if not ramp_defense.is_empty():
+			return ramp_defense[0]
+		return innate.get("defend", "innate_defend")
+
+	if traits.has("tutorial_evade"):
+		if round_index % 2 == 0:
+			var heavy_skills := _filter_by_type(skills, "attack")
+			if not heavy_skills.is_empty():
+				return heavy_skills[0]
+			return innate.get("attack_1", "innate_attack_1")
+		var evade_skills := _filter_by_type(skills, "dodge")
+		if not evade_skills.is_empty():
+			return evade_skills[0]
+		return innate.get("dodge", "innate_dodge")
 
 	# 0. 只剩自己一个时，不再防御或闪避，只攻击
 	if is_alone:

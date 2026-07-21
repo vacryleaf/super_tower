@@ -145,5 +145,9 @@ func _action_button(text_value: String, callback: Callable, input_locked: bool, 
 func _charge_button_label(charge: Dictionary) -> String:
 	var label := String(charge.get("label", "充能"))
 	label = label.replace("充能：", "")
+	var uses := maxi(1, int(charge.get("uses", 1)))
+	var uses_left := maxi(0, int(charge.get("uses_left", uses)))
 	var state := "已使用" if bool(charge.get("used", false)) else ("已充能" if bool(charge.get("ready", false)) else "未充能")
+	if uses > 1:
+		state = "%s %d/%d" % [state, uses_left, uses]
 	return "%s\n%s" % [label, state]

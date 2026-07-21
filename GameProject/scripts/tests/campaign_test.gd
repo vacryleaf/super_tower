@@ -24,8 +24,8 @@ func test_tutorial_unlocks(class_id: String) -> void:
 	assert_true(result["success"], "%s tutorial must complete" % class_id)
 	var player: Dictionary = result["player"]
 	assert_true(player["tutorial_completed"], "%s tutorial completed flag" % class_id)
-	assert_equal(int(player["battles_completed"]), 10, "%s tutorial battle count" % class_id)
-	assert_equal(player["equipment_ids"].size(), 9, "%s tutorial equipment count" % class_id)
+	assert_equal(int(player["battles_completed"]), 3, "%s tutorial battle count" % class_id)
+	assert_equal(player["equipment_ids"].size(), 2, "%s tutorial equipment count" % class_id)
 	var equipped_skill_count := 0
 	for skill_id in player["equipped_skills"]:
 		if String(skill_id) != "":
@@ -82,7 +82,7 @@ func test_baseline_campaign_difficulty_gate(class_id: String) -> void:
 		int(floor_three_attempt.get("failed_floor", 0)),
 		TestHelpers.failed_battle(floor_three_attempt)
 	])
-	assert_true(TestHelpers.failed_battle(floor_three_attempt) >= 8, "%s baseline should reach the late floor 2 gate, got battle %d" % [
+	assert_true(TestHelpers.failed_battle(floor_three_attempt) >= 3, "%s baseline should reach a formal floor gate, got battle %d" % [
 		class_id,
 		TestHelpers.failed_battle(floor_three_attempt)
 	])

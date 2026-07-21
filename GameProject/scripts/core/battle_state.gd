@@ -36,6 +36,7 @@ var battle_log: Array[String] = []
 var last_events: Array[Dictionary] = []
 var charge_used: Dictionary = {}
 var charge_ready: Dictionary = {}
+var charge_uses_left: Dictionary = {}
 var pending_charge_effects: Dictionary = {}
 var deferred_damage := 0.0
 var duel_target_index := -1
@@ -78,6 +79,7 @@ func reset() -> void:
 	last_events.clear()
 	charge_used = {}
 	charge_ready = {}
+	charge_uses_left = {}
 	pending_charge_effects = {}
 	deferred_damage = 0.0
 	duel_target_index = -1

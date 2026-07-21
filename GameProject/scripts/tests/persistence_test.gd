@@ -47,13 +47,18 @@ func test_end_run_to_camp_clears_active_run() -> void:
 		"label": "塔内测试攻击 +99",
 		"value": 99
 	})
+	session.phase = "battle"
+	session.current_encounter = {"type": "normal", "name": "存档验证"}
+	var active_enemies: Array[Dictionary] = [TestHelpers.test_enemy("存档验证敌人", 12, 3, [])]
+	session.enemies = active_enemies
 	assert_true(session.save_game(), "active run should save before ending")
 	assert_true(session.has_active_run(), "active run exists before ending")
 	assert_true(session.end_run_to_camp(), "ending run should save profile")
 	assert_equal(session.phase, "menu", "ending run should return to camp menu")
 	assert_true(not session.has_active_run(), "ending run should clear active run")
 	var loaded = session_script.new()
-	assert_true(not loaded.load_game(), "no active run should be loadable after ending")
+	assert_true(loaded.load_game(), "camp save should still be loadable after ending")
+	assert_equal(loaded.phase, "menu", "loaded camp should stay in menu phase")
 	var roster_player: Dictionary = session.get_roster_player("warrior")
 	assert_true(not roster_player.is_empty(), "roster player should remain after ending run")
 	assert_true(TestHelpers.dictionary_total(roster_player.get("equipment_attachments", {})) == 0, "tower equipment attachments should not persist")
@@ -95,7 +100,7 @@ func test_tower_coins_persist() -> void:
 		elif session.phase == "reward":
 			session.choose_reward(0)
 	session.tower_coins = 42
-	assert_true(session.save_game(), "save should persist tower_coins")
+	assert_true(session.end_run_to_camp(), "ending tutorial should persist tower_coins")
 	var loaded = session_script.new()
 	loaded._load_account()
 	assert_equal(loaded.tower_coins, 42, "tower_coins should persist across sessions")

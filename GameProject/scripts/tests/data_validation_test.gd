@@ -79,8 +79,7 @@ func test_cunning_masks_enemy_intent() -> void:
 	var session_script = load("res://scripts/core/play_session.gd")
 	var session = session_script.new()
 	session.start_new_game("warrior")
-	session.enemies.clear()
-	session.enemies.append({
+	var enemies: Array[Dictionary] = [{
 		"name": "狡诈测试敌人",
 		"rank": "normal",
 		"max_hp": 10,
@@ -91,7 +90,8 @@ func test_cunning_masks_enemy_intent() -> void:
 		"dodge_layers": 0,
 		"taunt": 0,
 		"traits": ["cunning", "evade"]
-	})
+	}]
+	session.enemies = enemies
 	assert_equal(session.enemy_intent_text(0), "狡诈", "cunning should mask true intent")
 
 

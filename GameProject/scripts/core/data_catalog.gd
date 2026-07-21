@@ -142,10 +142,11 @@ const CONSUMABLES := {
 	"swift_step": {"name": "迅步药水", "desc": "战前携带的机动药水。", "kind": "dodge", "value": 1},
 	"rage_draught": {"name": "狂怒药剂", "desc": "战前携带的进攻药剂。", "kind": "attack", "value": 3},
 	"focus_tea": {"name": "凝神茶", "desc": "战前携带的专注饮品。", "kind": "skill", "value": 1},
-	"emergency_kit": {"name": "应急包", "desc": "战前携带的保命工具。", "kind": "block", "value": 2}
+	"emergency_kit": {"name": "应急包", "desc": "战前携带的保命工具。", "kind": "block", "value": 2},
+	"huangqi_juice": {"name": "黄芪汁", "desc": "每场战斗可使用 3 次，每次回复 30% 生命值。", "kind": "charge_heal_percent", "value": 0.30, "uses": 3}
 }
 
-const STARTER_CONSUMABLES := ["minor_heal", "iron_skin", "swift_step", "rage_draught", "focus_tea", "emergency_kit"]
+const STARTER_CONSUMABLES := ["minor_heal", "iron_skin", "swift_step", "rage_draught", "focus_tea", "emergency_kit", "huangqi_juice"]
 
 const EQUIPMENT_SETS := {
 	"moon_pair": {
@@ -196,28 +197,17 @@ const EQUIPMENT_SETS := {
 
 const TUTORIAL_UNLOCKS := {
 	"warrior": [
-		"warrior_training_helm", "warrior_old_chest", "warrior_soldier_belt",
-		"warrior_practice_greaves", "warrior_cloth_gloves", "warrior_old_leggings",
-		"warrior_march_boots", "warrior_training_sword", "warrior_wooden_shield", "po_jun"
+		"po_jun", "warrior_old_chest", "warrior_wooden_shield"
 	],
 	"archer": [
-		"archer_practice_hood", "archer_old_leather", "archer_hunter_belt",
-		"archer_light_pants", "archer_bracers", "archer_soft_leggings",
-		"archer_light_boots", "archer_practice_bow", "archer_simple_quiver", "precise_shot"
+		"precise_shot", "archer_old_leather", "archer_simple_quiver"
 	]
 }
 
 const TUTORIAL_ENCOUNTERS := [
-	{"id": "tutorial_01", "type": "normal", "name": "训练腐鼠", "units": [{"name": "训练腐鼠", "rank": "normal", "hp": 22, "attack": 5, "defense": 0, "traits": []}]},
-	{"id": "tutorial_02", "type": "normal", "name": "迟缓守卫", "units": [{"name": "迟缓守卫", "rank": "normal", "hp": 34, "attack": 5, "defense": 1, "traits": []}]},
-	{"id": "tutorial_03", "type": "normal", "name": "投石哥布林", "units": [{"name": "投石哥布林", "rank": "normal", "hp": 36, "attack": 6, "defense": 1, "traits": []}]},
-	{"id": "tutorial_04", "type": "elite", "name": "盾卫学徒", "units": [{"name": "盾卫学徒", "rank": "elite", "hp": 34, "attack": 6, "defense": 3, "traits": ["guard"]}]},
-	{"id": "tutorial_05", "type": "normal", "name": "哥布林二人队", "units": [{"name": "哥布林矛手", "rank": "normal", "hp": 18, "attack": 4, "defense": 0, "traits": []}, {"name": "哥布林投石手", "rank": "normal", "hp": 18, "attack": 4, "defense": 0, "traits": []}]},
-	{"id": "tutorial_06", "type": "normal", "name": "毒尾幼鼠", "units": [{"name": "毒尾幼鼠", "rank": "normal", "hp": 34, "attack": 6, "defense": 1, "traits": ["corrode"]}]},
-	{"id": "tutorial_07", "type": "normal", "name": "影贼学徒", "units": [{"name": "影贼学徒", "rank": "normal", "hp": 34, "attack": 6, "defense": 1, "traits": ["first_strike"]}]},
-	{"id": "tutorial_08", "type": "elite", "name": "铁甲训练官", "units": [{"name": "铁甲训练官", "rank": "elite", "hp": 48, "attack": 7, "defense": 4, "traits": ["thick_skin"]}]},
-	{"id": "tutorial_09", "type": "normal", "name": "术士残影", "units": [{"name": "术士残影", "rank": "normal", "hp": 34, "attack": 6, "defense": 2, "traits": ["summon"]}, {"name": "残影仆从", "rank": "normal", "hp": 18, "attack": 4, "defense": 0, "traits": ["support"]}]},
-	{"id": "tutorial_10", "type": "boss", "name": "试炼守门人", "units": [{"name": "试炼守门人", "rank": "boss", "hp": 74, "attack": 7, "defense": 4, "traits": ["phase"]}]}
+	{"id": "tutorial_01", "type": "normal", "name": "攻击考官", "units": [{"name": "攻击考官", "rank": "normal", "hp": 26, "attack": 5, "defense": 0, "traits": [], "skills": ["enemy_heavy_strike"]}]},
+	{"id": "tutorial_02", "type": "normal", "name": "防御考官", "units": [{"name": "防御考官", "rank": "normal", "hp": 38, "attack": 5, "defense": 1, "traits": ["tutorial_ramp"], "skills": ["enemy_rend", "enemy_fortify"]}]},
+	{"id": "tutorial_03", "type": "normal", "name": "闪避考官", "units": [{"name": "闪避考官", "rank": "normal", "hp": 34, "attack": 6, "defense": 1, "traits": ["tutorial_evade"], "skills": ["enemy_heavy_strike", "enemy_quick_evade"]}]}
 ]
 
 const NORMAL_UNITS := [

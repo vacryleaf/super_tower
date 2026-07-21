@@ -36,6 +36,7 @@ func save_data(session: RefCounted) -> Dictionary:
 		"seek_bloom_stacks": session.seek_bloom_stacks,
 		"charge_used": session.charge_used,
 		"charge_ready": session.charge_ready,
+		"charge_uses_left": session.charge_uses_left,
 		"pending_charge_effects": session.pending_charge_effects,
 		"reward_options": session.reward_options,
 		"pending_reward": session.pending_reward,
@@ -82,6 +83,7 @@ func load_save_data(session: RefCounted, data: Dictionary) -> bool:
 	session.seek_bloom_stacks = int(data.get("seek_bloom_stacks", 0))
 	session.charge_used = _dictionary(data.get("charge_used", {}))
 	session.charge_ready = _dictionary(data.get("charge_ready", {}))
+	session.charge_uses_left = _dictionary(data.get("charge_uses_left", {}))
 	session.pending_charge_effects = _dictionary(data.get("pending_charge_effects", {}))
 	session._ensure_charge_effects()
 	session.reward_options = _dictionary_array(data.get("reward_options", []))

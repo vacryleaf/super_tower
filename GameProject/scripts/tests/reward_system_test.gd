@@ -10,7 +10,8 @@ func run() -> void:
 	test_random_reward_pool_counts()
 	test_set_equipment_effects()
 	test_boss_permanent_equipment_reward()
-	test_charge_reward_flow()
+	test_reward_options_do_not_include_charge_rewards()
+	test_huangqi_juice_three_use_heal()
 	test_skill_bound_charge_only_triggers_on_that_skill()
 	test_charge_limit()
 	test_boss_auto_unlocks_skill()
@@ -104,7 +105,7 @@ func test_boss_permanent_equipment_reward() -> void:
 	assert_true(session.player.get("equipment_ids", []).has(item_id), "permanent boss equipment should enter player equipment")
 
 
-func test_charge_reward_flow() -> void:
+func test_reward_options_do_not_include_charge_rewards() -> void:
 	var session_script = load("res://scripts/core/play_session.gd")
 	var session = session_script.new()
 	session.start_new_game("warrior")
@@ -113,36 +114,33 @@ func test_charge_reward_flow() -> void:
 			TestHelpers.force_win(session)
 		elif session.phase == "reward":
 			session.choose_reward(0)
-	session.phase = "reward"
-	var bonus := 8
-	var forced_rewards: Array[Dictionary] = [{"kind": "charge_bonus_damage", "label": "充能测试：下一次攻击附加 8 点伤害", "value": bonus}]
-	session.reward_options = forced_rewards
-	session.choose_reward(0)
-	assert_equal(session.phase, "reward_target", "charge reward should request attachment target")
-	session.choose_reward_target(0)
+	for encounter_type in ["normal", "elite", "boss"]:
+		session.phase = "reward"
+		session.current_encounter = {"type": encounter_type}
+		session._build_reward_options()
+		for reward in session.reward_options:
+			assert_true(not String(reward.get("kind", "")).begins_with("charge_"), "%s rewards should not include charge kinds" % encounter_type)
+
+
+func test_huangqi_juice_three_use_heal() -> void:
+	assert_true(DataCatalog.CONSUMABLES.has("huangqi_juice"), "huangqi juice should exist in consumable catalog")
+	assert_true(DataCatalog.STARTER_CONSUMABLES.has("huangqi_juice"), "huangqi juice should be a free starter consumable")
+	var session_script = load("res://scripts/core/play_session.gd")
+	var session = session_script.new()
+	session.start_new_game("warrior")
+	session.player["consumables"] = ["huangqi_juice", "", "", "", ""]
+	session.player["hp"] = 10
+	session.player["max_hp"] = 100
+	session.phase = "battle"
 	var charges: Array[Dictionary] = session.available_charges()
-	assert_true(charges.size() > 0, "attached charge should be available in next battle")
+	assert_equal(charges.size(), 1, "huangqi juice should appear as one charge")
 	var charge_id := String(charges[0].get("charge_id", ""))
-	assert_true(bool(charges[0].get("ready", false)), "one charge should become ready at player turn start")
-	var test_enemies: Array[Dictionary] = [{
-		"name": "充能测试敌人",
-		"rank": "normal",
-		"max_hp": 999,
-		"hp": 999,
-		"attack": 0,
-		"defense": 0,
-		"armor": 0,
-		"dodge_layers": 0,
-		"taunt": 0,
-		"traits": []
-	}]
-	session.enemies = test_enemies
-	session.energy = 4
-	session.use_charge(charge_id)
-	assert_true(bool(session.charge_used.get(charge_id, false)), "charge should be marked used after activation")
-	session.player_attack(0)
-	var expected_hp := 999 - int(session.player["attack"]) - bonus
-	assert_equal(int(session.enemies[0]["hp"]), expected_hp, "charge bonus damage should apply to next attack")
+	assert_true(charge_id != "", "huangqi juice charge should have an id")
+	for expected_hp in [40, 70, 100]:
+		session.charge_ready[charge_id] = true
+		session.use_charge(charge_id)
+		assert_equal(int(session.player["hp"]), expected_hp, "huangqi juice should heal 30 percent each use")
+	assert_true(bool(session.charge_used.get(charge_id, false)), "huangqi juice should be exhausted after three uses")
 
 
 func test_skill_bound_charge_only_triggers_on_that_skill() -> void:
@@ -168,6 +166,8 @@ func test_skill_bound_charge_only_triggers_on_that_skill() -> void:
 			charge_id = String(charge.get("charge_id", ""))
 			break
 	assert_true(charge_id != "", "skill-bound charge should be listed")
+	session.phase = "battle"
+	session.current_encounter = {"type": "normal"}
 	session.charge_ready[charge_id] = true
 	session.use_charge(charge_id)
 	var test_enemies: Array[Dictionary] = [{
@@ -263,7 +263,7 @@ func test_skill_shop_purchase() -> void:
 		elif session.phase == "reward":
 			session.choose_reward(0)
 	session.tower_coins = 30
-	session.save_game()
+	assert_true(session.end_run_to_camp(), "tutorial should return to camp before shop purchase")
 	var result: bool = session.buy_common_skill("first_aid")
 	assert_true(result, "purchase should succeed with enough coins")
 	assert_equal(session.tower_coins, 15, "tower_coins should decrease by 15")

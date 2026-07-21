@@ -25,13 +25,11 @@ func on_defeat(session: Variant) -> void:
 
 
 func advance_after_reward(session: Variant) -> void:
-	if session.is_tutorial() and session.battle_index == 10:
+	if session.is_tutorial() and session.battle_index == 3:
 		session.player["tutorial_completed"] = true
-		session.floor_index = 2
-		session.battle_index = 1
-		session.message = "新手引导完成，正式高塔开始。"
-		apply_limited_post_battle_recovery(session)
-		session._start_current_battle()
+		session.pending_tutorial_epilogue = true
+		session.phase = "tutorial_epilogue"
+		session.message = "城外有座塔拔地而起，众多冒险家纷纷前往，但绝大部分都无法通过第十层，更别提看起来有数百层。"
 		return
 	if session.battle_index >= 10:
 		if session.floor_index >= 10:

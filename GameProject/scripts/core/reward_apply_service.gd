@@ -3,7 +3,6 @@ class_name RewardApplyService
 
 const DataCatalog = preload("res://scripts/core/data_catalog.gd")
 const RewardService = preload("res://scripts/core/reward_service.gd")
-const MAX_CHARGES := 5
 
 
 func choose_reward(session: Variant, index: int) -> void:
@@ -41,12 +40,6 @@ func choose_reward_target(session: Variant, index: int) -> void:
 	if index < 0 or index >= session.reward_targets.size():
 		return
 	var target: Dictionary = session.reward_targets[index]
-	if RewardService.is_charge_reward(session.pending_reward) and session.available_charges().size() >= MAX_CHARGES:
-		session.message = "最多只能持有 %d 个充能，本次充能奖励已跳过。" % MAX_CHARGES
-		session.pending_reward = {}
-		session.reward_targets.clear()
-		session._advance_after_reward()
-		return
 	session.simulator.attach_reward(session.player, target, session.pending_reward)
 	session.simulator._recalculate_player_stats(session.player, false)
 	session.message = "%s 已附着到 %s。" % [
@@ -66,13 +59,13 @@ func build_reward_options(session: Variant) -> void:
 		return
 	var encounter_type := String(session.current_encounter["type"])
 	if encounter_type == "normal":
-		session.reward_options = session.rewards.random_options("normal", 3, session.floor_index, session.available_charges().size())
+		session.reward_options = session.rewards.random_options("normal", 3, session.floor_index)
 		session.player["normal_rewards"] += 1
 	elif encounter_type == "elite":
-		session.reward_options = session.rewards.random_options("elite", 4, session.floor_index, session.available_charges().size())
+		session.reward_options = session.rewards.random_options("elite", 4, session.floor_index)
 		session.player["elite_rewards"] += 1
 	else:
-		session.reward_options = session.rewards.random_options("boss", 3, session.floor_index, session.available_charges().size())
+		session.reward_options = session.rewards.random_options("boss", 3, session.floor_index)
 		session.reward_options.append(session.rewards.permanent_equipment_reward(session.player, session.class_id, session.floor_index))
 		session.reward_options = session.rewards.sample_rewards(session.reward_options, session.reward_options.size())
 		session.player["boss_rewards"] += 1

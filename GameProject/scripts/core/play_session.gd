@@ -45,6 +45,8 @@ var rng := RandomNumberGenerator.new()
 var battle_state := BattleState.new()
 
 var tower_coins := 0
+var profile_loaded := false
+var pending_tutorial_epilogue := false
 
 var player: Dictionary:
 	get:
@@ -221,6 +223,11 @@ var charge_ready: Dictionary:
 		return battle_state.charge_ready
 	set(value):
 		battle_state.charge_ready = value
+var charge_uses_left: Dictionary:
+	get:
+		return battle_state.charge_uses_left
+	set(value):
+		battle_state.charge_uses_left = value
 var pending_charge_effects: Dictionary:
 	get:
 		return battle_state.pending_charge_effects
@@ -247,13 +254,16 @@ var perfect_deflect: bool:
 func _load_account() -> void:
 	var profile := save_profile.read_profile(Callable(self, "_persistent_player_snapshot"))
 	tower_coins = int(profile.get("tower_coins", 0))
+	profile_loaded = true
 
 
 func start_new_game(selected_class: String, start_floor: int = 0) -> void:
 	class_id = selected_class
+	save_profile.set_slot(save_profile.current_slot())
 	_load_account()
 	player = _roster_player_or_new(selected_class)
 	simulator._recalculate_player_stats(player, false)
+	pending_tutorial_epilogue = false
 	if start_floor >= 1:
 		if start_floor >= 2:
 			player["tutorial_completed"] = true
@@ -271,6 +281,18 @@ func has_save() -> bool:
 	return save_profile.has_save()
 
 
+func has_any_save() -> bool:
+	return save_profile.has_save()
+
+
+func select_save_slot(slot_index: int) -> void:
+	save_profile.set_slot(slot_index)
+
+
+func save_slot_summaries() -> Array[Dictionary]:
+	return save_profile.list_slot_profiles(Callable(self, "_persistent_player_snapshot"))
+
+
 func has_active_run() -> bool:
 	var profile := save_profile.read_profile(Callable(self, "_persistent_player_snapshot"))
 	return not _dictionary(profile.get("active_run", {})).is_empty()
@@ -286,7 +308,7 @@ func get_roster_player(selected_class: String) -> Dictionary:
 
 
 func save_game() -> bool:
-	if phase == "menu" or player.is_empty():
+	if phase == "menu" or phase == "tutorial_epilogue" or player.is_empty():
 		return false
 	_trim_battle_log()
 	var profile := save_profile.read_profile(Callable(self, "_persistent_player_snapshot"))
@@ -324,22 +346,36 @@ func end_run_to_camp() -> bool:
 	profile["active_run"] = {}
 	if not save_profile.write_profile(profile):
 		return false
+	profile_loaded = true
+	pending_tutorial_epilogue = false
 	_reset_to_camp_state()
 	_debug_log("end_run_to_camp floor=%d battle=%d" % [floor_index, battle_index])
 	return true
 
 
-func load_game() -> bool:
+func load_game(slot_index: int = -1) -> bool:
+	if slot_index >= 1:
+		select_save_slot(slot_index)
+	if not save_profile.has_save(save_profile.current_slot()):
+		return false
 	var profile := save_profile.read_profile(Callable(self, "_persistent_player_snapshot"))
 	var active_run := _dictionary(profile.get("active_run", {}))
+	profile_loaded = not profile.is_empty()
+	pending_tutorial_epilogue = false
 	if active_run.is_empty():
-		return false
+		battle_state.reset()
+		tower_coins = int(profile.get("tower_coins", 0))
+		message = "已返回塔下营地。"
+		phase = "menu"
+		return profile_loaded
 	_debug_log("load_game active_run floor=%d battle=%d" % [int(active_run.get("floor_index", 0)), int(active_run.get("battle_index", 0))])
 	return _load_save_data(active_run)
 
 
 func delete_save() -> void:
 	save_profile.delete_save()
+	profile_loaded = false
+	pending_tutorial_epilogue = false
 
 
 func _reset_to_camp_state() -> void:
@@ -374,6 +410,7 @@ func _start_current_battle() -> void:
 	attacked_this_turn = false
 	charge_used = {}
 	charge_ready = {}
+	charge_uses_left = {}
 	pending_charge_effects = _empty_charge_effects()
 	deferred_damage = 0.0
 	duel_target_index = -1
@@ -766,7 +803,7 @@ func _build_reward_options() -> void:
 
 
 func _random_reward_options(reward_rank: String, count: int) -> Array[Dictionary]:
-	return rewards.random_options(reward_rank, count, floor_index, available_charges().size())
+	return rewards.random_options(reward_rank, count, floor_index)
 
 
 func _reward_pool(reward_rank: String) -> Array[Dictionary]:
@@ -831,6 +868,9 @@ func _target_label(target: Dictionary) -> String:
 	if target_type == "skill" and DataCatalog.SKILLS.has(target_id):
 		var skill: Dictionary = DataCatalog.SKILLS[target_id]
 		return "技能：%s" % skill["name"]
+	if target_type == "consumable" and DataCatalog.CONSUMABLES.has(target_id):
+		var consumable: Dictionary = DataCatalog.CONSUMABLES[target_id]
+		return "消耗品：%s" % consumable["name"]
 	return target_id
 
 

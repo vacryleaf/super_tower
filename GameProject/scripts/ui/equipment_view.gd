@@ -84,7 +84,9 @@ func _render_bag(parent: Control, session: Variant, label_factory: Callable) -> 
 		bag.add_child(label_factory.call("暂无本局装备。", 13))
 	else:
 		for item_id in session.player["equipment_ids"]:
-			var item: Dictionary = DataCatalog.EQUIPMENT[item_id]
+			if not DataCatalog.EQUIPMENT.has(String(item_id)):
+				continue
+			var item: Dictionary = DataCatalog.EQUIPMENT[String(item_id)]
 			bag.add_child(label_factory.call("%s%s\n%s  生命+%d 攻击+%d 护甲+%d 格挡+%d\n%s" % [
 				item["name"],
 				_set_suffix(item),
@@ -95,12 +97,14 @@ func _render_bag(parent: Control, session: Variant, label_factory: Callable) -> 
 				int(item.get("block", 0)),
 				attachment_summary(session, "equipment", item_id)
 			], 12))
-	bag.add_child(label_factory.call("技能附着", 16))
-	for skill_id in session.player["equipped_skills"]:
-		bag.add_child(label_factory.call("%s\n%s" % [
-			DataCatalog.SKILLS[skill_id]["name"],
-			attachment_summary(session, "skill", skill_id)
-		], 12))
+		bag.add_child(label_factory.call("技能附着", 16))
+		for skill_id in session.player["equipped_skills"]:
+			if String(skill_id) == "" or not DataCatalog.SKILLS.has(String(skill_id)):
+				continue
+			bag.add_child(label_factory.call("%s\n%s" % [
+				DataCatalog.SKILLS[String(skill_id)]["name"],
+				attachment_summary(session, "skill", String(skill_id))
+			], 12))
 
 
 func _render_set_summary(parent: Control, session: Variant, label_factory: Callable) -> void:

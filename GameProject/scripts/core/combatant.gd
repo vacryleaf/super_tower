@@ -362,6 +362,27 @@ static func _apply_trait_statuses(enemy: Dictionary) -> void:
 			"duration": -1
 		})
 
+	if traits.has("tutorial_ramp"):
+		statuses.append({
+			"id": "trait_tutorial_ramp", "name": "考官压力", "kind": "buff", "stack": "replace",
+			"effects": [],
+			"triggers": [{
+				"event": TriggerEvents.ON_HIT_DEALT,
+				"actions": [{
+					"type": TriggerEvents.ACTION_APPLY_STATUS,
+					"status": {
+						"id": "tutorial_ramp_stack",
+						"name": "考官压力",
+						"kind": "buff",
+						"stack": "stack",
+						"effects": [{"stat": "attack", "type": "multiply", "value": 1.10}],
+						"duration": -1
+					}
+				}]
+			}],
+			"duration": -1
+		})
+
 	enemy["statuses"] = statuses
 
 

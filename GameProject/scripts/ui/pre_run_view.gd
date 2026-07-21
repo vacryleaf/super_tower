@@ -591,6 +591,8 @@ func _consumable_preview_lines(item_id: String) -> PackedStringArray:
 	result.append("消耗品：%s" % String(item["name"]))
 	result.append("类型：%s" % String(item.get("kind", "")))
 	result.append("效果值：%s" % str(item.get("value", 0)))
+	if item.has("uses"):
+		result.append("使用次数：%d" % int(item.get("uses", 1)))
 	result.append(String(item.get("desc", "")))
 	return result
 

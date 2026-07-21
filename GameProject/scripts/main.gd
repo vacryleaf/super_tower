@@ -1,6 +1,7 @@
 extends Control
 
 var DataCatalog
+var AppSettings
 var PlaySession
 var DebugLogger
 var UIHelpers
@@ -8,6 +9,12 @@ var BattleView
 var RewardView
 var EquipmentOverlay
 var CampView
+var TitleMenuView
+var SaveSlotView
+var ClassSelectView
+var SettingsView
+var StoryCutsceneView
+var ConfirmView
 var SkillShopView
 var SkillManageView
 var EquipmentManageView
@@ -34,6 +41,12 @@ var battle_view
 var reward_view
 var equipment_overlay
 var camp_view
+var title_menu_view
+var save_slot_view
+var class_select_view
+var settings_view
+var story_cutscene_view
+var confirm_view
 var skill_shop_view
 var skill_manage_view
 var equipment_manage_view
@@ -44,6 +57,10 @@ var class_detail_view
 var pre_run_view
 var camp_screen := ""
 var selected_class_key := ""
+var title_screen := "title"
+var title_back_screen := "title"
+var pending_save_slot := 1
+var pending_overwrite_slot := 1
 var action_bar_view
 var combat_log_view
 var equipment_view
@@ -65,14 +82,13 @@ var action_buttons: Array[Button] = []
 var skill_buttons: Array[Button] = []
 var charge_buttons: Array[Button] = []
 var log_text_node: RichTextLabel = null
+var app_settings
 
 
 func _ready() -> void:
 	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
-	DisplayServer.window_set_position(Vector2i(40, 40))
-	DisplayServer.window_set_size(Vector2i(1280, 720))
-	DisplayServer.window_set_title("Super Tower (DEBUG)" if debug_mode else "Super Tower")
 	DataCatalog = load("res://scripts/core/data_catalog.gd")
+	AppSettings = load("res://scripts/core/app_settings.gd")
 	PlaySession = load("res://scripts/core/play_session.gd")
 	DebugLogger = load("res://scripts/core/debug_logger.gd")
 	UIHelpers = load("res://scripts/ui/ui_helpers.gd")
@@ -80,6 +96,12 @@ func _ready() -> void:
 	RewardView = load("res://scripts/ui/reward_view.gd")
 	EquipmentOverlay = load("res://scripts/ui/equipment_overlay.gd")
 	CampView = load("res://scripts/ui/camp_view.gd")
+	TitleMenuView = load("res://scripts/ui/title_menu_view.gd")
+	SaveSlotView = load("res://scripts/ui/save_slot_view.gd")
+	ClassSelectView = load("res://scripts/ui/class_select_view.gd")
+	SettingsView = load("res://scripts/ui/settings_view.gd")
+	StoryCutsceneView = load("res://scripts/ui/story_cutscene_view.gd")
+	ConfirmView = load("res://scripts/ui/confirm_view.gd")
 	SkillShopView = load("res://scripts/ui/skill_shop_view.gd")
 	SkillManageView = load("res://scripts/ui/skill_manage_view.gd")
 	EquipmentManageView = load("res://scripts/ui/equipment_manage_view.gd")
@@ -101,11 +123,20 @@ func _ready() -> void:
 	session = PlaySession.new()
 	session.debug_mode = debug_mode
 	session.debug_logger = debug_logger
+	app_settings = AppSettings.new()
+	app_settings.apply_resolution()
+	DisplayServer.window_set_title("Super Tower (DEBUG)" if debug_mode else "Super Tower")
 	_debug_log("main ready debug_mode=%s" % str(debug_mode))
 	battle_view = BattleView.new()
 	reward_view = RewardView.new()
 	equipment_overlay = EquipmentOverlay.new()
 	camp_view = CampView.new()
+	title_menu_view = TitleMenuView.new()
+	save_slot_view = SaveSlotView.new()
+	class_select_view = ClassSelectView.new()
+	settings_view = SettingsView.new()
+	story_cutscene_view = StoryCutsceneView.new()
+	confirm_view = ConfirmView.new()
 	skill_shop_view = SkillShopView.new()
 	skill_manage_view = SkillManageView.new()
 	equipment_manage_view = EquipmentManageView.new()
@@ -173,12 +204,18 @@ func _add_camp_background() -> void:
 	_add_fullscreen_background("res://img/营地.png", Color(0.13, 0.12, 0.16))
 
 
+func _add_title_background() -> void:
+	_add_fullscreen_background("", Color(0.07, 0.08, 0.10))
+
+
 func _add_battle_background() -> void:
 	_add_fullscreen_background("res://img/boss_arena.png", Color(0.18, 0.09, 0.09))
 
 
 func _add_fullscreen_background(path: String, fallback_color: Color) -> void:
-	var texture: Texture2D = UIHelpers.texture_from_png(path) if UIHelpers != null else null
+	var texture: Texture2D = null
+	if path != "" and UIHelpers != null:
+		texture = UIHelpers.texture_from_png(path)
 	var bg: Control
 	if texture != null:
 		var image_bg := TextureRect.new()
@@ -198,13 +235,21 @@ func _add_fullscreen_background(path: String, fallback_color: Color) -> void:
 
 func _render_menu() -> void:
 	render_queued = false
-	_debug_log("render_menu camp_screen=%s" % camp_screen)
+	_debug_log("render_menu camp_screen=%s title_screen=%s profile_loaded=%s pending_epilogue=%s" % [camp_screen, title_screen, str(session.profile_loaded), str(session.pending_tutorial_epilogue)])
 	_clear_root()
+	if session.pending_tutorial_epilogue:
+		_add_title_background()
+		_render_tutorial_cutscene()
+		return
 	if camp_screen != "":
 		_render_camp_screen()
 		return
-	_add_camp_background()
-	camp_view.render(root, session, Callable(self, "_label"), Callable(self, "_on_continue_pressed"), Callable(self, "_on_shop_pressed"), Callable(self, "_on_encyclopedia_pressed"), Callable(self, "_on_class_detail"), Callable(self, "_on_pre_run_pressed"), Callable(self, "_on_manage_action"), Callable(self, "_on_bestiary_from_encyclopedia"))
+	if session.profile_loaded:
+		_add_camp_background()
+		camp_view.render(root, session, Callable(self, "_label"), Callable(self, "_on_continue_pressed"), Callable(self, "_on_shop_pressed"), Callable(self, "_on_encyclopedia_pressed"), Callable(self, "_on_class_detail"), Callable(self, "_on_pre_run_pressed"), Callable(self, "_on_manage_action"), Callable(self, "_on_bestiary_from_encyclopedia"))
+		return
+	_add_title_background()
+	_render_title_menu()
 
 
 func _render_game() -> void:
@@ -359,6 +404,185 @@ func _show_equipment_overlay() -> void:
 	equipment_overlay.show(self, equipment_view.panel(session, Callable(self, "_label"), Callable(self, "_on_equipment_close_pressed")))
 
 
+func _render_title_menu() -> void:
+	if title_screen == "slot_new":
+		save_slot_view.render(
+			root,
+			Callable(self, "_label"),
+			"开始游戏",
+			"选择一个存档槽。若槽位已有内容，会先提示覆盖。",
+			session.save_slot_summaries(),
+			Callable(self, "_on_title_slot_selected"),
+			Callable(self, "_on_title_back_pressed"),
+			"new"
+		)
+		return
+	if title_screen == "slot_load":
+		save_slot_view.render(
+			root,
+			Callable(self, "_label"),
+			"继续游戏",
+			"从三个存档槽里选择一个继续。",
+			session.save_slot_summaries(),
+			Callable(self, "_on_title_slot_selected"),
+			Callable(self, "_on_title_back_pressed"),
+			"load"
+		)
+		return
+	if title_screen == "settings":
+		settings_view.render(
+			root,
+			Callable(self, "_label"),
+			Callable(self, "_on_resolution_selected"),
+			Callable(self, "_on_title_back_pressed"),
+			app_settings.current_resolution()
+		)
+		return
+	if title_screen == "class_select":
+		class_select_view.render(
+			root,
+			Callable(self, "_label"),
+			pending_save_slot,
+			Callable(self, "_on_class_selected"),
+			Callable(self, "_on_new_game_started"),
+			Callable(self, "_on_title_back_pressed")
+		)
+		return
+	if title_screen == "confirm_overwrite":
+		confirm_view.render(
+			root,
+			Callable(self, "_label"),
+			"覆盖存档",
+			"槽位 %d 已有存档，是否覆盖？" % pending_overwrite_slot,
+			Callable(self, "_on_confirm_overwrite"),
+			Callable(self, "_on_title_back_pressed")
+		)
+		return
+	title_menu_view.render(
+		root,
+		Callable(self, "_label"),
+		Callable(self, "_on_title_start_pressed"),
+		Callable(self, "_on_title_continue_pressed"),
+		Callable(self, "_on_title_settings_pressed"),
+		Callable(self, "_on_exit_pressed"),
+		session.has_any_save()
+	)
+
+
+func _render_tutorial_cutscene() -> void:
+	story_cutscene_view.render(
+		root,
+		Callable(self, "_label"),
+		"城外有座塔拔地而起，众多冒险家纷纷前往，但绝大部分都无法通过第十层，更别提看起来有数百层。",
+		Callable(self, "_on_tutorial_cutscene_continue")
+	)
+
+
+func _on_title_start_pressed() -> void:
+	title_back_screen = "title"
+	title_screen = "slot_new"
+	_request_menu_render()
+
+
+func _on_title_continue_pressed() -> void:
+	title_back_screen = "title"
+	title_screen = "slot_load"
+	_request_menu_render()
+
+
+func _on_title_settings_pressed() -> void:
+	title_back_screen = "title"
+	title_screen = "settings"
+	_request_menu_render()
+
+
+func _on_exit_pressed() -> void:
+	get_tree().quit()
+
+
+func _on_title_slot_selected(slot_index: int, mode: String) -> void:
+	pending_save_slot = slot_index
+	if mode == "load":
+		session.select_save_slot(slot_index)
+		if session.load_game(slot_index):
+			title_screen = ""
+			camp_screen = ""
+			selected_target = 0
+			equipment_open = false
+			if session.phase == "battle":
+				_request_game_render()
+			else:
+				_request_menu_render()
+		return
+	var slot_summary: Dictionary = {}
+	for entry in session.save_slot_summaries():
+		if int(entry.get("slot_index", 0)) == slot_index:
+			slot_summary = entry
+			break
+	if bool(slot_summary.get("occupied", false)):
+		pending_overwrite_slot = slot_index
+		title_screen = "confirm_overwrite"
+		title_back_screen = "slot_new"
+	else:
+		title_screen = "class_select"
+		title_back_screen = "slot_new"
+	class_select_view.reset()
+	_request_menu_render()
+
+
+func _on_confirm_overwrite() -> void:
+	session.delete_save(pending_overwrite_slot)
+	session.select_save_slot(pending_overwrite_slot)
+	pending_save_slot = pending_overwrite_slot
+	title_screen = "class_select"
+	title_back_screen = "slot_new"
+	class_select_view.reset()
+	_request_menu_render()
+
+
+func _on_title_back_pressed() -> void:
+	title_screen = title_back_screen
+	pending_save_slot = 1
+	pending_overwrite_slot = 1
+	class_select_view.reset()
+	_request_menu_render()
+
+
+func _on_class_selected(class_key: String) -> void:
+	selected_class_key = class_key
+	class_select_view.selected_class = class_key
+	_request_menu_render()
+
+
+func _on_new_game_started(class_key: String) -> void:
+	if class_key == "":
+		return
+	session.select_save_slot(pending_save_slot)
+	session.start_new_game(class_key)
+	title_screen = ""
+	camp_screen = ""
+	selected_target = 0
+	selected_heal_target = -1
+	equipment_open = false
+	_request_game_render()
+
+
+func _on_resolution_selected(resolution: Vector2i) -> void:
+	app_settings.set_resolution(resolution)
+	app_settings.apply_resolution()
+	_request_menu_render()
+
+
+func _on_tutorial_cutscene_continue() -> void:
+	session.end_run_to_camp()
+	title_screen = ""
+	camp_screen = ""
+	selected_target = 0
+	selected_heal_target = -1
+	equipment_open = false
+	_request_menu_render()
+
+
 func _on_continue_pressed() -> void:
 	_debug_log("continue pressed")
 	if session.load_game():
@@ -468,6 +692,11 @@ func _on_return_to_menu_pressed() -> void:
 	session = PlaySession.new()
 	session.debug_mode = debug_mode
 	session.debug_logger = debug_logger
+	title_screen = "title"
+	title_back_screen = "title"
+	pending_save_slot = 1
+	pending_overwrite_slot = 1
+	camp_screen = ""
 	_request_menu_render()
 
 
@@ -483,6 +712,8 @@ func _run_action(action: Callable) -> void:
 	_debug_log("run_action end phase=%s message=%s" % [session.phase, session.message])
 	if session.phase == "battle":
 		_refresh_battle_ui()
+	elif session.phase == "tutorial_epilogue":
+		_request_menu_render()
 	else:
 		_persist_session()
 		_request_game_render()
