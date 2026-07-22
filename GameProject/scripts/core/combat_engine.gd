@@ -38,6 +38,7 @@ var dodge_streak := 0
 var duel_target_index := -1
 var perfect_deflect := false
 var deferred_damage := 0.0
+var scene_skill_sources: Array[Dictionary] = []
 var rng := RandomNumberGenerator.new()
 var active_floor := 1
 
@@ -57,6 +58,7 @@ func run_battle(player: Dictionary, encounter: Dictionary, tower_floor: int, bat
 	self.player = player
 	active_enemies = enemies
 	active_log = log
+	scene_skill_sources = CombatRules.collect_scene_skill_sources(enemies + allies)
 	sim_counters = {}
 	battle_attack_multiplier = 1.0
 	enemy_attack_multiplier = 1.0
@@ -83,12 +85,19 @@ func run_battle(player: Dictionary, encounter: Dictionary, tower_floor: int, bat
 	self.player_block = player_block
 	player["dodge_layers"] = int(opening_result.get("dodge_layers", 0))
 
+	status_service.fire_trigger(player, TriggerEvents.ON_BATTLE_START, {"battle_log": log, "session": self})
+	for enemy in enemies:
+		if int(enemy.get("hp", 0)) > 0:
+			status_service.fire_trigger(enemy, TriggerEvents.ON_BATTLE_START, {"battle_log": log, "session": self})
+	for ally in allies:
+		if int(ally.get("hp", 0)) > 0:
+			status_service.fire_trigger(ally, TriggerEvents.ON_BATTLE_START, {"battle_log": log, "session": self})
+
 	if _has_first_strike(enemies):
 		first_strike_done = true
 		var first_result := _apply_enemy_attack(player, enemies[0], 0, player_block, log, true, -1, counter_state)
 		player_block = int(first_result["block"])
 		self.player_block = player_block
-	status_service.fire_trigger(player, TriggerEvents.ON_BATTLE_START, {"battle_log": log, "session": self})
 
 	while player["hp"] > 0 and _alive_count(enemies) > 0 and rounds < MAX_ROUNDS:
 		rounds += 1
@@ -313,13 +322,9 @@ func run_battle(player: Dictionary, encounter: Dictionary, tower_floor: int, bat
 			player["hp"] = maxi(1, int(player["hp"]) - deferred_tick)
 			log.append("deferred_damage:%d" % deferred_tick)
 
-		# 检查裂变特性：HP 低于阈值的敌人可能分裂
-		CombatRules.check_split(enemies, rounds, log)
-		CombatRules.check_summon(enemies, rounds, log)
-
-		if duel_target_index >= 0 and (duel_target_index >= enemies.size() or int(enemies[duel_target_index]["hp"]) <= 0):
-			duel_target_index = -1
-			log.append("duel_end")
+			if duel_target_index >= 0 and (duel_target_index >= enemies.size() or int(enemies[duel_target_index]["hp"]) <= 0):
+				duel_target_index = -1
+				log.append("duel_end")
 		if _alive_count(enemies) == 0:
 			break
 
@@ -355,14 +360,17 @@ func run_battle(player: Dictionary, encounter: Dictionary, tower_floor: int, bat
 			var ally_result := _resolve_enemy_action(player, ally, player_block, rounds, counter_state, log, is_alone)
 			player_block = int(ally_result["block"])
 			self.player_block = player_block
-			status_service.fire_trigger(ally, TriggerEvents.ON_TURN_END, {"battle_log": log, "session": null, "round_index": rounds})
 		for enemy in enemies:
 			if enemy["hp"] <= 0:
 				continue
 			status_service.fire_trigger(enemy, TriggerEvents.ON_TURN_END, {"battle_log": log, "session": null, "round_index": rounds})
+		for ally in allies:
+			if int(ally.get("hp", 0)) <= 0 or String(ally.get("controlled_by", "")) != "ai":
+				continue
+			status_service.fire_trigger(ally, TriggerEvents.ON_TURN_END, {"battle_log": log, "session": null, "round_index": rounds})
 
 		CombatRules.apply_end_round_traits(player, enemies, rounds, status_service, log)
-		CombatRules.apply_arena_effects(player, enemies, rounds, status_service, allies, log)
+		CombatRules.apply_arena_effects(player, enemies, rounds, status_service, allies, log, scene_skill_sources)
 
 	var victory: bool = int(player["hp"]) > 0 and _alive_count(enemies) == 0
 	return {
@@ -736,6 +744,7 @@ func _damage_enemy_index_from_player(player: Dictionary, enemies: Array[Dictiona
 	var hit_context := {"battle_log": log, "session": self, "source": player, "target": target, "damage": damage}
 	status_service.fire_trigger(player, TriggerEvents.ON_HIT_DEALT, hit_context)
 	status_service.fire_trigger(target, TriggerEvents.ON_HIT_RECEIVED, hit_context)
+	CombatRules.check_split_after_damage(active_enemies, target, active_floor, log)
 	if int(target.get("hp", 0)) <= 0:
 		status_service.fire_trigger(player, TriggerEvents.ON_KILL, hit_context)
 
@@ -953,6 +962,7 @@ func _damage_enemy_direct(enemy: Dictionary, amount: int, log: Array[String], so
 		return
 	_apply_shadow_armor_reflect_in_sim(enemy, player, result, log)
 	log.append("%s:%s:%d" % [source, enemy["name"], int(result["damage"])])
+	CombatRules.check_split_after_damage(active_enemies, enemy, active_floor, log)
 
 
 func _enemy_defend(enemy: Dictionary, scale: float) -> void:

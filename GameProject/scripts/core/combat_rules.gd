@@ -22,6 +22,7 @@ const SUPPORT_INTERVAL := 2
 const SPLIT_HP_THRESHOLD := 0.5
 const SUMMON_INTERVAL := 4
 const SUMMON_MINION_SCALE := 0.4
+const SCENE_PASSIVE_SKILLS := ["toxic_mist", "shadow_domain", "blood_moon"]
 
 
 static func apply_corruption(target: Dictionary, source_attack: int, status_service) -> void:
@@ -315,29 +316,36 @@ static func find_lowest_hp_ally(enemies: Array[Dictionary], self_enemy: Dictiona
 	return lowest
 
 
-# 检查并执行裂变：HP 低于阈值的 split 特性敌人分裂为两个半血单位
+# 检查并执行裂变：受到伤害后，HP 低于阈值的 split 特性敌人分裂为两个半血单位
+static func check_split_after_damage(enemies: Array[Dictionary], target: Dictionary, round_index: int, log: Array[String]) -> void:
+	if target.is_empty():
+		return
+	if int(target.get("hp", 0)) <= 0:
+		return
+	if not target.get("passive_skills", []).has("split"):
+		return
+	if target.get("split_triggered", false):
+		return
+	if float(target["hp"]) / float(maxi(1, int(target.get("max_hp", target["hp"])))) >= SPLIT_HP_THRESHOLD:
+		return
+	target["split_triggered"] = true
+	var split_hp := maxi(1, int(ceil(float(target["hp"]) / 2.0)))
+	target["hp"] = split_hp
+	var clone: Dictionary = target.duplicate(true)
+	clone["hp"] = split_hp
+	clone["available_round"] = round_index + 1
+	enemies.append(clone)
+	log.append("split:%s" % String(target.get("name", "敌人")))
+
+
 static func check_split(enemies: Array[Dictionary], round_index: int, log: Array[String]) -> void:
 	for enemy in enemies:
-		if int(enemy.get("hp", 0)) <= 0:
-			continue
-		if not enemy.get("passive_skills", []).has("split"):
-			continue
-		if enemy.get("split_triggered", false):
-			continue
-		if float(enemy["hp"]) / float(enemy["max_hp"]) >= SPLIT_HP_THRESHOLD:
-			continue
-		enemy["split_triggered"] = true
-		var split_hp := maxi(1, int(float(enemy["hp"]) / 2.0))
-		enemy["hp"] = split_hp
-		var clone: Dictionary = enemy.duplicate(true)
-		clone["hp"] = split_hp
-		clone["available_round"] = round_index + 1
-		enemies.append(clone)
-		log.append("split:%s" % String(enemy.get("name", "敌人")))
-		break
+		check_split_after_damage(enemies, enemy, round_index, log)
+		if int(enemy.get("hp", 0)) > 0 and enemy.get("split_triggered", false):
+			break
 
 
-# 检查并执行召唤：拥有 summon trait 且 summon_ready 状态激活的敌人召唤弱化分身
+# 检查并执行召唤：由主动技能或外部条件触发后召唤弱化分身
 static func check_summon(enemies: Array[Dictionary], round_index: int, log: Array[String]) -> void:
 	for enemy in enemies:
 		if int(enemy.get("hp", 0)) <= 0:
@@ -374,6 +382,23 @@ static func check_summon(enemies: Array[Dictionary], round_index: int, log: Arra
 		break
 
 
+static func collect_scene_skill_sources(units: Array[Dictionary]) -> Array[Dictionary]:
+	var sources: Array[Dictionary] = []
+	for unit in units:
+		if int(unit.get("hp", 0)) <= 0:
+			continue
+		var passive_skills: Array = unit.get("passive_skills", [])
+		for skill_id in passive_skills:
+			var resolved_id := String(skill_id)
+			if resolved_id == "" or not SCENE_PASSIVE_SKILLS.has(resolved_id):
+				continue
+			sources.append({
+				"source": unit,
+				"skill_id": resolved_id
+			})
+	return sources
+
+
 # 检查敌人是否拥有指定 id 的状态效果
 static func _has_status(enemy: Dictionary, status_id: String) -> bool:
 	for status in enemy.get("statuses", []):
@@ -406,23 +431,27 @@ static func apply_end_round_traits(player: Dictionary, enemies: Array[Dictionary
 
 
 # 检查并应用场地效果：boss 存活时对全场施加效果
-static func apply_arena_effects(player: Dictionary, enemies: Array[Dictionary], round_index: int, status_service, allies: Array[Dictionary] = [], log: Array[String] = []) -> void:
+static func apply_arena_effects(player: Dictionary, enemies: Array[Dictionary], round_index: int, status_service, allies: Array[Dictionary] = [], log: Array[String] = [], scene_skill_sources: Array[Dictionary] = []) -> void:
 	if status_service == null:
 		return
+	var active_sources: Array[Dictionary] = scene_skill_sources
+	if active_sources.is_empty():
+		active_sources = collect_scene_skill_sources(enemies + allies)
 	var has_toxic_mist := false
 	var has_shadow_domain := false
 	var has_blood_moon := false
 	var toxic_sources: Array[Dictionary] = []
-	for enemy in enemies:
-		if int(enemy.get("hp", 0)) <= 0:
+	for entry in active_sources:
+		var source: Dictionary = entry.get("source", {})
+		if source.is_empty() or int(source.get("hp", 0)) <= 0:
 			continue
-		var passive_skills: Array = enemy.get("passive_skills", [])
-		if passive_skills.has("toxic_mist"):
+		var skill_id := String(entry.get("skill_id", ""))
+		if skill_id == "toxic_mist":
 			has_toxic_mist = true
-			toxic_sources.append(enemy)
-		if passive_skills.has("shadow_domain"):
+			toxic_sources.append(source)
+		if skill_id == "shadow_domain":
 			has_shadow_domain = true
-		if passive_skills.has("blood_moon"):
+		if skill_id == "blood_moon":
 			has_blood_moon = true
 	# 毒雾：每 3 回合对玩家和友军造成基于持有者攻击力的伤害
 	if has_toxic_mist and round_index % 3 == 0:

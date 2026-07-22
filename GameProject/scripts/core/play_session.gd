@@ -43,6 +43,7 @@ var set_effect_service := SetEffectService.new()
 var rng := RandomNumberGenerator.new()
 
 var battle_state := BattleState.new()
+var scene_skill_sources: Array[Dictionary] = []
 
 var tower_coins := 0
 var profile_loaded := false
@@ -400,6 +401,7 @@ func _start_current_battle() -> void:
 	current_encounter = _get_current_encounter()
 	enemies = _build_enemies(current_encounter)
 	allies = []
+	scene_skill_sources = CombatRules.collect_scene_skill_sources(enemies + allies)
 	has_acted = false
 	skill_cooldowns = {}
 	player_block = 0
@@ -429,9 +431,9 @@ func _start_current_battle() -> void:
 	message = _battle_title()
 	_debug_log("battle_start %s floor=%d battle=%d enemies=%d" % [String(current_encounter.get("name", current_encounter.get("id", "战斗"))), floor_index, battle_index, enemies.size()])
 	_apply_opening_set_effects()
+	_fire_battle_start_triggers()
 	if _has_first_strike():
 		_enemy_attack(enemies[0], 0, true)
-	status_service.fire_trigger(player, TriggerEvents.ON_BATTLE_START, {"battle_log": battle_log, "session": self})
 	_begin_player_turn()
 
 
@@ -502,6 +504,16 @@ func _apply_opening_set_effects() -> void:
 	enemy_attack_multiplier = float(result.get("enemy_attack_multiplier", 1.0))
 	player_block = int(result.get("player_block", 0))
 	dodge_layers = int(result.get("dodge_layers", 0))
+
+
+func _fire_battle_start_triggers() -> void:
+	status_service.fire_trigger(player, TriggerEvents.ON_BATTLE_START, {"battle_log": battle_log, "session": self})
+	for enemy in enemies:
+		if int(enemy.get("hp", 0)) > 0:
+			status_service.fire_trigger(enemy, TriggerEvents.ON_BATTLE_START, {"battle_log": battle_log, "session": self})
+	for ally in allies:
+		if int(ally.get("hp", 0)) > 0:
+			status_service.fire_trigger(ally, TriggerEvents.ON_BATTLE_START, {"battle_log": battle_log, "session": self})
 
 
 func player_attack(target_index: int) -> void:

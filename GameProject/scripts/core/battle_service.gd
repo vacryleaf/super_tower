@@ -471,10 +471,6 @@ func end_turn(session: RefCounted) -> void:
 
 
 func enemy_turn(session: RefCounted) -> void:
-	# 检查裂变特性：HP 低于阈值的 split 敌人可能分裂
-	CombatRules.check_split(session.enemies, session.round_index, session.battle_log)
-	# 检查召唤特性：summon_ready 状态的敌人召唤弱化分身
-	CombatRules.check_summon(session.enemies, session.round_index, session.battle_log)
 	session._clear_enemy_blocks()
 	session._clear_enemy_taunts()
 	for enemy in session.enemies:
@@ -512,7 +508,7 @@ func enemy_turn(session: RefCounted) -> void:
 
 	# 回合结束特性结算：corrode 腐蚀玩家护甲，support 治疗友军
 	CombatRules.apply_end_round_traits(session.player, session.enemies, session.round_index, session.status_service, session.battle_log)
-	CombatRules.apply_arena_effects(session.player, session.enemies, session.round_index, session.status_service, session.allies, session.battle_log)
+	CombatRules.apply_arena_effects(session.player, session.enemies, session.round_index, session.status_service, session.allies, session.battle_log, session.scene_skill_sources)
 
 
 func resolve_enemy_action(session: RefCounted, enemy: Dictionary, enemy_index: int) -> void:
@@ -638,6 +634,8 @@ func deal_damage_to_target(target: Dictionary, raw_damage: int, damage_type: Str
 		marked_damage = maxi(0, int(ceil(float(marked_damage) * CombatRules.ally_guard_damage_multiplier(target, session.enemies))))
 	var result := Combatant.apply_damage(target, marked_damage, damage_type, CombatRules.armor_multiplier_against(attacker))
 	_apply_shadow_armor_reflect(session, target, attacker, result)
+	if String(target.get("side", "")) == "enemy" and int(result.get("damage", 0)) > 0:
+		CombatRules.check_split_after_damage(session.enemies, target, session.round_index, session.battle_log)
 	return result
 
 
@@ -661,7 +659,7 @@ func _apply_shadow_armor_reflect(session: RefCounted, target: Dictionary, attack
 # 回合结束时处理 corrode（腐蚀）和 support（辅助）特性效果，委托给 CombatRules 统一处理
 func _apply_end_round_traits(session: RefCounted) -> void:
 	CombatRules.apply_end_round_traits(session.player, session.enemies, session.round_index, session.status_service, session.battle_log)
-	CombatRules.apply_arena_effects(session.player, session.enemies, session.round_index, session.status_service, session.allies, session.battle_log)
+	CombatRules.apply_arena_effects(session.player, session.enemies, session.round_index, session.status_service, session.allies, session.battle_log, session.scene_skill_sources)
 
 
 func _build_buff_effects(skill: Dictionary, skill_id: String, is_player_actor: bool, session: RefCounted) -> Array[Dictionary]:

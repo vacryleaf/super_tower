@@ -404,26 +404,6 @@ static func _apply_trait_statuses(enemy: Dictionary) -> void:
 			"duration": -1
 		})
 
-	# 召唤：每 4 回合标记准备召唤，由 check_summon 创建弱化分身
-	if passive_skills.has("summon"):
-		statuses.append({
-			"id": "trait_summon", "name": "召唤", "kind": "buff", "stack": "replace",
-			"effects": [],
-			"triggers": [{
-				"event": TriggerEvents.ON_TURN_START,
-				"condition": {"round_index": {"mod": 4}},
-				"actions": [{
-					"type": TriggerEvents.ACTION_APPLY_STATUS,
-					"status": {
-						"id": "summon_ready", "name": "召唤准备", "kind": "buff", "stack": "replace",
-						"effects": [],
-						"duration": 1
-					}
-				}]
-			}],
-			"duration": -1
-		})
-
 	if passive_skills.has("tutorial_ramp"):
 		statuses.append({
 			"id": "trait_tutorial_ramp", "name": "考官压力", "kind": "buff", "stack": "replace",

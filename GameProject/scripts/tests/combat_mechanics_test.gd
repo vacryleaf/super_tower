@@ -119,19 +119,8 @@ func test_toxic_mist_uses_holder_attack() -> void:
 
 
 func test_new_units_wait_one_round() -> void:
-	var summon_enemy := {
-		"hp": 20,
-		"max_hp": 20,
-		"attack": 5,
-		"defense": 1,
-		"block_power": 1,
-		"passive_skills": ["summon", "", "", ""],
-		"skills": [],
-		"statuses": [{"id": "summon_ready", "name": "召唤准备", "kind": "buff", "stack": "replace", "duration": 1}]
-	}
-	var summon_enemies: Array[Dictionary] = [summon_enemy]
-	CombatRules.check_summon(summon_enemies, 4, [])
-	assert_equal(int(summon_enemies[1]["available_round"]), 5, "summoned unit should wait until the next round")
+	var summoned := Combatant.rat_minion(4, 5)
+	assert_equal(int(summoned["available_round"]), 5, "summoned unit should wait until the next round")
 
 	var split_enemy := {
 		"hp": 40,
@@ -144,7 +133,7 @@ func test_new_units_wait_one_round() -> void:
 		"split_triggered": false
 	}
 	var split_enemies: Array[Dictionary] = [split_enemy]
-	CombatRules.check_split(split_enemies, 7, [])
+	CombatRules.check_split_after_damage(split_enemies, split_enemy, 7, [])
 	assert_equal(int(split_enemies[1]["available_round"]), 8, "split unit should wait until the next round")
 
 
