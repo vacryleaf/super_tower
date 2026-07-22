@@ -280,7 +280,17 @@ func execute_skill(session: RefCounted, skill_id: String, target_index: int, act
 					session.battle_log.append("%s 使用 %s：造成 %d 点伤害。" % [actor["name"], String(skill.get("name", skill_id)), int(result["damage"])])
 					session.last_events.append({"kind": "damage", "target": "player", "source": actor["name"], "amount": int(result["damage"])})
 			if was_hit:
+				_apply_rat_on_hit(session, actor, session.player)
+				var armor_reduction := int(skill.get("armor_reduction", 0))
+				if armor_reduction > 0:
+					CombatRules.apply_armor_reduction(session.player, armor_reduction, session.status_service, String(skill["name"]))
 				session._trigger_counter_attack(target_index)
+
+	elif skill_type == "summon":
+		if not is_player_actor:
+			for _i in range(2):
+				session.enemies.append(Combatant.rat_minion(session.floor_index, session.round_index + 1))
+			session.battle_log.append("%s 使用 %s：召唤两只小鼠。" % [actor["name"], skill["name"]])
 
 	elif skill_type == "defense" or skill_type == "stance":
 		var bonus: float = session._skill_multiplier_bonus(skill_id, "defense") if is_player_actor else 0.0
@@ -468,33 +478,25 @@ func enemy_turn(session: RefCounted) -> void:
 	for enemy in session.enemies:
 		if int(enemy["hp"]) <= 0:
 			continue
+		CombatRules.tick_enemy_cooldowns(enemy)
 		session.status_service.fire_trigger(enemy, TriggerEvents.ON_TURN_START, {"battle_log": session.battle_log, "session": session, "round_index": session.round_index})
 	for ally in session.allies:
 		if int(ally["hp"]) <= 0 or String(ally.get("controlled_by", "")) != "ai":
 			continue
 		session.status_service.fire_trigger(ally, TriggerEvents.ON_TURN_START, {"battle_log": session.battle_log, "session": session, "round_index": session.round_index})
-	var actions := 0
 	for i in range(session.enemies.size()):
 		var enemy: Dictionary = session.enemies[i]
-		if int(enemy["hp"]) <= 0:
+		if int(enemy["hp"]) <= 0 or int(enemy.get("available_round", 0)) > session.round_index:
 			continue
 		if bool(enemy.get("interrupted", false)):
 			enemy["interrupted"] = false
 			session.battle_log.append("%s 被中断，本回合无法行动。" % enemy["name"])
 			continue
-		if actions >= 2:
-			enemy_defend(enemy, 0.5)
-			continue
 		resolve_enemy_action(session, enemy, i)
-		actions += 1
 	for ally in session.allies:
 		if int(ally["hp"]) <= 0 or String(ally.get("controlled_by", "")) != "ai":
 			continue
-		if actions >= 2:
-			enemy_defend(ally, 0.5)
-			continue
 		resolve_enemy_action(session, ally, session.find_enemy_index(ally))
-		actions += 1
 	for enemy in session.enemies:
 		if int(enemy["hp"]) <= 0:
 			continue
@@ -514,13 +516,17 @@ func enemy_turn(session: RefCounted) -> void:
 func resolve_enemy_action(session: RefCounted, enemy: Dictionary, enemy_index: int) -> void:
 	var skill_id: String = session._enemy_choose_skill(enemy)
 	execute_skill(session, skill_id, enemy_index, enemy)
+	var skill: Dictionary = _get_skill_data(skill_id)
+	var cooldown := int(skill.get("cooldown", 0))
+	if cooldown > 0:
+		enemy["skill_cooldowns"][skill_id] = cooldown
 
 
 func enemy_defend(enemy: Dictionary, scale: float) -> int:
 	return Combatant.add_block(enemy, scale)
 
 
-func enemy_attack(session: RefCounted, enemy: Dictionary, enemy_index: int, first_strike: bool) -> void:
+func enemy_attack(session: RefCounted, enemy: Dictionary, enemy_index: int, first_strike: bool, allow_swarm: bool = true) -> void:
 	# 决斗免疫：非决斗目标的敌人攻击无效
 	if session.duel_target_index >= 0 and enemy_index != session.duel_target_index:
 		session.battle_log.append("%s 被单挑领域阻挡，无法攻击。" % enemy["name"])
@@ -588,8 +594,30 @@ func enemy_attack(session: RefCounted, enemy: Dictionary, enemy_index: int, firs
 		if deferred_pct > 0.0:
 			session.deferred_damage += float(int(result["damage"])) * deferred_pct
 	if was_hit:
+		_apply_rat_on_hit(session, enemy, session.player)
 		session._trigger_counter_attack(enemy_index)
 		session._trigger_reflect_damage(enemy_index)
+	if allow_swarm and not first_strike:
+		_trigger_swarm_assists(session, enemy, enemy_index)
+
+
+func _apply_rat_on_hit(session: RefCounted, attacker: Dictionary, target: Dictionary) -> void:
+	var passive_skills: Array = attacker.get("passive_skills", [])
+	if passive_skills.has("corruption"):
+		CombatRules.apply_corruption(target, int(attacker["attack"]), session.status_service)
+	if passive_skills.has("fang"):
+		CombatRules.apply_armor_reduction(target, 1, session.status_service, "尖牙")
+
+
+func _trigger_swarm_assists(session: RefCounted, attacker: Dictionary, attacker_index: int) -> void:
+	if not attacker.get("passive_skills", []).has("swarm"):
+		return
+	for index in range(session.enemies.size()):
+		var ally: Dictionary = session.enemies[index]
+		if index == attacker_index or int(ally.get("hp", 0)) <= 0 or not ally.get("passive_skills", []).has("swarm"):
+			continue
+		session.battle_log.append("群袭：%s 协攻。" % ally["name"])
+		enemy_attack(session, ally, index, false, false)
 
 
 func enemy_attack_segments(session: RefCounted, enemy: Dictionary, first_strike: bool) -> Array[int]:
@@ -598,12 +626,12 @@ func enemy_attack_segments(session: RefCounted, enemy: Dictionary, first_strike:
 
 func deal_damage_to_target(target: Dictionary, raw_damage: int, damage_type: String, session: RefCounted) -> Dictionary:
 	var damage_taken_mult: float = session.status_service.resolve_stat(target, 1.0, StatusService.STAT_DAMAGE_TAKEN)
-	var marked_damage := maxi(0, int(round(float(raw_damage) * damage_taken_mult)))
+	var marked_damage := maxi(0, int(ceil(float(raw_damage) * damage_taken_mult)))
 	if damage_type != DamageType.TRUE:
 		var resist_key := DamageType.resist_key(damage_type)
 		var base_resist := float(target.get("resistances", {}).get(damage_type, 1.0))
 		var resist_mult: float = session.status_service.resolve_stat(target, base_resist, resist_key)
-		marked_damage = maxi(0, int(round(float(marked_damage) * resist_mult)))
+		marked_damage = maxi(0, int(ceil(float(marked_damage) * resist_mult)))
 	return Combatant.apply_damage(target, marked_damage, damage_type)
 
 

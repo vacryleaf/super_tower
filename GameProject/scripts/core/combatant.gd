@@ -8,10 +8,10 @@ const StatusService = preload("res://scripts/core/status_service.gd")
 
 
 static func from_player(player: Dictionary, current_block: int = 0, current_dodge: int = 0, status_service = null) -> Dictionary:
-	var base_armor := maxi(0, int(player.get("defense", 0)))
+	var base_armor := int(player.get("defense", 0))
 	var armor := base_armor
 	if status_service:
-		armor = maxi(0, int(status_service.resolve_stat(player, float(base_armor), StatusService.STAT_ARMOR)))
+		armor = int(round(status_service.resolve_stat(player, float(base_armor), StatusService.STAT_ARMOR)))
 	return {
 		"id": String(player.get("class_id", "player")),
 		"name": String(player.get("name", player.get("class_id", "玩家"))),
@@ -45,6 +45,8 @@ static func from_enemy_unit(unit: Dictionary, encounter_type: String, tower_floo
 	var rank := String(unit.get("rank", encounter_type))
 	var passive_skills := passive_skill_slots(unit.get("passive_skills", unit.get("traits", [])))
 	var skills: Array = unit.get("skills", [])
+	if bool(unit.get("fixed_stats", false)):
+		return fixed_enemy(unit, tower_floor, rank, passive_skills, skills)
 	if unit.has("hp") and typeof(unit["hp"]) == TYPE_INT:
 		var fixed_defense := int(unit.get("defense", 0))
 		return _enemy_dictionary(
@@ -55,7 +57,9 @@ static func from_enemy_unit(unit: Dictionary, encounter_type: String, tower_floo
 			fixed_defense,
 			_enemy_base_armor(unit, fixed_defense, passive_skills),
 			passive_skills,
-			skills
+			skills,
+			int(unit.get("block_power", fixed_defense)),
+			unit.get("behavior_weights", {})
 		)
 	return scaled_enemy(unit, tower_floor, rank, float(unit.get("formation_scale", 1.0)))
 
@@ -95,12 +99,37 @@ static func scaled_enemy(unit: Dictionary, tower_floor: int, rank: String, forma
 		defense,
 		_enemy_base_armor(unit, defense, passive_skills),
 		passive_skills,
-		skills
+		skills,
+		int(unit.get("block_power", defense)),
+		unit.get("behavior_weights", {})
 	)
 
 
+static func fixed_enemy(unit: Dictionary, tower_floor: int, rank: String, passive_skills: Array, skills: Array) -> Dictionary:
+	var floor_multiplier := pow(1.3, tower_floor - 1)
+	var rank_multiplier := 1.5 if rank == "elite" else 1.0
+	var hp := maxi(1, int(ceil(float(unit.get("hp", 1)) * floor_multiplier * rank_multiplier)))
+	var attack := maxi(1, int(ceil(float(unit.get("attack", 1)) * floor_multiplier * rank_multiplier)))
+	var defense := int(ceil(float(unit.get("defense", 0)) * floor_multiplier * rank_multiplier))
+	var block_power := maxi(0, int(ceil(float(unit.get("block_power", defense)) * floor_multiplier * rank_multiplier)))
+	var enemy := _enemy_dictionary(
+		String(unit.get("name", unit.get("id", "enemy"))),
+		rank,
+		hp,
+		attack,
+		defense,
+		_enemy_base_armor(unit, defense, passive_skills),
+		passive_skills,
+		skills,
+		block_power,
+		unit.get("behavior_weights", {})
+	)
+	enemy["fixed_stats"] = true
+	return enemy
+
+
 static func add_block(combatant: Dictionary, scale: float = 1.0) -> int:
-	var gained := maxi(1, int(round(float(combatant.get("block_power", combatant.get("defense", 1))) * scale)))
+	var gained := maxi(0, int(round(float(combatant.get("block_power", combatant.get("defense", 1))) * scale)))
 	combatant["block"] = int(combatant.get("block", 0)) + gained
 	return gained
 
@@ -167,8 +196,8 @@ static func apply_damage(combatant: Dictionary, raw_damage: int, damage_type: St
 static func damage_after_armor(combatant: Dictionary, raw_damage: int) -> int:
 	if raw_damage <= 0:
 		return 0
-	var armor := maxi(0, int(combatant.get("armor", combatant.get("defense", 0))))
-	return maxi(1, int(ceil(float(raw_damage) * ARMOR_BASE / float(ARMOR_BASE + armor))))
+	var armor := int(combatant.get("armor", combatant.get("defense", 0)))
+	return maxi(1, int(ceil(float(raw_damage) * ARMOR_BASE / maxf(1.0, ARMOR_BASE + float(armor)))))
 
 
 static func normalize_enemy(enemy: Dictionary) -> void:
@@ -194,6 +223,12 @@ static func normalize_enemy(enemy: Dictionary) -> void:
 		enemy["armor"] = 0
 	if not enemy.has("skills"):
 		enemy["skills"] = []
+	if not enemy.has("skill_cooldowns"):
+		enemy["skill_cooldowns"] = {}
+	if not enemy.has("behavior_weights"):
+		enemy["behavior_weights"] = {}
+	if not enemy.has("available_round"):
+		enemy["available_round"] = 0
 	if not enemy.has("innate_skills"):
 		enemy["innate_skills"] = {
 			"attack_1": "innate_attack_1",
@@ -390,7 +425,7 @@ static func _apply_trait_statuses(enemy: Dictionary) -> void:
 	enemy["statuses"] = statuses
 
 
-static func _enemy_dictionary(unit_name: String, rank: String, hp: int, attack: int, defense: int, armor: int, passive_skills: Array, skills: Array = []) -> Dictionary:
+static func _enemy_dictionary(unit_name: String, rank: String, hp: int, attack: int, defense: int, armor: int, passive_skills: Array, skills: Array = [], block_power: int = -1, behavior_weights: Dictionary = {}) -> Dictionary:
 	var enemy := {
 		"name": unit_name,
 		"side": "enemy",
@@ -400,12 +435,15 @@ static func _enemy_dictionary(unit_name: String, rank: String, hp: int, attack: 
 		"attack": attack,
 		"defense": defense,
 		"armor": armor,
-		"block_power": maxi(1, defense),
+		"block_power": maxi(0, defense if block_power < 0 else block_power),
 		"block": 0,
 		"dodge_layers": 0,
 		"taunt": 0,
 		"passive_skills": passive_skill_slots(passive_skills),
 		"skills": skills.duplicate(),
+		"skill_cooldowns": {},
+		"behavior_weights": behavior_weights.duplicate(),
+		"available_round": 0,
 		"innate_skills": {
 			"attack_1": "innate_attack_1",
 			"defend": "innate_defend",
@@ -419,10 +457,27 @@ static func _enemy_dictionary(unit_name: String, rank: String, hp: int, attack: 
 
 
 static func _enemy_base_armor(unit: Dictionary, defense: int, passive_skills: Array) -> int:
-	var armor := int(unit.get("armor", 0))
+	var armor := int(unit.get("armor", defense))
 	if passive_skills.has("thick_skin"):
 		armor += maxi(1, defense)
 	return armor
+
+
+static func rat_minion(tower_floor: int, available_round: int) -> Dictionary:
+	var unit := {
+		"name": "小鼠",
+		"fixed_stats": true,
+		"hp": 20,
+		"attack": 5,
+		"defense": 0,
+		"block_power": 0,
+		"passive_skills": ["swarm", "", "", ""],
+		"skills": [],
+		"behavior_weights": {"innate_attack_1": 50, "innate_defend": 10, "innate_dodge": 10}
+	}
+	var minion := from_enemy_unit(unit, "normal", tower_floor)
+	minion["available_round"] = available_round
+	return minion
 
 
 static func passive_skill_slots(source_skills: Array) -> Array[String]:

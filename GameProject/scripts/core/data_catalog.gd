@@ -69,6 +69,9 @@ const SKILLS := {
 	"first_aid": {"name": "急救", "class": "common", "type": "heal", "slot": 3, "energy_cost": 18, "cooldown": 0, "heal_multiplier": 0.25, "actions": [{"type": "heal", "target": "ally_selected", "stat": "max_hp", "multiplier": 0.25, "skill_bonus_stat": "hp"}]},
 	"tactical_retreat": {"name": "战术后撤", "class": "common", "type": "dodge", "slot": 4, "energy_cost": 0, "cooldown": 3, "block_multiplier": 0.90, "dodge_layers": 1, "actions": [{"type": "gain_dodge", "target": "self", "layers": 1, "double_with_state": "read"}, {"type": "gain_block", "target": "self", "stat": "block_power", "multiplier": 0.90, "skill_bonus_stat": "defense", "repeat_with_charge": false}]},
 	"enemy_heavy_strike": {"name": "重击", "class": "enemy", "type": "attack", "slot": 0, "energy_cost": 0, "cooldown": 0, "multiplier": 1.50, "hits": 1, "damage_type": "physical"},
+	"enemy_pursuit": {"name": "追击", "class": "enemy", "type": "attack", "slot": 0, "energy_cost": 0, "cooldown": 3, "multiplier": 0.70, "hits": 2, "damage_type": "physical"},
+	"enemy_call_rat_pack": {"name": "呼唤鼠群", "class": "enemy", "type": "summon", "slot": 0, "energy_cost": 0, "cooldown": 6},
+	"enemy_bite": {"name": "撕咬", "class": "enemy", "type": "attack", "slot": 0, "energy_cost": 0, "cooldown": 5, "multiplier": 1.20, "hits": 1, "damage_type": "physical", "armor_reduction": 2},
 	"enemy_rend": {"name": "撕裂", "class": "enemy", "type": "attack", "slot": 0, "energy_cost": 0, "cooldown": 0, "multiplier": 0.70, "hits": 2, "damage_type": "physical"},
 	"enemy_fortify": {"name": "固守", "class": "enemy", "type": "defense", "slot": 0, "energy_cost": 0, "cooldown": 0, "multiplier": 1.50},
 	"enemy_enrage": {"name": "狂怒", "class": "enemy", "type": "buff", "slot": 0, "energy_cost": 0, "cooldown": 0, "attack_multiplier": 1.30},
@@ -211,8 +214,9 @@ const TUTORIAL_ENCOUNTERS := [
 ]
 
 const NORMAL_UNITS := [
-	{"id": "normal_rat_01", "name": "腐鼠", "hp": 0.75, "attack": 0.90, "defense": 0.60, "passive_skills": ["swarm", "", "", ""], "skills": ["enemy_rend", "enemy_enrage"]},
-	{"id": "normal_rat_02", "name": "尖牙鼠", "hp": 0.80, "attack": 1.05, "defense": 0.60, "passive_skills": ["swarm", "claw", "", ""], "skills": ["enemy_heavy_strike", "enemy_rend"]},
+	{"id": "normal_rat_01", "name": "腐鼠", "fixed_stats": true, "hp": 30, "attack": 10, "defense": 1, "block_power": 3, "passive_skills": ["swarm", "corruption", "", ""], "skills": [], "behavior_weights": {"innate_attack_1": 50, "innate_defend": 10, "innate_dodge": 10}},
+	{"id": "normal_rat_02", "name": "尖牙鼠", "fixed_stats": true, "hp": 40, "attack": 12, "defense": 1, "block_power": 2, "passive_skills": ["swarm", "fang", "", ""], "skills": [], "behavior_weights": {"innate_attack_1": 50, "innate_defend": 10, "innate_dodge": 10}},
+	{"id": "normal_rat_03", "name": "狩猎鼠", "fixed_stats": true, "hp": 35, "attack": 15, "defense": 1, "block_power": 1, "passive_skills": ["swarm", "", "", ""], "skills": ["enemy_pursuit"], "behavior_weights": {"innate_attack_1": 50, "innate_defend": 10, "innate_dodge": 10, "enemy_pursuit": 20}},
 	{"id": "normal_guard_01", "name": "生锈守卫", "hp": 1.10, "attack": 0.75, "defense": 1.30, "passive_skills": ["thick_skin", "tank", "taunt", ""], "skills": ["enemy_fortify", "enemy_taunt"]},
 	{"id": "normal_guard_03", "name": "矛卫", "hp": 0.95, "attack": 1.00, "defense": 1.10, "passive_skills": ["break_armor", "tank", "", ""], "skills": ["enemy_heavy_strike", "enemy_fortify"]},
 	{"id": "normal_shadow_01", "name": "影贼", "hp": 0.75, "attack": 1.05, "defense": 0.70, "passive_skills": ["first_strike", "evade", "cunning", ""], "skills": ["enemy_quick_evade", "enemy_rend"]},
@@ -222,7 +226,6 @@ const NORMAL_UNITS := [
 ]
 
 const ELITE_UNITS := [
-	{"id": "elite_rat_01", "name": "鼠群头目", "hp": 0.95, "attack": 1.05, "defense": 0.80, "passive_skills": ["swarm", "summon", "", ""], "skills": ["enemy_rend", "enemy_enrage"]},
 	{"id": "elite_guard_01", "name": "铁甲队长", "hp": 1.20, "attack": 0.95, "defense": 1.50, "passive_skills": ["guard", "fortify", "tank", "taunt"], "skills": ["enemy_fortify", "enemy_heavy_strike", "enemy_taunt"]},
 	{"id": "elite_shadow_01", "name": "暗影猎长", "hp": 0.90, "attack": 1.25, "defense": 0.90, "passive_skills": ["first_strike", "mark", "cunning", ""], "skills": ["enemy_dark_bolt", "enemy_quick_evade"]},
 	{"id": "elite_caster_01", "name": "深塔祭司", "hp": 1.00, "attack": 1.00, "defense": 1.00, "passive_skills": ["curse", "summon", "", ""], "skills": ["enemy_weaken", "enemy_dark_bolt"]},
@@ -230,7 +233,7 @@ const ELITE_UNITS := [
 ]
 
 const BOSS_UNITS := [
-	{"id": "boss_rat_king", "name": "腐巢鼠王", "hp": 1.00, "attack": 1.10, "defense": 0.90, "passive_skills": ["swarm", "summon", "enrage", ""], "skills": ["enemy_rend", "enemy_enrage", "enemy_heavy_strike"]},
+	{"id": "boss_rat_king", "name": "鼠王", "fixed_stats": true, "hp": 100, "attack": 20, "defense": 5, "block_power": 8, "passive_skills": ["swarm", "corruption", "", ""], "skills": ["enemy_pursuit", "enemy_call_rat_pack", "enemy_bite"], "behavior_weights": {"innate_attack_1": 50, "innate_defend": 10, "innate_dodge": 10, "enemy_pursuit": 20, "enemy_bite": 20, "enemy_call_rat_pack": 10}},
 	{"id": "boss_iron_warden", "name": "铁狱典狱长", "hp": 1.25, "attack": 1.00, "defense": 1.45, "passive_skills": ["thick_skin", "guard", "fortify", ""], "skills": ["enemy_fortify", "enemy_heavy_strike", "enemy_enrage"]},
 	{"id": "boss_shadow_duke", "name": "夜幕公爵", "hp": 0.95, "attack": 1.30, "defense": 1.00, "passive_skills": ["first_strike", "evade", "mark", "cunning"], "skills": ["enemy_dark_bolt", "enemy_quick_evade", "enemy_weaken"]},
 	{"id": "boss_deep_oracle", "name": "深塔预言者", "hp": 1.05, "attack": 1.10, "defense": 1.20, "passive_skills": ["curse", "spell_shield", "summon", "toxic_mist"], "skills": ["enemy_weaken", "enemy_dark_bolt", "enemy_fortify"]},
@@ -243,8 +246,8 @@ const MONSTER_GROUPS := {
 	"rat": {
 		"name": "老鼠群落",
 		"minion_passive_skills": ["swarm"],
-		"normal_units": ["normal_rat_01", "normal_rat_02"],
-		"elite_units": ["elite_rat_01"],
+		"normal_units": ["normal_rat_01", "normal_rat_02", "normal_rat_03"],
+		"elite_units": ["normal_rat_01", "normal_rat_02", "normal_rat_03"],
 		"boss_units": ["boss_rat_king"]
 	},
 	"guard": {

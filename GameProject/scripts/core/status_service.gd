@@ -65,6 +65,8 @@ func tick_statuses(target: Dictionary) -> void:
 		return
 	var statuses: Array = target["statuses"]
 	for i in range(statuses.size() - 1, -1, -1):
+		if String(statuses[i].get("id", "")) == "rat_corruption":
+			continue
 		var duration := int(statuses[i].get("duration", -1))
 		if duration < 0:
 			continue

@@ -24,6 +24,62 @@ const SUMMON_INTERVAL := 4
 const SUMMON_MINION_SCALE := 0.4
 
 
+static func apply_corruption(target: Dictionary, source_attack: int, status_service) -> void:
+	status_service.add_status(target, {
+		"id": "rat_corruption",
+		"name": "腐败",
+		"kind": "debuff",
+		"stack": "replace",
+		"corruption_damage": maxi(1, int(ceil(float(source_attack) * 0.20))),
+		"duration": 3
+	})
+
+
+static func resolve_corruption(target: Dictionary) -> int:
+	if not target.has("statuses"):
+		return 0
+	var statuses: Array = target["statuses"]
+	for index in range(statuses.size() - 1, -1, -1):
+		var status: Dictionary = statuses[index]
+		if String(status.get("id", "")) != "rat_corruption":
+			continue
+		var damage := int(status.get("corruption_damage", 0))
+		target["hp"] = maxi(0, int(target["hp"]) - damage)
+		var remaining := int(status.get("duration", 0)) - 1
+		if remaining <= 0:
+			statuses.remove_at(index)
+		else:
+			statuses[index]["duration"] = remaining
+		return damage
+	return 0
+
+
+static func apply_armor_reduction(target: Dictionary, amount: int, status_service, source_name: String) -> void:
+	if amount <= 0:
+		return
+	status_service.add_status(target, {
+		"id": "rat_armor_reduction_%s" % source_name,
+		"name": source_name,
+		"kind": "debuff",
+		"stack": "stack",
+		"effects": [{"stat": StatusService.STAT_ARMOR, "type": "flat", "value": -amount}],
+		"duration": -1
+	})
+
+
+static func tick_enemy_cooldowns(enemy: Dictionary) -> void:
+	var cooldowns: Dictionary = enemy.get("skill_cooldowns", {})
+	var expired: Array[String] = []
+	for skill_id in cooldowns.keys():
+		var remaining := int(cooldowns[skill_id]) - 1
+		if remaining <= 0:
+			expired.append(String(skill_id))
+		else:
+			cooldowns[skill_id] = remaining
+	for skill_id in expired:
+		cooldowns.erase(skill_id)
+
+
 static func build_enemies(encounter: Dictionary, tower_floor: int, include_statuses: bool = true) -> Array[Dictionary]:
 	var enemies: Array[Dictionary] = []
 	for unit in encounter.get("units", []):
@@ -150,9 +206,9 @@ static func skill_attack_value_for_actor(actor: Dictionary, skill_id: String, st
 	if status_service != null:
 		base_attack = status_service.resolve_stat(actor, base_attack, StatusService.STAT_ATTACK)
 	var rank_mult: float = _rank_skill_multiplier(actor) if skill.get("class", "") == "enemy" else 1.0
-	var result := maxi(1, int(round(base_attack * multiplier * rank_mult)))
+	var result := maxi(1, int(ceil(base_attack * multiplier * rank_mult)))
 	if not modifiers.is_empty():
-		result = maxi(1, int(round(ModifierPipeline.resolve(float(result), modifiers))))
+		result = maxi(1, int(ceil(ModifierPipeline.resolve(float(result), modifiers))))
 	return result
 
 
@@ -187,6 +243,8 @@ static func skill_heal_value_for_actor(actor: Dictionary, skill_id: String, stat
 
 
 static func _rank_skill_multiplier(actor: Dictionary) -> float:
+	if bool(actor.get("fixed_stats", false)):
+		return 1.0
 	return RANK_SKILL_MULTIPLIER.get(String(actor.get("rank", "normal")), 1.0)
 
 

@@ -3,6 +3,8 @@ class_name TraitCatalog
 
 const LABELS := {
 	"swarm": "群袭",
+	"corruption": "腐败",
+	"fang": "尖牙",
 	"claw": "利爪",
 	"thick_skin": "厚皮",
 	"break_armor": "破甲",
@@ -33,7 +35,9 @@ const LABELS := {
 }
 
 const DESCRIPTIONS := {
-	"swarm": "群袭：攻击时追加一段小额伤害。",
+	"swarm": "群袭：普通攻击时，所有存活的群袭同伴对同一目标各进行一次普通攻击；协攻不会再次触发群袭。",
+	"corruption": "腐败：攻击命中后使目标在行动前受到攻击力 20% 的真实伤害，持续 3 回合；重复命中刷新持续时间并使用最后一次攻击力。",
+	"fang": "尖牙：攻击命中后使目标防御降低 1 点，持续至战斗结束，可叠加。",
 	"claw": "利爪：攻击伤害提高。",
 	"thick_skin": "厚皮：入场获得额外护甲。",
 	"break_armor": "破甲：命中时削弱玩家护甲（护甲×0.80，持续2回合）。",

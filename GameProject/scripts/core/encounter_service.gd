@@ -103,9 +103,12 @@ func prepare_unit(source: Dictionary, rank: String, scale: float) -> Dictionary:
 		"hp": source.get("hp", 1.0),
 		"attack": source.get("attack", 1.0),
 		"defense": source.get("defense", 1.0),
+		"block_power": source.get("block_power", 0),
+		"fixed_stats": source.get("fixed_stats", false),
 		"formation_scale": scale,
 		"passive_skills": source.get("passive_skills", source.get("traits", [])),
-		"skills": source.get("skills", [])
+		"skills": source.get("skills", []),
+		"behavior_weights": source.get("behavior_weights", {})
 	}
 
 

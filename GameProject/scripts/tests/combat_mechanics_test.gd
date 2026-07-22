@@ -6,6 +6,7 @@ const RunSimulator = preload("res://scripts/core/run_simulator.gd")
 const CombatEngine = preload("res://scripts/core/combat_engine.gd")
 const Combatant = preload("res://scripts/core/combatant.gd")
 const StatusService = preload("res://scripts/core/status_service.gd")
+const CombatRules = preload("res://scripts/core/combat_rules.gd")
 
 
 func run() -> void:
@@ -13,6 +14,8 @@ func run() -> void:
 	test_enemy_block_power_is_separate_from_armor()
 	test_player_and_enemy_share_combatant_contract()
 	test_thick_skin_always_grants_armor()
+	test_rat_corruption_and_armor_reduction()
+	test_swarm_triggers_one_assist_per_living_ally()
 	test_skill_multiplier_effects()
 	test_counter_stance_and_multihit_dodge()
 	test_block_expires_each_round()
@@ -20,6 +23,37 @@ func run() -> void:
 	test_enemy_ai_skill_selection()
 	test_enemy_taunt_skill()
 	test_rank_skill_multiplier()
+
+
+func test_rat_corruption_and_armor_reduction() -> void:
+	var status_service := StatusService.new()
+	var player := {"hp": 100, "max_hp": 100, "defense": 1, "statuses": []}
+	CombatRules.apply_corruption(player, 10, status_service)
+	CombatRules.apply_corruption(player, 15, status_service)
+	for _turn in range(3):
+		CombatRules.resolve_corruption(player)
+	assert_equal(int(player["hp"]), 91, "corruption should refresh and use the last hit attack value")
+	CombatRules.apply_armor_reduction(player, 3, status_service, "测试减防")
+	var combatant := Combatant.from_player(player, 0, 0, status_service)
+	assert_equal(int(combatant["armor"]), -2, "armor reduction should allow negative defense")
+
+
+func test_swarm_triggers_one_assist_per_living_ally() -> void:
+	var session_script = load("res://scripts/core/play_session.gd")
+	var session = session_script.new()
+	session.start_new_game("warrior")
+	session.player["hp"] = 100
+	session.player["defense"] = 0
+	session.player_block = 0
+	var rats: Array[Dictionary] = [
+		TestHelpers.test_enemy("群袭甲", 30, 10, []),
+		TestHelpers.test_enemy("群袭乙", 30, 10, [])
+	]
+	for rat in rats:
+		rat["passive_skills"] = ["swarm", "", "", ""]
+	session.enemies = rats
+	session._enemy_attack(session.enemies[0], 0, false)
+	assert_equal(int(session.player["hp"]), 80, "one living swarm ally should contribute exactly one normal attack")
 
 
 func test_block_power_is_separate_from_armor() -> void:
@@ -191,7 +225,7 @@ func test_counter_stance_and_multihit_dodge() -> void:
 	dodger.enemies = swarm_enemies
 	dodger._enemy_attack(dodger.enemies[0], 0, false)
 	assert_equal(int(dodger.dodge_layers), 0, "one dodge layer should be consumed by the first hit only")
-	assert_true(int(dodger.player["hp"]) < 100, "later hits in a multi-hit attack should still deal damage")
+	assert_equal(int(dodger.player["hp"]), 100, "swarm should not add a self extra hit without a living swarm ally")
 
 
 func test_block_expires_each_round() -> void:

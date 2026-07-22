@@ -460,6 +460,12 @@ func _begin_player_turn() -> void:
 	_tick_skill_cooldowns()
 	player_block = 0
 	pending_state_card = _draw_state_buff()
+	var corruption_damage := CombatRules.resolve_corruption(player)
+	if corruption_damage > 0:
+		battle_log.append("腐败结算：受到 %d 点真实伤害。" % corruption_damage)
+	if int(player["hp"]) <= 0:
+		_on_defeat()
+		return
 	status_service.tick_statuses(player)
 	_process_tick_effects(player)
 	status_service.fire_trigger(player, TriggerEvents.ON_TURN_START, {"battle_log": battle_log, "session": self, "not_attacked_last_turn": not attacked_this_turn})
@@ -1073,7 +1079,7 @@ func _enemy_choose_skill(enemy: Dictionary) -> String:
 		"block_power": int(player.get("block_power", player.get("defense", 1))),
 		"dodge_layers": dodge_layers
 	}
-	return enemy_rules.choose_skill(enemy, round_index, player_context, _is_enemy_alone())
+	return enemy_rules.choose_skill(enemy, round_index, player_context, _is_enemy_alone(), rng)
 
 
 func _is_enemy_alone() -> bool:

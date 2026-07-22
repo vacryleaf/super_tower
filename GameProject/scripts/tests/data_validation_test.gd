@@ -1,6 +1,7 @@
 extends "res://scripts/tests/test_base.gd"
 
 const DataCatalog = preload("res://scripts/core/data_catalog.gd")
+const Combatant = preload("res://scripts/core/combatant.gd")
 
 
 func run() -> void:
@@ -9,6 +10,7 @@ func run() -> void:
 	test_basic_equipment_values()
 	test_enemy_roles_include_tank_taunt_and_backline()
 	test_monster_groups_are_complete()
+	test_rat_group_fixed_stats()
 	test_cunning_masks_enemy_intent()
 	test_skill_costs_minimum_two()
 	test_external_resource_manifests()
@@ -83,6 +85,23 @@ func test_monster_groups_are_complete() -> void:
 	for rank in ["normal", "elite", "boss"]:
 		for unit in DataCatalog.monster_group_units("rat", rank):
 			assert_true(unit.get("passive_skills", []).has("swarm"), "%s should have swarm passive" % String(unit.get("name", "rat unit")))
+
+
+func test_rat_group_fixed_stats() -> void:
+	var rat_units := DataCatalog.monster_group_units("rat", "normal")
+	assert_equal(rat_units.size(), 3, "rat group should have three normal units")
+	var rotten_rat := Combatant.from_enemy_unit(rat_units[0], "normal", 1)
+	assert_equal(int(rotten_rat["max_hp"]), 30, "rotten rat floor one hp")
+	assert_equal(int(rotten_rat["attack"]), 10, "rotten rat floor one attack")
+	assert_equal(int(rotten_rat["block_power"]), 3, "rotten rat block power")
+	assert_true(rotten_rat["passive_skills"].has("corruption"), "rotten rat should have corruption")
+	var elite_rat := Combatant.from_enemy_unit(rat_units[0], "elite", 2)
+	assert_equal(int(elite_rat["max_hp"]), 59, "elite rat hp should use floor and elite multipliers")
+	assert_equal(int(elite_rat["attack"]), 20, "elite rat attack should use floor and elite multipliers")
+	assert_equal(int(elite_rat["block_power"]), 6, "elite rat block should use floor and elite multipliers")
+	var king := Combatant.from_enemy_unit(DataCatalog.monster_group_units("rat", "boss")[0], "boss", 1)
+	assert_equal(int(king["max_hp"]), 100, "rat king floor one hp")
+	assert_true(king["skills"].has("enemy_call_rat_pack"), "rat king should call rat pack")
 
 
 func test_cunning_masks_enemy_intent() -> void:

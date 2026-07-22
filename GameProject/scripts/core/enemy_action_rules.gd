@@ -58,13 +58,9 @@ func intent_text(enemy: Dictionary, round_index: int) -> String:
 
 func attack_segments(enemy: Dictionary, round_index: int, first_strike: bool) -> Array[int]:
 	var base_damage := int(enemy["attack"])
-	var passive_skills: Array = enemy.get("passive_skills", enemy.get("traits", []))
 	if first_strike:
 		base_damage = maxi(1, int(round(float(base_damage) * 0.75)))
-	var segments: Array[int] = [maxi(1, base_damage)]
-	if passive_skills.has("swarm"):
-		segments.append(maxi(1, int(round(float(enemy["attack"]) * 0.35))))
-	return segments
+	return [maxi(1, base_damage)]
 
 
 func has_first_strike(enemies: Array[Dictionary]) -> bool:
@@ -75,11 +71,14 @@ func has_first_strike(enemies: Array[Dictionary]) -> bool:
 	return false
 
 
-func choose_skill(enemy: Dictionary, round_index: int, player_context: Dictionary = {}, is_alone: bool = false) -> String:
+func choose_skill(enemy: Dictionary, round_index: int, player_context: Dictionary = {}, is_alone: bool = false, rng: RandomNumberGenerator = null) -> String:
 	var skills: Array = enemy.get("skills", [])
 	var innate: Dictionary = enemy.get("innate_skills", {})
 	var passive_skills: Array = enemy.get("passive_skills", enemy.get("traits", []))
 	var hp_percent: float = float(enemy["hp"]) / float(maxi(1, enemy["max_hp"]))
+	var behavior_weights: Dictionary = enemy.get("behavior_weights", {})
+	if not behavior_weights.is_empty():
+		return _choose_weighted_action(enemy, behavior_weights, innate, rng)
 
 	if passive_skills.has("tutorial_ramp"):
 		if round_index % 2 == 0:
@@ -230,6 +229,33 @@ func _filter_by_type(skills: Array, skill_type: String) -> Array[String]:
 		if String(skill_data.get("type", "")) == skill_type:
 			result.append(skill_id)
 	return result
+
+
+func _choose_weighted_action(enemy: Dictionary, behavior_weights: Dictionary, innate: Dictionary, rng: RandomNumberGenerator) -> String:
+	var DataCatalog = preload("res://scripts/core/data_catalog.gd")
+	var candidates: Array[String] = []
+	var total_weight := 0
+	for skill_id_value in behavior_weights.keys():
+		var skill_id := String(skill_id_value)
+		var weight := int(behavior_weights[skill_id_value])
+		if weight <= 0 or not _is_available(enemy, skill_id, DataCatalog):
+			continue
+		candidates.append(skill_id)
+		total_weight += weight
+	if total_weight <= 0:
+		return String(innate.get("attack_1", "innate_attack_1"))
+	var roll := rng.randi_range(1, total_weight) if rng != null else randi_range(1, total_weight)
+	for skill_id in candidates:
+		roll -= int(behavior_weights[skill_id])
+		if roll <= 0:
+			return skill_id
+	return candidates.back()
+
+
+func _is_available(enemy: Dictionary, skill_id: String, data_catalog) -> bool:
+	if not data_catalog.SKILLS.has(skill_id) and not data_catalog.INNATE_SKILLS.has(skill_id):
+		return false
+	return int(enemy.get("skill_cooldowns", {}).get(skill_id, 0)) <= 0
 
 
 # 筛选多段攻击技能（hits > 1），用于响应式 AI 破闪避/破格挡
