@@ -23,6 +23,7 @@ var char_service := CharacterService.new()
 var status_service := StatusService.new()
 var set_effect_service := SetEffectService.new()
 var player: Dictionary = {}
+var player_block := 0
 var active_enemies: Array[Dictionary] = []
 var active_log: Array[String] = []
 var sim_counters: Dictionary = {}
@@ -47,7 +48,7 @@ func run_battle(player: Dictionary, encounter: Dictionary, tower_floor: int, bat
 	var enemies := _build_enemies(encounter, tower_floor)
 	var log: Array[String] = []
 	var rounds := 0
-	var player_block := 0
+	player_block = 0
 	var energy := int(player.get("energy", 0))
 	var skill_cooldowns: Dictionary = player.get("skill_cooldowns", {}).duplicate()
 	var first_strike_done := false
@@ -70,6 +71,7 @@ func run_battle(player: Dictionary, encounter: Dictionary, tower_floor: int, bat
 	deferred_damage = 0.0
 	player["statuses"] = []
 	player["dodge_layers"] = 0
+	self.player_block = player_block
 	var opening_state := {
 		"enemy_attack_multiplier": enemy_attack_multiplier,
 		"player_block": player_block,
@@ -78,17 +80,20 @@ func run_battle(player: Dictionary, encounter: Dictionary, tower_floor: int, bat
 	var opening_result := set_effect_service.apply_battle_start(player, opening_state, log, status_service)
 	enemy_attack_multiplier = float(opening_result.get("enemy_attack_multiplier", 1.0))
 	player_block = int(opening_result.get("player_block", 0))
+	self.player_block = player_block
 	player["dodge_layers"] = int(opening_result.get("dodge_layers", 0))
 
 	if _has_first_strike(enemies):
 		first_strike_done = true
 		var first_result := _apply_enemy_attack(player, enemies[0], 0, player_block, log, true, -1, counter_state)
 		player_block = int(first_result["block"])
+		self.player_block = player_block
 	status_service.fire_trigger(player, TriggerEvents.ON_BATTLE_START, {"battle_log": log, "session": self})
 
 	while player["hp"] > 0 and _alive_count(enemies) > 0 and rounds < MAX_ROUNDS:
 		rounds += 1
 		player_block = 0
+		self.player_block = player_block
 		perfect_deflect = false
 		ranger_hit_count = 0
 		sim_counters["ranger_hit_count"] = 0
@@ -116,6 +121,7 @@ func run_battle(player: Dictionary, encounter: Dictionary, tower_floor: int, bat
 				var skill_type := String(skill.get("type", "attack"))
 				if SkillActionService.has_actions(skill):
 					player_block += _execute_player_action_skill_in_sim(player, enemies, skill_id, skill, log, charge_state, counter_state)
+					self.player_block = player_block
 				elif skill_type == "attack":
 					var skill_damage := _skill_damage(player)
 					if skill_damage > 0:
@@ -166,6 +172,7 @@ func run_battle(player: Dictionary, encounter: Dictionary, tower_floor: int, bat
 						if self_block_mult > 0.0:
 							var block_gain := maxi(1, int(round(float(player.get("block_power", player.get("defense", 1))) * self_block_mult)))
 							player_block += block_gain
+							self.player_block = player_block
 							log.append("skill_self_block:%s:%d" % [skill_id, block_gain])
 						# 追加 AOE（碎裂斩等）
 						var aoe_multiplier := float(skill.get("aoe_multiplier", 0.0))
@@ -225,8 +232,10 @@ func run_battle(player: Dictionary, encounter: Dictionary, tower_floor: int, bat
 					var block_gain := maxi(1, int(round(float(player.get("block_power", player.get("defense", 1))) * (float(skill.get("multiplier", skill.get("block_multiplier", 1.0))) + char_service.skill_multiplier_bonus(player, skill_id, "defense")))))
 					block_gain = charge_sim.apply_defense_modifiers(block_gain, charge_state, skill_id)
 					player_block += block_gain
+					self.player_block = player_block
 					for _i in range(charge_sim.consume_repeats(charge_state, "defense", skill_id)):
 						player_block += block_gain
+						self.player_block = player_block
 					if skill_type == "stance":
 						counter_state["charges"] = int(counter_state["charges"]) + 1
 						counter_state["multiplier"] = maxf(float(counter_state["multiplier"]), float(skill.get("counter_multiplier", 1.0)) + char_service.skill_multiplier_bonus(player, skill_id, "attack"))
@@ -305,8 +314,8 @@ func run_battle(player: Dictionary, encounter: Dictionary, tower_floor: int, bat
 			log.append("deferred_damage:%d" % deferred_tick)
 
 		# 检查裂变特性：HP 低于阈值的敌人可能分裂
-		CombatRules.check_split(enemies, log)
-		CombatRules.check_summon(enemies, log)
+		CombatRules.check_split(enemies, rounds, log)
+		CombatRules.check_summon(enemies, rounds, log)
 
 		if duel_target_index >= 0 and (duel_target_index >= enemies.size() or int(enemies[duel_target_index]["hp"]) <= 0):
 			duel_target_index = -1
@@ -334,6 +343,7 @@ func run_battle(player: Dictionary, encounter: Dictionary, tower_floor: int, bat
 				continue
 			var action_result := _resolve_enemy_action(player, enemy, player_block, rounds, counter_state, log, is_alone, i)
 			player_block = int(action_result["block"])
+			self.player_block = player_block
 		for ally in allies:
 			if int(ally.get("hp", 0)) <= 0 or String(ally.get("controlled_by", "")) != "ai":
 				continue
@@ -344,6 +354,7 @@ func run_battle(player: Dictionary, encounter: Dictionary, tower_floor: int, bat
 			status_service.fire_trigger(ally, TriggerEvents.ON_TURN_START, {"battle_log": log, "session": null, "round_index": rounds})
 			var ally_result := _resolve_enemy_action(player, ally, player_block, rounds, counter_state, log, is_alone)
 			player_block = int(ally_result["block"])
+			self.player_block = player_block
 			status_service.fire_trigger(ally, TriggerEvents.ON_TURN_END, {"battle_log": log, "session": null, "round_index": rounds})
 		for enemy in enemies:
 			if enemy["hp"] <= 0:
@@ -351,7 +362,7 @@ func run_battle(player: Dictionary, encounter: Dictionary, tower_floor: int, bat
 			status_service.fire_trigger(enemy, TriggerEvents.ON_TURN_END, {"battle_log": log, "session": null, "round_index": rounds})
 
 		CombatRules.apply_end_round_traits(player, enemies, rounds, status_service, log)
-		CombatRules.apply_arena_effects(player, enemies, rounds, status_service)
+		CombatRules.apply_arena_effects(player, enemies, rounds, status_service, allies, log)
 
 	var victory: bool = int(player["hp"]) > 0 and _alive_count(enemies) == 0
 	return {
@@ -713,11 +724,13 @@ func _damage_enemy_index_from_player(player: Dictionary, enemies: Array[Dictiona
 	var target := enemies[target_index]
 	if int(target.get("hp", 0)) <= 0:
 		return
-	var result := Combatant.apply_damage(target, amount)
+	var guarded_amount := maxi(0, int(ceil(float(amount) * CombatRules.ally_guard_damage_multiplier(target, enemies))))
+	var result := Combatant.apply_damage(target, guarded_amount)
 	if bool(result["dodged"]):
 		log.append("%s:%s:dodge" % [source, target["name"]])
 		status_service.fire_trigger(target, TriggerEvents.ON_DODGE, {"battle_log": log, "session": self, "source": player})
 		return
+	_apply_shadow_armor_reflect_in_sim(target, player, result, log)
 	var damage := int(result["damage"])
 	log.append("%s:%s:%d" % [source, target["name"], damage])
 	var hit_context := {"battle_log": log, "session": self, "source": player, "target": target, "damage": damage}
@@ -727,14 +740,39 @@ func _damage_enemy_index_from_player(player: Dictionary, enemies: Array[Dictiona
 		status_service.fire_trigger(player, TriggerEvents.ON_KILL, hit_context)
 
 
-func _apply_damage_to_player(player: Dictionary, block: int, damage: int) -> Dictionary:
+func _apply_shadow_armor_reflect_in_sim(target: Dictionary, attacker: Dictionary, result: Dictionary, log: Array[String]) -> void:
+	if not bool(target.get("shadow_armor_active", false)):
+		return
+	var reflect_damage := CombatRules.shadow_armor_reflect_damage(result)
+	if reflect_damage <= 0:
+		return
+	var attacker_side := String(attacker.get("side", ""))
+	if attacker_side == "enemy":
+		var reflect_result := Combatant.apply_damage(attacker, reflect_damage, "physical")
+		if not bool(reflect_result["dodged"]):
+			log.append("暗影护甲：%s 受到 %d 点反伤。" % [String(attacker.get("name", "")), int(reflect_result["damage"])])
+		return
+	var attacker_unit := Combatant.from_player(attacker, player_block, int(attacker.get("dodge_layers", 0)), status_service)
+	var reflect_result_player := Combatant.apply_damage(attacker_unit, reflect_damage, "physical")
+	var synced := Combatant.sync_to_player(attacker_unit, attacker)
+	player_block = int(synced["block"])
+	if not bool(reflect_result_player["dodged"]):
+		log.append("暗影护甲：%s 受到 %d 点反伤。" % [String(attacker.get("name", "")), int(reflect_result_player["damage"])])
+
+
+func _apply_shadow_armor_reflect_to_player_in_sim(player_target: Dictionary, attacker: Dictionary, result: Dictionary) -> void:
+	_apply_shadow_armor_reflect_in_sim(player_target, attacker, result, active_log)
+
+
+func _apply_damage_to_player(player: Dictionary, block: int, damage: int, attacker: Dictionary = {}) -> Dictionary:
 	var player_unit := Combatant.from_player(player, block, int(player.get("dodge_layers", 0)), status_service)
 	# 应用玩家身上的 damage_taken 乘数（mark 等特性施加的易伤 debuff）
 	var damage_taken_mult: float = status_service.resolve_stat(player_unit, 1.0, StatusService.STAT_DAMAGE_TAKEN)
 	var adjusted_damage := maxi(1, int(ceil(float(damage) * damage_taken_mult)))
-	var result := Combatant.apply_damage(player_unit, adjusted_damage)
+	var result := Combatant.apply_damage(player_unit, adjusted_damage, "physical", CombatRules.armor_multiplier_against(attacker))
 	var synced := Combatant.sync_to_player(player_unit, player)
 	player["dodge_layers"] = int(synced["dodge_layers"])
+	player_block = int(synced["block"])
 	# 延迟伤害追踪
 	if not bool(result["dodged"]):
 		var deferred_pct := 0.0
@@ -742,6 +780,7 @@ func _apply_damage_to_player(player: Dictionary, block: int, damage: int) -> Dic
 			deferred_pct = maxf(deferred_pct, float(status.get("deferred_damage_percent", 0.0)))
 		if deferred_pct > 0.0:
 			deferred_damage += float(int(result["damage"])) * deferred_pct
+		_apply_shadow_armor_reflect_to_player_in_sim(player, attacker, result)
 	return {"block": int(synced["block"]), "hit": not bool(result["dodged"])}
 
 
@@ -761,7 +800,7 @@ func _apply_enemy_attack(player: Dictionary, enemy: Dictionary, enemy_index: int
 	var was_hit := false
 	var dodge_counted := false
 	for damage in _enemy_attack_segments(enemy, round_index, first_strike):
-		var result := _apply_damage_to_player(player, block, damage)
+		var result := _apply_damage_to_player(player, block, damage, enemy)
 		block = int(result["block"])
 		var hit := bool(result["hit"])
 		was_hit = was_hit or hit
@@ -907,10 +946,12 @@ func _trigger_counter_attack(player: Dictionary, enemy: Dictionary, enemy_index:
 func _damage_enemy_direct(enemy: Dictionary, amount: int, log: Array[String], source: String) -> void:
 	if amount <= 0:
 		return
-	var result := Combatant.apply_damage(enemy, amount)
+	var guarded_amount := maxi(0, int(ceil(float(amount) * CombatRules.ally_guard_damage_multiplier(enemy, active_enemies))))
+	var result := Combatant.apply_damage(enemy, guarded_amount)
 	if bool(result["dodged"]):
 		log.append("%s:%s:dodge" % [source, enemy["name"]])
 		return
+	_apply_shadow_armor_reflect_in_sim(enemy, player, result, log)
 	log.append("%s:%s:%d" % [source, enemy["name"], int(result["damage"])])
 
 
@@ -936,7 +977,7 @@ func _execute_enemy_skill_in_sim(player: Dictionary, enemy: Dictionary, skill_id
 			var hits := maxi(1, int(skill.get("hits", 1)))
 			var was_hit := false
 			for _hit in range(hits):
-				var result := _apply_damage_to_player(player, player_block, damage)
+				var result := _apply_damage_to_player(player, player_block, damage, enemy)
 				player_block = int(result["block"])
 				was_hit = was_hit or bool(result["hit"])
 				log.append("enemy_skill:%s:%s:%d" % [skill_id, enemy["name"], damage])
@@ -953,13 +994,15 @@ func _execute_enemy_skill_in_sim(player: Dictionary, enemy: Dictionary, skill_id
 				_trigger_counter_attack(player, enemy, -1, log, counter_state)
 		"defense", "stance":
 			enemy["block"] = int(enemy.get("block", 0)) + CombatRules.skill_defense_value_for_actor(enemy, skill_id, status_service)
+			if skill_id == "enemy_shadow_armor":
+				enemy["shadow_armor_active"] = true
 			log.append("enemy_skill_defend:%s:%s" % [skill_id, enemy["name"]])
 		"dodge":
 			Combatant.add_dodge(enemy, int(skill.get("dodge_layers", 1)))
 			log.append("enemy_skill_dodge:%s:%s" % [skill_id, enemy["name"]])
 		"taunt":
 			enemy["taunt"] = int(skill.get("taunt_duration", 1))
-			Combatant.add_block(enemy, 1.0)
+			Combatant.add_block(enemy, float(skill.get("block_multiplier", 1.0)))
 			log.append("enemy_skill_taunt:%s:%s" % [skill_id, enemy["name"]])
 		"summon":
 			for _i in range(2):
@@ -1072,13 +1115,21 @@ func _lowest_hp_enemy_index(enemies: Array[Dictionary]) -> int:
 		return target_index
 	var target_hp := 999999
 	var has_frontline := CombatRules.has_active_frontline(enemies)
+	var has_visible := CombatRules.has_visible_alive_enemy(enemies)
 	for i in range(enemies.size()):
 		var enemy := enemies[i]
 		if enemy["hp"] <= 0:
+			continue
+		if has_visible and CombatRules.is_hidden_unit(enemy):
 			continue
 		if CombatRules.is_backline_protected_by_frontline(enemy, has_frontline):
 			continue
 		if enemy["hp"] < target_hp:
 			target_hp = enemy["hp"]
 			target_index = i
+	if target_index < 0 and has_visible:
+		for i in range(enemies.size()):
+			var enemy := enemies[i]
+			if enemy["hp"] > 0 and not CombatRules.is_hidden_unit(enemy):
+				return i
 	return target_index

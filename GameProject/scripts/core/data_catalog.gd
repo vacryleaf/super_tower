@@ -74,11 +74,15 @@ const SKILLS := {
 	"enemy_bite": {"name": "撕咬", "class": "enemy", "type": "attack", "slot": 0, "energy_cost": 0, "cooldown": 5, "multiplier": 1.20, "hits": 1, "damage_type": "physical", "armor_reduction": 2},
 	"enemy_rend": {"name": "撕裂", "class": "enemy", "type": "attack", "slot": 0, "energy_cost": 0, "cooldown": 0, "multiplier": 0.70, "hits": 2, "damage_type": "physical"},
 	"enemy_fortify": {"name": "固守", "class": "enemy", "type": "defense", "slot": 0, "energy_cost": 0, "cooldown": 0, "multiplier": 1.50},
-	"enemy_enrage": {"name": "狂怒", "class": "enemy", "type": "buff", "slot": 0, "energy_cost": 0, "cooldown": 0, "attack_multiplier": 1.30},
+	"enemy_enrage": {"name": "狂暴", "class": "enemy", "type": "buff", "slot": 0, "energy_cost": 0, "cooldown": 0, "attack_multiplier": 1.30},
 	"enemy_weaken": {"name": "虚弱凝视", "class": "enemy", "type": "debuff", "slot": 0, "energy_cost": 0, "cooldown": 0, "weaken_multiplier": 0.80},
 	"enemy_quick_evade": {"name": "迅捷闪避", "class": "enemy", "type": "dodge", "slot": 0, "energy_cost": 0, "cooldown": 0, "dodge_layers": 1},
 	"enemy_dark_bolt": {"name": "暗影弹", "class": "enemy", "type": "attack", "slot": 0, "energy_cost": 0, "cooldown": 0, "multiplier": 1.20, "hits": 1, "damage_type": "shadow"},
-		"enemy_taunt": {"name": "嘲讽", "class": "enemy", "type": "taunt", "slot": 0, "energy_cost": 0, "cooldown": 0, "taunt_duration": 1}
+	"enemy_shadow_armor": {"name": "暗影护甲", "class": "enemy", "type": "defense", "slot": 0, "energy_cost": 0, "cooldown": 5, "multiplier": 2.00},
+	"enemy_taunt": {"name": "嘲讽", "class": "enemy", "type": "taunt", "slot": 0, "energy_cost": 0, "cooldown": 0, "taunt_duration": 1}
+	,"enemy_skeleton_taunt": {"name": "嘲讽", "class": "enemy", "type": "taunt", "slot": 0, "energy_cost": 0, "cooldown": 4, "taunt_duration": 1, "block_multiplier": 1.50, "requires_living_ally": true}
+	,"enemy_skeleton_heavy_strike": {"name": "重击", "class": "enemy", "type": "attack", "slot": 0, "energy_cost": 0, "cooldown": 4, "multiplier": 1.50, "hits": 1, "damage_type": "physical"}
+	,"enemy_skeleton_fortify": {"name": "固守", "class": "enemy", "type": "defense", "slot": 0, "energy_cost": 0, "cooldown": 3, "multiplier": 2.00}
 }
 
 const INNATE_SKILLS := {
@@ -217,27 +221,30 @@ const NORMAL_UNITS := [
 	{"id": "normal_rat_01", "name": "腐鼠", "fixed_stats": true, "hp": 30, "attack": 10, "defense": 1, "block_power": 3, "passive_skills": ["swarm", "corruption", "", ""], "skills": [], "behavior_weights": {"innate_attack_1": 50, "innate_defend": 10, "innate_dodge": 10}},
 	{"id": "normal_rat_02", "name": "尖牙鼠", "fixed_stats": true, "hp": 40, "attack": 12, "defense": 1, "block_power": 2, "passive_skills": ["swarm", "fang", "", ""], "skills": [], "behavior_weights": {"innate_attack_1": 50, "innate_defend": 10, "innate_dodge": 10}},
 	{"id": "normal_rat_03", "name": "狩猎鼠", "fixed_stats": true, "hp": 35, "attack": 15, "defense": 1, "block_power": 1, "passive_skills": ["swarm", "", "", ""], "skills": ["enemy_pursuit"], "behavior_weights": {"innate_attack_1": 50, "innate_defend": 10, "innate_dodge": 10, "enemy_pursuit": 20}},
-	{"id": "normal_guard_01", "name": "生锈守卫", "hp": 1.10, "attack": 0.75, "defense": 1.30, "passive_skills": ["thick_skin", "tank", "taunt", ""], "skills": ["enemy_fortify", "enemy_taunt"]},
-	{"id": "normal_guard_03", "name": "矛卫", "hp": 0.95, "attack": 1.00, "defense": 1.10, "passive_skills": ["break_armor", "tank", "", ""], "skills": ["enemy_heavy_strike", "enemy_fortify"]},
-	{"id": "normal_shadow_01", "name": "影贼", "hp": 0.75, "attack": 1.05, "defense": 0.70, "passive_skills": ["first_strike", "evade", "cunning", ""], "skills": ["enemy_quick_evade", "enemy_rend"]},
-	{"id": "normal_shadow_02", "name": "暗弩手", "hp": 0.80, "attack": 1.15, "defense": 0.70, "passive_skills": ["mark", "backline", "cunning", ""], "skills": ["enemy_dark_bolt", "enemy_weaken"]},
-	{"id": "normal_caster_01", "name": "学徒术士", "hp": 0.80, "attack": 0.90, "defense": 0.80, "passive_skills": ["curse", "", "", ""], "skills": ["enemy_weaken", "enemy_dark_bolt"]},
-	{"id": "normal_mutant_02", "name": "晶刺兽", "hp": 0.95, "attack": 1.05, "defense": 0.95, "passive_skills": ["break_armor", "", "", ""], "skills": ["enemy_rend", "enemy_enrage"]}
+	{"id": "normal_skeleton_01", "name": "刀盾骷髅", "fixed_stats": true, "hp": 50, "attack": 8, "defense": 4, "block_power": 5, "passive_skills": ["thick_skin", "", "", ""], "skills": ["enemy_skeleton_taunt"], "behavior_weights": {"innate_attack_1": 50, "innate_defend": 10, "innate_dodge": 10, "enemy_skeleton_taunt": 40}},
+	{"id": "normal_skeleton_02", "name": "长矛骷髅", "fixed_stats": true, "hp": 35, "attack": 10, "defense": 2, "block_power": 4, "passive_skills": ["break_armor", "", "", ""], "skills": ["enemy_skeleton_heavy_strike"], "behavior_weights": {"innate_attack_1": 50, "innate_defend": 10, "innate_dodge": 10, "enemy_skeleton_heavy_strike": 30}},
+	{"id": "normal_skeleton_03", "name": "铁甲骷髅", "fixed_stats": true, "hp": 55, "attack": 9, "defense": 4, "block_power": 4, "passive_skills": ["thick_skin", "guard", "tank", "taunt"], "skills": ["enemy_skeleton_fortify", "enemy_skeleton_taunt"], "behavior_weights": {"innate_attack_1": 50, "innate_defend": 10, "innate_dodge": 10, "enemy_skeleton_fortify": 30, "enemy_skeleton_taunt": 40}},
+	{"id": "normal_shadow_01", "name": "盗贼", "hp": 28, "attack": 14, "defense": 0, "block_power": 2, "passive_skills": ["first_strike", "", "", ""], "skills": ["enemy_quick_evade", "enemy_rend"], "behavior_weights": {"innate_attack_1": 50, "innate_defend": 10, "innate_dodge": 10, "enemy_quick_evade": 15, "enemy_rend": 25}},
+	{"id": "normal_shadow_02", "name": "暗弩手", "hp": 32, "attack": 16, "defense": 0, "block_power": 1, "passive_skills": ["mark", "hidden", "", ""], "skills": ["enemy_dark_bolt", "enemy_weaken"], "behavior_weights": {"innate_attack_1": 50, "innate_defend": 10, "innate_dodge": 10, "enemy_dark_bolt": 25, "enemy_weaken": 20}},
+	{"id": "normal_caster_01", "name": "学徒术士", "hp": 32, "attack": 11, "defense": 1, "block_power": 2, "passive_skills": ["curse", "backline", "", ""], "skills": ["enemy_weaken", "enemy_dark_bolt"], "behavior_weights": {"innate_attack_1": 50, "innate_defend": 10, "innate_dodge": 10, "enemy_weaken": 20, "enemy_dark_bolt": 25}},
+	{"id": "normal_mutant_02", "name": "晶刺兽", "hp": 50, "attack": 11, "defense": 3, "block_power": 4, "passive_skills": ["break_armor", "", "", ""], "skills": ["enemy_rend", "enemy_enrage"], "behavior_weights": {"innate_attack_1": 50, "innate_defend": 10, "innate_dodge": 10, "enemy_rend": 25, "enemy_enrage": 20}}
 ]
 
 const ELITE_UNITS := [
-	{"id": "elite_guard_01", "name": "铁甲队长", "hp": 1.20, "attack": 0.95, "defense": 1.50, "passive_skills": ["guard", "fortify", "tank", "taunt"], "skills": ["enemy_fortify", "enemy_heavy_strike", "enemy_taunt"]},
-	{"id": "elite_shadow_01", "name": "暗影猎长", "hp": 0.90, "attack": 1.25, "defense": 0.90, "passive_skills": ["first_strike", "mark", "cunning", ""], "skills": ["enemy_dark_bolt", "enemy_quick_evade"]},
-	{"id": "elite_caster_01", "name": "深塔祭司", "hp": 1.00, "attack": 1.00, "defense": 1.00, "passive_skills": ["curse", "summon", "", ""], "skills": ["enemy_weaken", "enemy_dark_bolt"]},
-	{"id": "elite_mutant_01", "name": "裂塔巨兽", "hp": 1.35, "attack": 1.00, "defense": 1.25, "passive_skills": ["thick_skin", "revive", "", ""], "skills": ["enemy_heavy_strike", "enemy_enrage"]}
+	{"id": "elite_skeleton_01", "name": "刀盾骷髅", "fixed_stats": true, "hp": 50, "attack": 8, "defense": 4, "block_power": 5, "passive_skills": ["thick_skin", "", "", ""], "skills": ["enemy_skeleton_taunt"], "behavior_weights": {"innate_attack_1": 50, "innate_defend": 10, "innate_dodge": 10, "enemy_skeleton_taunt": 40}},
+	{"id": "elite_skeleton_02", "name": "长矛骷髅", "fixed_stats": true, "hp": 35, "attack": 10, "defense": 2, "block_power": 4, "passive_skills": ["break_armor", "", "", ""], "skills": ["enemy_skeleton_heavy_strike"], "behavior_weights": {"innate_attack_1": 50, "innate_defend": 10, "innate_dodge": 10, "enemy_skeleton_heavy_strike": 30}},
+	{"id": "elite_skeleton_03", "name": "铁甲骷髅", "fixed_stats": true, "hp": 55, "attack": 9, "defense": 4, "block_power": 4, "passive_skills": ["thick_skin", "guard", "", ""], "skills": ["enemy_skeleton_fortify", "enemy_skeleton_taunt"], "behavior_weights": {"innate_attack_1": 50, "innate_defend": 10, "innate_dodge": 10, "enemy_skeleton_fortify": 30, "enemy_skeleton_taunt": 40}},
+	{"id": "elite_shadow_01", "name": "暗影猎长", "hp": 45, "attack": 20, "defense": 1, "block_power": 2, "passive_skills": ["mark", "cunning", "", ""], "skills": ["enemy_dark_bolt", "enemy_quick_evade"], "behavior_weights": {"innate_attack_1": 50, "innate_defend": 10, "innate_dodge": 10, "enemy_dark_bolt": 30, "enemy_quick_evade": 15}},
+	{"id": "elite_caster_01", "name": "深塔祭司", "hp": 48, "attack": 10, "defense": 0, "block_power": 6, "passive_skills": ["curse", "abyss_communication", "", ""], "skills": ["enemy_weaken", "enemy_shadow_armor"], "behavior_weights": {"innate_attack_1": 50, "innate_defend": 10, "innate_dodge": 10, "enemy_weaken": 20, "enemy_shadow_armor": 20}},
+	{"id": "elite_mutant_01", "name": "裂塔巨兽", "hp": 35, "attack": 16, "defense": 5, "block_power": 5, "passive_skills": ["revive", "", "", ""], "skills": ["enemy_heavy_strike", "enemy_enrage"], "behavior_weights": {"innate_attack_1": 50, "innate_defend": 10, "innate_dodge": 10, "enemy_heavy_strike": 30, "enemy_enrage": 20}}
 ]
 
 const BOSS_UNITS := [
 	{"id": "boss_rat_king", "name": "鼠王", "fixed_stats": true, "hp": 100, "attack": 20, "defense": 5, "block_power": 8, "passive_skills": ["swarm", "corruption", "", ""], "skills": ["enemy_pursuit", "enemy_call_rat_pack", "enemy_bite"], "behavior_weights": {"innate_attack_1": 50, "innate_defend": 10, "innate_dodge": 10, "enemy_pursuit": 20, "enemy_bite": 20, "enemy_call_rat_pack": 10}},
-	{"id": "boss_iron_warden", "name": "铁狱典狱长", "hp": 1.25, "attack": 1.00, "defense": 1.45, "passive_skills": ["thick_skin", "guard", "fortify", ""], "skills": ["enemy_fortify", "enemy_heavy_strike", "enemy_enrage"]},
-	{"id": "boss_shadow_duke", "name": "夜幕公爵", "hp": 0.95, "attack": 1.30, "defense": 1.00, "passive_skills": ["first_strike", "evade", "mark", "cunning"], "skills": ["enemy_dark_bolt", "enemy_quick_evade", "enemy_weaken"]},
-	{"id": "boss_deep_oracle", "name": "深塔预言者", "hp": 1.05, "attack": 1.10, "defense": 1.20, "passive_skills": ["curse", "spell_shield", "summon", "toxic_mist"], "skills": ["enemy_weaken", "enemy_dark_bolt", "enemy_fortify"]},
-	{"id": "boss_tower_core", "name": "裂塔核心", "hp": 1.20, "attack": 1.20, "defense": 1.20, "passive_skills": ["revive", "charge", "split", "blood_moon"], "skills": ["enemy_heavy_strike", "enemy_enrage", "enemy_rend"]}
+	{"id": "boss_skeleton_warden", "name": "骷髅典狱长", "fixed_stats": true, "hp": 100, "attack": 20, "defense": 7, "block_power": 10, "passive_skills": ["thick_skin", "enrage", "", ""], "skills": ["enemy_skeleton_fortify", "enemy_skeleton_heavy_strike"], "behavior_weights": {"innate_attack_1": 50, "innate_defend": 10, "innate_dodge": 10, "enemy_skeleton_fortify": 30, "enemy_skeleton_heavy_strike": 30}},
+	{"id": "boss_shadow_duke", "name": "暗影公爵", "hp": 90, "attack": 24, "defense": 3, "block_power": 6, "passive_skills": ["first_strike", "evade", "mark", "cunning"], "skills": ["enemy_dark_bolt", "enemy_quick_evade", "enemy_weaken"], "behavior_weights": {"innate_attack_1": 50, "innate_defend": 10, "innate_dodge": 10, "enemy_dark_bolt": 30, "enemy_quick_evade": 15, "enemy_weaken": 20}},
+	{"id": "boss_deep_oracle", "name": "深渊先知", "hp": 100, "attack": 22, "defense": 4, "block_power": 7, "passive_skills": ["curse", "spell_shield", "toxic_mist", ""], "skills": ["enemy_weaken", "enemy_dark_bolt", "enemy_shadow_armor"], "behavior_weights": {"innate_attack_1": 50, "innate_defend": 10, "innate_dodge": 10, "enemy_weaken": 20, "enemy_dark_bolt": 30, "enemy_shadow_armor": 20}},
+	{"id": "boss_tower_core", "name": "裂塔核心", "hp": 100, "attack": 22, "defense": 6, "block_power": 8, "passive_skills": ["revive", "charge", "split", "blood_moon"], "skills": ["enemy_heavy_strike", "enemy_enrage", "enemy_rend"], "behavior_weights": {"innate_attack_1": 50, "innate_defend": 10, "innate_dodge": 10, "enemy_heavy_strike": 30, "enemy_enrage": 20, "enemy_rend": 25}}
 ]
 
 const MONSTER_GROUP_ORDER := ["rat", "guard", "shadow", "caster", "mutant"]
@@ -251,11 +258,11 @@ const MONSTER_GROUPS := {
 		"boss_units": ["boss_rat_king"]
 	},
 	"guard": {
-		"name": "守卫群落",
-		"minion_passive_skills": ["tank", "taunt"],
-		"normal_units": ["normal_guard_01", "normal_guard_03"],
-		"elite_units": ["elite_guard_01"],
-		"boss_units": ["boss_iron_warden"]
+		"name": "骷髅群落",
+		"minion_passive_skills": [],
+		"normal_units": ["normal_skeleton_01", "normal_skeleton_02", "normal_skeleton_03"],
+		"elite_units": ["elite_skeleton_01", "elite_skeleton_02", "elite_skeleton_03"],
+		"boss_units": ["boss_skeleton_warden"]
 	},
 	"shadow": {
 		"name": "暗影群落",

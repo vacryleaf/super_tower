@@ -26,7 +26,7 @@ func fire_trigger(target: Dictionary, event: String, context: Dictionary) -> voi
 
 func _execute_action(target: Dictionary, action: Dictionary, context: Dictionary) -> void:
 	var action_type := String(action.get("type", ""))
-	var battle_log: Array[String] = context.get("battle_log", [])
+	var battle_log: Array = context.get("battle_log", [])
 	var session = context.get("session")
 	match action_type:
 		TriggerEvents.ACTION_DOT:

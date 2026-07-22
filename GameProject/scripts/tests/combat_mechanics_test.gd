@@ -7,6 +7,7 @@ const CombatEngine = preload("res://scripts/core/combat_engine.gd")
 const Combatant = preload("res://scripts/core/combatant.gd")
 const StatusService = preload("res://scripts/core/status_service.gd")
 const CombatRules = preload("res://scripts/core/combat_rules.gd")
+const TriggerEvents = preload("res://scripts/core/trigger_events.gd")
 
 
 func run() -> void:
@@ -16,6 +17,10 @@ func run() -> void:
 	test_thick_skin_always_grants_armor()
 	test_rat_corruption_and_armor_reduction()
 	test_swarm_triggers_one_assist_per_living_ally()
+	test_hidden_targets_require_visible_fallback()
+	test_curse_refreshes_instead_of_stacking()
+	test_toxic_mist_uses_holder_attack()
+	test_new_units_wait_one_round()
 	test_skill_multiplier_effects()
 	test_counter_stance_and_multihit_dodge()
 	test_block_expires_each_round()
@@ -23,6 +28,8 @@ func run() -> void:
 	test_enemy_ai_skill_selection()
 	test_enemy_taunt_skill()
 	test_rank_skill_multiplier()
+	test_skeleton_passive_damage_rules()
+	test_skeleton_taunt_requires_an_ally()
 
 
 func test_rat_corruption_and_armor_reduction() -> void:
@@ -36,6 +43,109 @@ func test_rat_corruption_and_armor_reduction() -> void:
 	CombatRules.apply_armor_reduction(player, 3, status_service, "测试减防")
 	var combatant := Combatant.from_player(player, 0, 0, status_service)
 	assert_equal(int(combatant["armor"]), -2, "armor reduction should allow negative defense")
+
+
+func test_skeleton_passive_damage_rules() -> void:
+	var armored_target := {"hp": 100, "armor": 10, "block": 0, "dodge_layers": 0}
+	var damage_result := Combatant.apply_damage(armored_target, 30, "physical", 0.80)
+	assert_equal(int(damage_result["damage"]), 24, "break armor should ignore 20 percent of armor")
+	assert_equal(int(CombatRules.shadow_armor_reflect_damage({"damage_before_block": 10, "block_absorbed": 5, "block_broken": true, "damage": 5})), 10, "shadow armor should reflect twice when block breaks")
+	var protected_target := {"hp": 100, "passive_skills": ["", "", "", ""]}
+	var guard := {"hp": 100, "passive_skills": ["guard", "", "", ""]}
+	assert_equal(CombatRules.ally_guard_damage_multiplier(protected_target, [protected_target, guard]), 0.80, "living guard should protect teammates")
+	assert_equal(CombatRules.ally_guard_damage_multiplier(guard, [protected_target, guard]), 1.0, "guard should not protect itself")
+	guard["hp"] = 0
+	assert_equal(CombatRules.ally_guard_damage_multiplier(protected_target, [protected_target, guard]), 1.0, "dead guard should not protect teammates")
+	var status_service := StatusService.new()
+	var enraged := {"hp": 49, "max_hp": 100, "statuses": [], "passive_skills": ["enrage", "", "", ""]}
+	Combatant.normalize_enemy(enraged)
+	assert_equal(int(status_service.resolve_stat(enraged, 10.0, "attack")), 15, "enrage should increase damage below half health")
+	assert_equal(status_service.resolve_stat(enraged, 1.0, "damage_taken"), 1.30, "enrage should increase damage taken below half health")
+
+
+func test_skeleton_taunt_requires_an_ally() -> void:
+	var EnemyActionRules = preload("res://scripts/core/enemy_action_rules.gd")
+	var rules = EnemyActionRules.new()
+	var skeleton := {
+		"hp": 50, "max_hp": 50,
+		"behavior_weights": {"enemy_skeleton_taunt": 40},
+		"skill_cooldowns": {},
+		"innate_skills": {"attack_1": "innate_attack_1"}
+	}
+	assert_equal(rules.choose_skill(skeleton, 1, {}, true), "innate_attack_1", "taunt should be unavailable when alone")
+	skeleton["skill_cooldowns"] = {"enemy_skeleton_taunt": 2}
+	assert_equal(rules.choose_skill(skeleton, 1, {}, false), "innate_attack_1", "taunt should respect cooldown")
+
+
+func test_hidden_targets_require_visible_fallback() -> void:
+	var hidden_enemy := {"hp": 10, "passive_skills": ["hidden", "", "", ""]}
+	var visible_enemy := {"hp": 10, "passive_skills": ["", "", "", ""]}
+	assert_equal(CombatRules.valid_target([hidden_enemy, visible_enemy], 0), 1, "hidden enemy should be skipped while visible targets exist")
+	assert_equal(CombatRules.valid_target([hidden_enemy], 0), 0, "hidden enemy should still be targetable when alone")
+
+
+func test_curse_refreshes_instead_of_stacking() -> void:
+	var status_service := StatusService.new()
+	var attacker := Combatant.from_enemy_unit({
+		"name": "诅咒测试施法者",
+		"rank": "normal",
+		"hp": 20,
+		"attack": 10,
+		"defense": 0,
+		"passive_skills": ["curse", "", "", ""],
+		"skills": []
+	}, "normal", 1)
+	var target := {"hp": 100, "max_hp": 100, "statuses": []}
+	status_service.fire_trigger(attacker, TriggerEvents.ON_HIT_DEALT, {"session": null, "battle_log": [], "source": attacker, "target": target})
+	status_service.fire_trigger(attacker, TriggerEvents.ON_HIT_DEALT, {"session": null, "battle_log": [], "source": attacker, "target": target})
+	var curse_statuses: Array = target.get("statuses", []).filter(func(status): return String(status.get("id", "")) == "curse_debuff")
+	assert_equal(curse_statuses.size(), 1, "curse should refresh instead of stacking")
+	assert_equal(int(curse_statuses[0]["duration"]), 3, "curse duration should refresh to 3 rounds")
+
+
+func test_toxic_mist_uses_holder_attack() -> void:
+	var status_service := StatusService.new()
+	var player := {"hp": 100, "max_hp": 100, "statuses": []}
+	var ally := {"hp": 100, "max_hp": 100, "statuses": []}
+	var boss := {
+		"hp": 100,
+		"attack": 20,
+		"defense": 0,
+		"passive_skills": ["toxic_mist", "", "", ""]
+	}
+	CombatRules.apply_arena_effects(player, [boss], 3, status_service, [ally], [])
+	assert_equal(int(player["hp"]), 94, "toxic mist should use holder attack against player")
+	assert_equal(int(ally["hp"]), 94, "toxic mist should also hit allied units")
+
+
+func test_new_units_wait_one_round() -> void:
+	var summon_enemy := {
+		"hp": 20,
+		"max_hp": 20,
+		"attack": 5,
+		"defense": 1,
+		"block_power": 1,
+		"passive_skills": ["summon", "", "", ""],
+		"skills": [],
+		"statuses": [{"id": "summon_ready", "name": "召唤准备", "kind": "buff", "stack": "replace", "duration": 1}]
+	}
+	var summon_enemies: Array[Dictionary] = [summon_enemy]
+	CombatRules.check_summon(summon_enemies, 4, [])
+	assert_equal(int(summon_enemies[1]["available_round"]), 5, "summoned unit should wait until the next round")
+
+	var split_enemy := {
+		"hp": 40,
+		"max_hp": 100,
+		"attack": 8,
+		"defense": 2,
+		"block_power": 2,
+		"passive_skills": ["split", "", "", ""],
+		"skills": [],
+		"split_triggered": false
+	}
+	var split_enemies: Array[Dictionary] = [split_enemy]
+	CombatRules.check_split(split_enemies, 7, [])
+	assert_equal(int(split_enemies[1]["available_round"]), 8, "split unit should wait until the next round")
 
 
 func test_swarm_triggers_one_assist_per_living_ally() -> void:
@@ -119,8 +229,8 @@ func test_player_and_enemy_share_combatant_contract() -> void:
 
 
 func test_thick_skin_always_grants_armor() -> void:
-	var combat := CombatEngine.new()
-	var enemy := combat.scale_enemy({
+	var combat: CombatEngine = CombatEngine.new()
+	var enemy: Dictionary = combat.scale_enemy({
 		"name": "厚皮测试",
 		"hp": 1.0,
 		"attack": 1.0,

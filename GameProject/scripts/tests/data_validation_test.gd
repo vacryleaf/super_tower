@@ -11,6 +11,7 @@ func run() -> void:
 	test_enemy_roles_include_tank_taunt_and_backline()
 	test_monster_groups_are_complete()
 	test_rat_group_fixed_stats()
+	test_skeleton_group_fixed_stats()
 	test_cunning_masks_enemy_intent()
 	test_skill_costs_minimum_two()
 	test_external_resource_manifests()
@@ -102,6 +103,24 @@ func test_rat_group_fixed_stats() -> void:
 	var king := Combatant.from_enemy_unit(DataCatalog.monster_group_units("rat", "boss")[0], "boss", 1)
 	assert_equal(int(king["max_hp"]), 100, "rat king floor one hp")
 	assert_true(king["skills"].has("enemy_call_rat_pack"), "rat king should call rat pack")
+
+
+func test_skeleton_group_fixed_stats() -> void:
+	var skeleton_units := DataCatalog.monster_group_units("guard", "normal")
+	assert_equal(skeleton_units.size(), 3, "skeleton group should have three normal units")
+	var sword_skeleton := Combatant.from_enemy_unit(skeleton_units[0], "normal", 1)
+	assert_equal(String(sword_skeleton["name"]), "刀盾骷髅", "first skeleton name")
+	assert_equal(int(sword_skeleton["max_hp"]), 50, "sword skeleton floor one hp")
+	assert_equal(int(sword_skeleton["attack"]), 8, "sword skeleton floor one damage")
+	assert_equal(int(sword_skeleton["armor"]), 5, "thick skin should multiply skeleton armor by 1.2")
+	assert_equal(int(sword_skeleton["block_power"]), 5, "sword skeleton block power")
+	assert_true(sword_skeleton["skills"].has("enemy_skeleton_taunt"), "sword skeleton should have taunt")
+	var elite_skeleton := Combatant.from_enemy_unit(skeleton_units[0], "elite", 2)
+	assert_equal(int(elite_skeleton["max_hp"]), 98, "elite skeleton should use floor and elite multipliers")
+	assert_equal(int(elite_skeleton["block_power"]), 10, "elite skeleton block should use floor and elite multipliers")
+	var warden := Combatant.from_enemy_unit(DataCatalog.monster_group_units("guard", "boss")[0], "boss", 1)
+	assert_equal(String(warden["name"]), "骷髅典狱长", "skeleton boss name")
+	assert_true(warden["passive_skills"].has("enrage"), "skeleton boss should have enrage")
 
 
 func test_cunning_masks_enemy_intent() -> void:

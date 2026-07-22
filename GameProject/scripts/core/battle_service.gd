@@ -270,7 +270,7 @@ func execute_skill(session: RefCounted, skill_id: String, target_index: int, act
 			for _hit in range(hits):
 				if int(player_unit["hp"]) <= 0:
 					break
-				var result := deal_damage_to_target(player_unit, base_damage, String(skill.get("damage_type", "physical")), session)
+				var result := deal_damage_to_target(player_unit, base_damage, String(skill.get("damage_type", "physical")), session, actor)
 				session._sync_player_combatant(player_unit)
 				if bool(result["dodged"]):
 					session.battle_log.append("躲避了 %s 的 %s。" % [actor["name"], skill["name"]])
@@ -315,6 +315,8 @@ func execute_skill(session: RefCounted, skill_id: String, target_index: int, act
 			Combatant.add_block_amount(actor, total_gained)
 			session.battle_log.append("%s 使用 %s：获得 %d 点格挡。" % [actor["name"], String(skill.get("name", skill_id)), total_gained])
 			session.last_events.append({"kind": "defense", "target": "enemy", "target_index": target_index, "source": actor["name"], "amount": total_gained})
+			if skill_id == "enemy_shadow_armor":
+				actor["shadow_armor_active"] = true
 
 	elif skill_type == "dodge":
 		if is_player_actor:
@@ -335,7 +337,7 @@ func execute_skill(session: RefCounted, skill_id: String, target_index: int, act
 
 	elif skill_type == "taunt":
 		actor["taunt"] = int(skill.get("taunt_duration", 1))
-		var gained: int = Combatant.add_block(actor, 1.0)
+		var gained: int = Combatant.add_block(actor, float(skill.get("block_multiplier", 1.0)))
 		session.battle_log.append("%s 使用 %s：嘲讽并防守，获得 %d 点格挡。" % [actor["name"], String(skill.get("name", skill_id)), gained])
 		session.last_events.append({"kind": "defense", "target": "enemy", "target_index": target_index, "source": actor["name"], "amount": gained})
 
@@ -470,9 +472,9 @@ func end_turn(session: RefCounted) -> void:
 
 func enemy_turn(session: RefCounted) -> void:
 	# 检查裂变特性：HP 低于阈值的 split 敌人可能分裂
-	CombatRules.check_split(session.enemies, session.battle_log)
+	CombatRules.check_split(session.enemies, session.round_index, session.battle_log)
 	# 检查召唤特性：summon_ready 状态的敌人召唤弱化分身
-	CombatRules.check_summon(session.enemies, session.battle_log)
+	CombatRules.check_summon(session.enemies, session.round_index, session.battle_log)
 	session._clear_enemy_blocks()
 	session._clear_enemy_taunts()
 	for enemy in session.enemies:
@@ -510,7 +512,7 @@ func enemy_turn(session: RefCounted) -> void:
 
 	# 回合结束特性结算：corrode 腐蚀玩家护甲，support 治疗友军
 	CombatRules.apply_end_round_traits(session.player, session.enemies, session.round_index, session.status_service, session.battle_log)
-	CombatRules.apply_arena_effects(session.player, session.enemies, session.round_index, session.status_service)
+	CombatRules.apply_arena_effects(session.player, session.enemies, session.round_index, session.status_service, session.allies, session.battle_log)
 
 
 func resolve_enemy_action(session: RefCounted, enemy: Dictionary, enemy_index: int) -> void:
@@ -550,7 +552,7 @@ func enemy_attack(session: RefCounted, enemy: Dictionary, enemy_index: int, firs
 		return
 	var was_hit := false
 	for damage in segments:
-		var result := deal_damage_to_target(player_unit, damage, "physical", session)
+		var result := deal_damage_to_target(player_unit, damage, "physical", session, enemy)
 		session._sync_player_combatant(player_unit)
 		if bool(result["dodged"]):
 			session.battle_log.append("躲避了 %s 的一段攻击。" % enemy["name"])
@@ -624,7 +626,7 @@ func enemy_attack_segments(session: RefCounted, enemy: Dictionary, first_strike:
 	return session._enemy_attack_segments(enemy, first_strike)
 
 
-func deal_damage_to_target(target: Dictionary, raw_damage: int, damage_type: String, session: RefCounted) -> Dictionary:
+func deal_damage_to_target(target: Dictionary, raw_damage: int, damage_type: String, session: RefCounted, attacker: Dictionary = {}) -> Dictionary:
 	var damage_taken_mult: float = session.status_service.resolve_stat(target, 1.0, StatusService.STAT_DAMAGE_TAKEN)
 	var marked_damage := maxi(0, int(ceil(float(raw_damage) * damage_taken_mult)))
 	if damage_type != DamageType.TRUE:
@@ -632,13 +634,34 @@ func deal_damage_to_target(target: Dictionary, raw_damage: int, damage_type: Str
 		var base_resist := float(target.get("resistances", {}).get(damage_type, 1.0))
 		var resist_mult: float = session.status_service.resolve_stat(target, base_resist, resist_key)
 		marked_damage = maxi(0, int(ceil(float(marked_damage) * resist_mult)))
-	return Combatant.apply_damage(target, marked_damage, damage_type)
+	if String(target.get("side", "")) == "enemy":
+		marked_damage = maxi(0, int(ceil(float(marked_damage) * CombatRules.ally_guard_damage_multiplier(target, session.enemies))))
+	var result := Combatant.apply_damage(target, marked_damage, damage_type, CombatRules.armor_multiplier_against(attacker))
+	_apply_shadow_armor_reflect(session, target, attacker, result)
+	return result
+
+
+func _apply_shadow_armor_reflect(session: RefCounted, target: Dictionary, attacker: Dictionary, result: Dictionary) -> void:
+	if not bool(target.get("shadow_armor_active", false)):
+		return
+	var reflect_damage := CombatRules.shadow_armor_reflect_damage(result)
+	if reflect_damage <= 0:
+		return
+	var attacker_unit: Dictionary = attacker
+	var sync_player := String(attacker.get("side", "")) != "enemy"
+	if sync_player:
+		attacker_unit = session._player_combatant()
+	var reflect_result := Combatant.apply_damage(attacker_unit, reflect_damage, "physical")
+	if sync_player:
+		session._sync_player_combatant(attacker_unit)
+	if not bool(reflect_result["dodged"]):
+		session.battle_log.append("暗影护甲：%s 受到 %d 点反伤。" % [String(attacker_unit.get("name", attacker.get("name", ""))), int(reflect_result["damage"])])
 
 
 # 回合结束时处理 corrode（腐蚀）和 support（辅助）特性效果，委托给 CombatRules 统一处理
 func _apply_end_round_traits(session: RefCounted) -> void:
 	CombatRules.apply_end_round_traits(session.player, session.enemies, session.round_index, session.status_service, session.battle_log)
-	CombatRules.apply_arena_effects(session.player, session.enemies, session.round_index, session.status_service)
+	CombatRules.apply_arena_effects(session.player, session.enemies, session.round_index, session.status_service, session.allies, session.battle_log)
 
 
 func _build_buff_effects(skill: Dictionary, skill_id: String, is_player_actor: bool, session: RefCounted) -> Array[Dictionary]:

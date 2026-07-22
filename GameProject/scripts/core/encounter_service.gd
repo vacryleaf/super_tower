@@ -30,12 +30,11 @@ func generate_encounter(tower_floor: int, battle_index: int, floor_group_id: Str
 
 
 func normal_encounter(tower_floor: int, battle_index: int, group_id: String) -> Dictionary:
-	var selector := (tower_floor + battle_index) % 5
-	if selector == 0 and tower_floor >= 3:
+	if battle_index >= 7 and tower_floor >= 3:
 		return formation("enc_%s_group_%d_%d" % [group_id, tower_floor, battle_index], "normal", _group_squad(group_id, 3, [0.52, 0.50, 0.46]))
-	if selector == 1 and tower_floor >= 4:
+	if battle_index >= 4 and tower_floor >= 5:
 		return formation("enc_%s_pair_%d_%d" % [group_id, tower_floor, battle_index], "normal", _group_squad(group_id, 2, [0.62, 0.62]))
-	if selector == 2 and tower_floor >= 5:
+	if battle_index >= 4 and tower_floor >= 4:
 		return formation("enc_%s_pair_%d_%d" % [group_id, tower_floor, battle_index], "normal", _group_squad(group_id, 2, [0.62, 0.62]))
 	var unit := _group_unit(group_id, "normal", tower_floor + battle_index)
 	if unit.is_empty():

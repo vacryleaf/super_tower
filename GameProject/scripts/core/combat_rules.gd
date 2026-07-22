@@ -67,6 +67,19 @@ static func apply_armor_reduction(target: Dictionary, amount: int, status_servic
 	})
 
 
+static func armor_multiplier_against(attacker: Dictionary) -> float:
+	return 0.80 if attacker.get("passive_skills", []).has("break_armor") else 1.0
+
+
+static func ally_guard_damage_multiplier(target: Dictionary, allies: Array[Dictionary]) -> float:
+	for ally in allies:
+		if ally == target or int(ally.get("hp", 0)) <= 0:
+			continue
+		if ally.get("passive_skills", []).has("guard"):
+			return 0.80
+	return 1.0
+
+
 static func tick_enemy_cooldowns(enemy: Dictionary) -> void:
 	var cooldowns: Dictionary = enemy.get("skill_cooldowns", {})
 	var expired: Array[String] = []
@@ -105,6 +118,17 @@ static func active_taunt_target(enemies: Array[Dictionary]) -> int:
 	return -1
 
 
+static func is_hidden_unit(enemy: Dictionary) -> bool:
+	return enemy.get("passive_skills", []).has("hidden")
+
+
+static func has_visible_alive_enemy(enemies: Array[Dictionary]) -> bool:
+	for enemy in enemies:
+		if int(enemy.get("hp", 0)) > 0 and not is_hidden_unit(enemy):
+			return true
+	return false
+
+
 static func valid_target(enemies: Array[Dictionary], target_index: int) -> int:
 	var taunt_target := active_taunt_target(enemies)
 	if taunt_target >= 0:
@@ -112,12 +136,19 @@ static func valid_target(enemies: Array[Dictionary], target_index: int) -> int:
 	if enemies.is_empty():
 		return -1
 	var has_frontline := has_active_frontline(enemies)
+	var has_visible := has_visible_alive_enemy(enemies)
 	if target_index >= 0 and target_index < enemies.size() and int(enemies[target_index].get("hp", 0)) > 0:
-		if not is_backline_protected_by_frontline(enemies[target_index], has_frontline):
+		if (not has_visible or not is_hidden_unit(enemies[target_index])) and not is_backline_protected_by_frontline(enemies[target_index], has_frontline):
 			return target_index
 	for i in range(enemies.size()):
 		if int(enemies[i].get("hp", 0)) > 0:
+			if has_visible and is_hidden_unit(enemies[i]):
+				continue
 			if not is_backline_protected_by_frontline(enemies[i], has_frontline):
+				return i
+	if has_visible:
+		for i in range(enemies.size()):
+			if int(enemies[i].get("hp", 0)) > 0 and not is_hidden_unit(enemies[i]):
 				return i
 	return -1
 
@@ -285,7 +316,7 @@ static func find_lowest_hp_ally(enemies: Array[Dictionary], self_enemy: Dictiona
 
 
 # 检查并执行裂变：HP 低于阈值的 split 特性敌人分裂为两个半血单位
-static func check_split(enemies: Array[Dictionary], log: Array[String]) -> void:
+static func check_split(enemies: Array[Dictionary], round_index: int, log: Array[String]) -> void:
 	for enemy in enemies:
 		if int(enemy.get("hp", 0)) <= 0:
 			continue
@@ -300,13 +331,14 @@ static func check_split(enemies: Array[Dictionary], log: Array[String]) -> void:
 		enemy["hp"] = split_hp
 		var clone: Dictionary = enemy.duplicate(true)
 		clone["hp"] = split_hp
+		clone["available_round"] = round_index + 1
 		enemies.append(clone)
-		log.append("split:%s" % enemy["name"])
+		log.append("split:%s" % String(enemy.get("name", "敌人")))
 		break
 
 
 # 检查并执行召唤：拥有 summon trait 且 summon_ready 状态激活的敌人召唤弱化分身
-static func check_summon(enemies: Array[Dictionary], log: Array[String]) -> void:
+static func check_summon(enemies: Array[Dictionary], round_index: int, log: Array[String]) -> void:
 	for enemy in enemies:
 		if int(enemy.get("hp", 0)) <= 0:
 			continue
@@ -335,9 +367,10 @@ static func check_summon(enemies: Array[Dictionary], log: Array[String]) -> void
 			var sid := String(clone_statuses[i].get("id", ""))
 			if sid == "summon_ready" or sid == "trait_summon":
 				clone_statuses.remove_at(i)
-		clone["name"] = "%s 的仆从" % enemy["name"]
+		clone["name"] = "%s 的仆从" % String(enemy.get("name", "敌人"))
+		clone["available_round"] = round_index + 1
 		enemies.append(clone)
-		log.append("summon:%s:%s" % [enemy["name"], clone["name"]])
+		log.append("summon:%s:%s" % [String(enemy.get("name", "敌人")), String(clone.get("name", "仆从"))])
 		break
 
 
@@ -355,9 +388,6 @@ static func apply_end_round_traits(player: Dictionary, enemies: Array[Dictionary
 		if int(enemy.get("hp", 0)) <= 0:
 			continue
 		var passive_skills: Array = enemy.get("passive_skills", [])
-		# 诅咒：每 N 回合对玩家造成直接伤害
-		if passive_skills.has("curse") and round_index % CURSE_INTERVAL == 0:
-			player["hp"] = maxi(0, int(player["hp"]) - CURSE_DAMAGE)
 		# 腐蚀：每回合给玩家施加护甲降低 debuff
 		if passive_skills.has("corrode") and status_service != null:
 			status_service.add_status(player, {
@@ -376,32 +406,41 @@ static func apply_end_round_traits(player: Dictionary, enemies: Array[Dictionary
 
 
 # 检查并应用场地效果：boss 存活时对全场施加效果
-static func apply_arena_effects(player: Dictionary, enemies: Array[Dictionary], round_index: int, status_service) -> void:
+static func apply_arena_effects(player: Dictionary, enemies: Array[Dictionary], round_index: int, status_service, allies: Array[Dictionary] = [], log: Array[String] = []) -> void:
 	if status_service == null:
 		return
 	var has_toxic_mist := false
 	var has_shadow_domain := false
 	var has_blood_moon := false
+	var toxic_sources: Array[Dictionary] = []
 	for enemy in enemies:
 		if int(enemy.get("hp", 0)) <= 0:
 			continue
 		var passive_skills: Array = enemy.get("passive_skills", [])
 		if passive_skills.has("toxic_mist"):
 			has_toxic_mist = true
+			toxic_sources.append(enemy)
 		if passive_skills.has("shadow_domain"):
 			has_shadow_domain = true
 		if passive_skills.has("blood_moon"):
 			has_blood_moon = true
-	# 毒雾：每 3 回合所有单位受到 1 点 DOT 伤害
+	# 毒雾：每 3 回合对玩家和友军造成基于持有者攻击力的伤害
 	if has_toxic_mist and round_index % 3 == 0:
-		var dot_status := {"id": "toxic_mist_dot", "name": "毒雾", "kind": "debuff", "stack": "replace",
-			"effects": [],
-			"triggers": [{"event": "on_turn_start", "actions": [{"type": "dot", "value": 1}]}],
-			"duration": 3}
-		status_service.add_status(player, dot_status)
-		for enemy in enemies:
-			if int(enemy.get("hp", 0)) > 0:
-				status_service.add_status(enemy, dot_status)
+		var source_attack := 0.0
+		for source in toxic_sources:
+			source_attack = maxf(source_attack, float(status_service.resolve_stat(source, float(source.get("attack", 0)), StatusService.STAT_ATTACK)))
+		var dot_damage := maxi(1, int(ceil(source_attack * 0.30)))
+		var targets: Array[Dictionary] = [player]
+		for ally in allies:
+			if int(ally.get("hp", 0)) > 0:
+				targets.append(ally)
+		for target in targets:
+			var result := Combatant.apply_damage(target, dot_damage, "physical")
+			if not log.is_empty():
+				if bool(result["dodged"]):
+					log.append("毒雾：%s 闪避了伤害。" % String(target.get("name", "")))
+				else:
+					log.append("毒雾：%s 受到 %d 点伤害。" % [String(target.get("name", "")), int(result["damage"])])
 	# 暗影领域：暗影伤害 +20%，治疗 -50%
 	if has_shadow_domain:
 		var shadow_status := {"id": "shadow_domain_effect", "name": "暗影领域", "kind": "debuff", "stack": "replace",
@@ -423,3 +462,18 @@ static func apply_arena_effects(player: Dictionary, enemies: Array[Dictionary], 
 		for enemy in enemies:
 			if int(enemy.get("hp", 0)) > 0:
 				status_service.add_status(enemy, blood_status)
+
+
+static func shadow_armor_reflect_damage(result: Dictionary) -> int:
+	if bool(result.get("dodged", false)):
+		return 0
+	if int(result.get("block_absorbed", 0)) <= 0:
+		return 0
+	var damage_before_block := int(result.get("damage_before_block", result.get("damage", 0)))
+	if damage_before_block <= 0:
+		return 0
+	var reflect_per_hit := maxi(1, int(ceil(float(damage_before_block) * 0.5)))
+	var reflect_count := 1
+	if int(result.get("block_broken", 0)) > 0 and int(result.get("damage", 0)) > 0:
+		reflect_count += 1
+	return reflect_per_hit * reflect_count

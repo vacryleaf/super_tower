@@ -162,12 +162,16 @@ static func are_hostile(a: Dictionary, b: Dictionary) -> bool:
 	return String(a.get("side", "")) != String(b.get("side", ""))
 
 
-static func apply_damage(combatant: Dictionary, raw_damage: int, damage_type: String = "physical") -> Dictionary:
+static func apply_damage(combatant: Dictionary, raw_damage: int, damage_type: String = "physical", armor_multiplier: float = 1.0) -> Dictionary:
 	var result := {
 		"dodged": false,
 		"raw_damage": maxi(0, raw_damage),
+		"damage_before_block": 0,
 		"armor_reduced": 0,
+		"block_before": int(combatant.get("block", 0)),
 		"block_absorbed": 0,
+		"block_after": int(combatant.get("block", 0)),
+		"block_broken": false,
 		"damage": 0
 	}
 	if raw_damage <= 0:
@@ -179,24 +183,28 @@ static func apply_damage(combatant: Dictionary, raw_damage: int, damage_type: St
 
 	var after_armor := raw_damage
 	if damage_type != DamageType.TRUE:
-		after_armor = damage_after_armor(combatant, raw_damage)
+		after_armor = damage_after_armor(combatant, raw_damage, armor_multiplier)
 	result["armor_reduced"] = maxi(0, raw_damage - after_armor)
+	result["damage_before_block"] = after_armor
 	var remaining := after_armor
 	if int(combatant.get("block", 0)) > 0:
 		var absorbed: int = mini(int(combatant.get("block", 0)), remaining)
 		combatant["block"] = int(combatant.get("block", 0)) - absorbed
 		remaining -= absorbed
 		result["block_absorbed"] = absorbed
+		result["block_after"] = int(combatant.get("block", 0))
+		result["block_broken"] = int(result["block_before"]) > 0 and int(result["block_after"]) <= 0
 	if remaining > 0:
 		combatant["hp"] = maxi(0, int(combatant.get("hp", 0)) - remaining)
 	result["damage"] = remaining
 	return result
 
 
-static func damage_after_armor(combatant: Dictionary, raw_damage: int) -> int:
+static func damage_after_armor(combatant: Dictionary, raw_damage: int, armor_multiplier: float = 1.0) -> int:
 	if raw_damage <= 0:
 		return 0
 	var armor := int(combatant.get("armor", combatant.get("defense", 0)))
+	armor = int(ceil(float(armor) * armor_multiplier))
 	return maxi(1, int(ceil(float(raw_damage) * ARMOR_BASE / maxf(1.0, ARMOR_BASE + float(armor)))))
 
 
@@ -218,7 +226,7 @@ static func normalize_enemy(enemy: Dictionary) -> void:
 	if not enemy.has("taunt"):
 		enemy["taunt"] = 0
 	if passive_skills.has("thick_skin") and int(enemy.get("armor", 0)) <= 0:
-		enemy["armor"] = maxi(1, defense)
+		enemy["armor"] = maxi(1, int(ceil(float(defense) * 1.20)))
 	elif not enemy.has("armor"):
 		enemy["armor"] = 0
 	if not enemy.has("skills"):
@@ -229,6 +237,8 @@ static func normalize_enemy(enemy: Dictionary) -> void:
 		enemy["behavior_weights"] = {}
 	if not enemy.has("available_round"):
 		enemy["available_round"] = 0
+	if not enemy.has("shadow_armor_active"):
+		enemy["shadow_armor_active"] = false
 	if not enemy.has("innate_skills"):
 		enemy["innate_skills"] = {
 			"attack_1": "innate_attack_1",
@@ -260,7 +270,7 @@ static func _apply_trait_statuses(enemy: Dictionary) -> void:
 			"id": "trait_enrage", "name": "激怒", "kind": "buff", "stack": "replace",
 			"effects": [],
 			"conditional_effects": [
-				{"condition": {"hp_ratio": {"lt": 0.4}}, "effects": [{"stat": "attack", "type": "multiply", "value": 1.30}]}
+				{"condition": {"hp_ratio": {"lt": 0.5}}, "effects": [{"stat": "attack", "type": "multiply", "value": 1.50}, {"stat": "damage_taken", "type": "multiply", "value": 1.30}]}
 			],
 			"duration": -1
 		})
@@ -289,26 +299,6 @@ static func _apply_trait_statuses(enemy: Dictionary) -> void:
 			"duration": -1
 		})
 
-	# 破甲：命中玩家时施加护甲降低 debuff（defense × 0.80，持续 2 回合）
-	if passive_skills.has("break_armor"):
-		statuses.append({
-			"id": "trait_break_armor", "name": "破甲", "kind": "buff", "stack": "replace",
-			"effects": [],
-			"triggers": [{
-				"event": TriggerEvents.ON_HIT_DEALT,
-				"actions": [{
-					"type": TriggerEvents.ACTION_APPLY_STATUS,
-					"apply_to": "context_target",
-					"status": {
-						"id": "break_armor_debuff", "name": "破甲", "kind": "debuff", "stack": "replace",
-						"effects": [{"stat": "defense", "type": "multiply", "value": 0.80}],
-						"duration": 2
-					}
-				}]
-			}],
-			"duration": -1
-		})
-
 	# 标记：命中玩家时施加易伤 debuff（damage_taken × 1.25，持续 2 回合）
 	if passive_skills.has("mark"):
 		statuses.append({
@@ -325,6 +315,39 @@ static func _apply_trait_statuses(enemy: Dictionary) -> void:
 						"duration": 2
 					}
 				}]
+			}],
+			"duration": -1
+		})
+
+	if passive_skills.has("curse"):
+		statuses.append({
+			"id": "trait_curse", "name": "诅咒", "kind": "buff", "stack": "replace",
+			"effects": [],
+			"triggers": [{
+				"event": TriggerEvents.ON_HIT_DEALT,
+				"actions": [{
+					"type": TriggerEvents.ACTION_APPLY_STATUS,
+					"apply_to": "context_target",
+					"status": {
+						"id": "curse_debuff", "name": "诅咒", "kind": "debuff", "stack": "replace",
+						"effects": [{"stat": "attack", "type": "multiply", "value": 0.80}],
+						"duration": 3
+					}
+				}]
+			}],
+			"duration": -1
+		})
+
+	if passive_skills.has("abyss_communication"):
+		statuses.append({
+			"id": "trait_abyss_communication", "name": "深渊沟通", "kind": "buff", "stack": "replace",
+			"effects": [],
+			"triggers": [{
+				"event": TriggerEvents.ON_TURN_START,
+				"actions": [
+					{"type": TriggerEvents.ACTION_GAIN_BLOCK, "self_stat": "block_power", "self_ratio": 0.5},
+					{"type": TriggerEvents.ACTION_HEAL, "self_stat": "max_hp", "self_ratio": 0.05}
+				]
 			}],
 			"duration": -1
 		})
@@ -444,6 +467,7 @@ static func _enemy_dictionary(unit_name: String, rank: String, hp: int, attack: 
 		"skill_cooldowns": {},
 		"behavior_weights": behavior_weights.duplicate(),
 		"available_round": 0,
+		"shadow_armor_active": false,
 		"innate_skills": {
 			"attack_1": "innate_attack_1",
 			"defend": "innate_defend",
@@ -459,7 +483,7 @@ static func _enemy_dictionary(unit_name: String, rank: String, hp: int, attack: 
 static func _enemy_base_armor(unit: Dictionary, defense: int, passive_skills: Array) -> int:
 	var armor := int(unit.get("armor", defense))
 	if passive_skills.has("thick_skin"):
-		armor += maxi(1, defense)
+		armor = maxi(1, int(ceil(float(armor) * 1.20)))
 	return armor
 
 

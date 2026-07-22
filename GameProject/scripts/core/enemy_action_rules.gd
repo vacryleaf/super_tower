@@ -78,7 +78,7 @@ func choose_skill(enemy: Dictionary, round_index: int, player_context: Dictionar
 	var hp_percent: float = float(enemy["hp"]) / float(maxi(1, enemy["max_hp"]))
 	var behavior_weights: Dictionary = enemy.get("behavior_weights", {})
 	if not behavior_weights.is_empty():
-		return _choose_weighted_action(enemy, behavior_weights, innate, rng)
+		return _choose_weighted_action(enemy, behavior_weights, innate, rng, is_alone)
 
 	if passive_skills.has("tutorial_ramp"):
 		if round_index % 2 == 0:
@@ -231,14 +231,14 @@ func _filter_by_type(skills: Array, skill_type: String) -> Array[String]:
 	return result
 
 
-func _choose_weighted_action(enemy: Dictionary, behavior_weights: Dictionary, innate: Dictionary, rng: RandomNumberGenerator) -> String:
+func _choose_weighted_action(enemy: Dictionary, behavior_weights: Dictionary, innate: Dictionary, rng: RandomNumberGenerator, is_alone: bool) -> String:
 	var DataCatalog = preload("res://scripts/core/data_catalog.gd")
 	var candidates: Array[String] = []
 	var total_weight := 0
 	for skill_id_value in behavior_weights.keys():
 		var skill_id := String(skill_id_value)
 		var weight := int(behavior_weights[skill_id_value])
-		if weight <= 0 or not _is_available(enemy, skill_id, DataCatalog):
+		if weight <= 0 or not _is_available(enemy, skill_id, DataCatalog, is_alone):
 			continue
 		candidates.append(skill_id)
 		total_weight += weight
@@ -252,8 +252,10 @@ func _choose_weighted_action(enemy: Dictionary, behavior_weights: Dictionary, in
 	return candidates.back()
 
 
-func _is_available(enemy: Dictionary, skill_id: String, data_catalog) -> bool:
+func _is_available(enemy: Dictionary, skill_id: String, data_catalog, is_alone: bool) -> bool:
 	if not data_catalog.SKILLS.has(skill_id) and not data_catalog.INNATE_SKILLS.has(skill_id):
+		return false
+	if bool(data_catalog.SKILLS.get(skill_id, {}).get("requires_living_ally", false)) and is_alone:
 		return false
 	return int(enemy.get("skill_cooldowns", {}).get(skill_id, 0)) <= 0
 
