@@ -6,6 +6,8 @@ const RunSimulator = preload("res://scripts/core/run_simulator.gd")
 const CombatEngine = preload("res://scripts/core/combat_engine.gd")
 const DynamicValueResolver = preload("res://scripts/core/dynamic_value_resolver.gd")
 
+const BASELINE_CAMPAIGN_SEED := 3
+
 
 func run() -> void:
 	test_tutorial_unlocks("warrior")
@@ -83,6 +85,7 @@ func test_late_battles_are_stronger_than_openers() -> void:
 
 func test_baseline_campaign_difficulty_gate(class_id: String) -> void:
 	var simulator := RunSimulator.new()
+	simulator.set_seed(BASELINE_CAMPAIGN_SEED)
 	var floor_three_attempt := simulator.run_campaign(class_id, 3)
 	assert_true(not bool(floor_three_attempt["success"]), "%s low-armor baseline should hit a build gate before clearing floor 3" % class_id)
 	assert_true(int(floor_three_attempt.get("failed_floor", 0)) >= 2, "%s baseline failure should reach formal floors, got floor %d battle %d" % [

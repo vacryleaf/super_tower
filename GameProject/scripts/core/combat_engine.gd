@@ -41,10 +41,17 @@ var deferred_damage := 0.0
 var scene_skill_sources: Array[Dictionary] = []
 var rng := RandomNumberGenerator.new()
 var active_floor := 1
+var randomize_each_battle := true
+
+
+func set_seed(seed_value: int) -> void:
+	rng.seed = seed_value
+	randomize_each_battle = false
 
 
 func run_battle(player: Dictionary, encounter: Dictionary, tower_floor: int, battle_index: int, allies: Array[Dictionary] = []) -> Dictionary:
-	rng.randomize()
+	if randomize_each_battle:
+		rng.randomize()
 	active_floor = tower_floor
 	var enemies := _build_enemies(encounter, tower_floor)
 	var log: Array[String] = []
@@ -827,7 +834,7 @@ func _apply_enemy_attack(player: Dictionary, enemy: Dictionary, enemy_index: int
 				dodge_counted = true
 			status_service.fire_trigger(player, TriggerEvents.ON_DODGE, {"battle_log": log, "session": self, "source": enemy})
 	if was_hit:
-		_apply_rat_on_hit_in_sim(player, enemy)
+		CombatRules.apply_rat_on_hit(enemy, player, status_service)
 		_trigger_counter_attack(player, enemy, enemy_index, log, counter_state)
 		_sim_reflect_damage(player, enemy, enemy_index, log)
 	if allow_swarm and not first_strike and enemy.get("passive_skills", []).has("swarm"):
@@ -992,7 +999,7 @@ func _execute_enemy_skill_in_sim(player: Dictionary, enemy: Dictionary, skill_id
 				was_hit = was_hit or bool(result["hit"])
 				log.append("enemy_skill:%s:%s:%d" % [skill_id, enemy["name"], damage])
 			if was_hit:
-				_apply_rat_on_hit_in_sim(player, enemy)
+				CombatRules.apply_rat_on_hit(enemy, player, status_service)
 				var armor_reduction := int(skill.get("armor_reduction", 0))
 				if armor_reduction > 0:
 					CombatRules.apply_armor_reduction(player, armor_reduction, status_service, String(skill["name"]))
@@ -1047,14 +1054,6 @@ func _execute_enemy_skill_in_sim(player: Dictionary, enemy: Dictionary, skill_id
 			status_service.add_status(player, status)
 			log.append("enemy_skill_debuff:%s:%s" % [skill_id, enemy["name"]])
 	return {"block": player_block}
-
-
-func _apply_rat_on_hit_in_sim(player: Dictionary, attacker: Dictionary) -> void:
-	var passive_skills: Array = attacker.get("passive_skills", [])
-	if passive_skills.has("corruption"):
-		CombatRules.apply_corruption(player, int(attacker["attack"]), status_service)
-	if passive_skills.has("fang"):
-		CombatRules.apply_armor_reduction(player, 1, status_service, "尖牙")
 
 
 func _clear_enemy_taunts(enemies: Array[Dictionary]) -> void:

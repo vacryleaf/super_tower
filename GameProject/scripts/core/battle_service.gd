@@ -280,7 +280,7 @@ func execute_skill(session: RefCounted, skill_id: String, target_index: int, act
 					session.battle_log.append("%s 使用 %s：造成 %d 点伤害。" % [actor["name"], String(skill.get("name", skill_id)), int(result["damage"])])
 					session.last_events.append({"kind": "damage", "target": "player", "source": actor["name"], "amount": int(result["damage"])})
 			if was_hit:
-				_apply_rat_on_hit(session, actor, session.player)
+				CombatRules.apply_rat_on_hit(actor, session.player, session.status_service)
 				var armor_reduction := int(skill.get("armor_reduction", 0))
 				if armor_reduction > 0:
 					CombatRules.apply_armor_reduction(session.player, armor_reduction, session.status_service, String(skill["name"]))
@@ -592,19 +592,11 @@ func enemy_attack(session: RefCounted, enemy: Dictionary, enemy_index: int, firs
 		if deferred_pct > 0.0:
 			session.deferred_damage += float(int(result["damage"])) * deferred_pct
 	if was_hit:
-		_apply_rat_on_hit(session, enemy, session.player)
+		CombatRules.apply_rat_on_hit(enemy, session.player, session.status_service)
 		session._trigger_counter_attack(enemy_index)
 		session._trigger_reflect_damage(enemy_index)
 	if allow_swarm and not first_strike:
 		_trigger_swarm_assists(session, enemy, enemy_index)
-
-
-func _apply_rat_on_hit(session: RefCounted, attacker: Dictionary, target: Dictionary) -> void:
-	var passive_skills: Array = attacker.get("passive_skills", [])
-	if passive_skills.has("corruption"):
-		CombatRules.apply_corruption(target, int(attacker["attack"]), session.status_service)
-	if passive_skills.has("fang"):
-		CombatRules.apply_armor_reduction(target, 1, session.status_service, "尖牙")
 
 
 func _trigger_swarm_assists(session: RefCounted, attacker: Dictionary, attacker_index: int) -> void:

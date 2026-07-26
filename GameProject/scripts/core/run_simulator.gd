@@ -17,7 +17,12 @@ var _floor_groups: Dictionary = {}
 
 
 func _init() -> void:
-	rng.seed = 1
+	set_seed(1)
+
+
+func set_seed(seed_value: int) -> void:
+	rng.seed = seed_value
+	combat.set_seed(seed_value)
 
 
 func create_character(class_id: String) -> Dictionary:

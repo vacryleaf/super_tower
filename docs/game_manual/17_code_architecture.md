@@ -2,7 +2,7 @@
 
 ## 目标
 
-本项目当前处于可玩原型阶段，但后续会继续增加职业、套装、敌人、技能、奖励和移动端界面。为了避免功能继续堆进单个脚本，后续开发必须遵守本文件的模块边界。
+本项目当前处于可玩原型阶段，并以 Windows/macOS 上的 Godot 4.5 横屏原型为当前验收口径。后续会继续增加职业、套装、敌人、技能、奖励和可能的移动端界面。为了避免功能继续堆进单个脚本，后续开发必须遵守本文件的模块边界。
 
 核心原则：**UI 只展示和收集输入，Session 只推进当前爬塔状态，Service 负责独立规则，Catalog 只放静态数据。**
 
@@ -12,7 +12,7 @@
 | --- | --- | --- |
 | UI 入口 | `GameProject/scripts/main.gd` | 编排菜单、战斗页、奖励页、装备弹层、按钮回调和动画反馈。不得新增战斗规则、奖励规则、存档规则，也不得继续直接构建大型 UI 区块。 |
 | 单局状态机 | `GameProject/scripts/core/play_session.gd` | 管理当前派遣的一局爬塔：楼层、战斗编号、敌人列表、行动力、阶段切换、调用服务。不得继续承载大块可独立服务。 |
-| 奖励服务 | `GameProject/scripts/core/reward_service.gd` | 生成普通/精英/Boss 奖励池、Boss 永久装备分支、技能/塔内技能分支，判断奖励是否需要附着，处理奖励短标签和楼层奖励数值。 |
+| 奖励服务 | `GameProject/scripts/core/reward_service.gd` | 生成普通/精英/Boss 局内奖励池、Boss 永久装备分支，判断奖励是否需要附着，处理奖励短标签和楼层奖励数值。Boss 技能/塔内技能分支仍是后续设计。 |
 | 存档 Profile | `GameProject/scripts/core/save_profile.gd` | 读写 `user://savegame.json`，维护 profile 版本、队伍 roster、当前 active run 和旧存档兼容。 |
 | 单局状态序列化 | `GameProject/scripts/core/run_state_serializer.gd` | 维护 active run 的保存/读取字段、载入后敌人标准化和局内状态恢复。新增局内存档字段必须优先改这里，`PlaySession` 只保留委托入口。 |
 | 战斗服务 | `GameProject/scripts/core/battle_service.gd` | 承载玩家基础行动、技能释放、敌人回合、敌人行动和多段攻击等战斗流程。 |

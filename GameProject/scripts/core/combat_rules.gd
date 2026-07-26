@@ -68,6 +68,14 @@ static func apply_armor_reduction(target: Dictionary, amount: int, status_servic
 	})
 
 
+static func apply_rat_on_hit(attacker: Dictionary, target: Dictionary, status_service) -> void:
+	var passive_skills: Array = attacker.get("passive_skills", [])
+	if passive_skills.has("corruption"):
+		apply_corruption(target, int(attacker["attack"]), status_service)
+	if passive_skills.has("fang"):
+		apply_armor_reduction(target, 1, status_service, "尖牙")
+
+
 static func armor_multiplier_against(attacker: Dictionary) -> float:
 	return 0.80 if attacker.get("passive_skills", []).has("break_armor") else 1.0
 

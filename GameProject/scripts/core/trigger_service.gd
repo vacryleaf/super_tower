@@ -6,19 +6,30 @@ const Combatant = preload("res://scripts/core/combatant.gd")
 const ActionSource = preload("res://scripts/core/action_source.gd")
 const ActionContext = preload("res://scripts/core/action_context.gd")
 
-var status_service = null
+var _status_service_ref: WeakRef = null
+
+
+func set_status_service(service: RefCounted) -> void:
+	_status_service_ref = weakref(service)
+
+
+func _status_service():
+	if _status_service_ref == null:
+		return null
+	return _status_service_ref.get_ref()
 
 
 func fire_trigger(target: Dictionary, event: String, context: Dictionary) -> void:
 	if not target.has("statuses"):
 		return
+	var service = _status_service()
 	var statuses: Array = target["statuses"]
 	for status in statuses:
 		for trigger in status.get("triggers", []):
 			if String(trigger.get("event", "")) != event:
 				continue
 			if trigger.has("condition"):
-				if not status_service.evaluate_condition(target, trigger["condition"], context):
+				if service == null or not service.evaluate_condition(target, trigger["condition"], context):
 					continue
 			for action in trigger.get("actions", []):
 				_execute_action(target, action, context)
@@ -28,6 +39,7 @@ func _execute_action(target: Dictionary, action: Dictionary, context: Dictionary
 	var action_type := String(action.get("type", ""))
 	var battle_log: Array = context.get("battle_log", [])
 	var session = context.get("session")
+	var service = _status_service()
 	match action_type:
 		TriggerEvents.ACTION_DOT:
 			var dot_value := _resolve_action_value(action, context, target)
@@ -66,7 +78,7 @@ func _execute_action(target: Dictionary, action: Dictionary, context: Dictionary
 				battle_log.append("%s 恢复 %d 点生命。" % [String(target.get("name", "")), heal_value])
 		TriggerEvents.ACTION_APPLY_STATUS:
 			var status_to_apply: Dictionary = action.get("status", {})
-			if not status_to_apply.is_empty() and status_service != null:
+			if not status_to_apply.is_empty() and service != null:
 				# apply_to: "context_target" 将状态施加给对手而非自身（用于 break_armor/mark 等命中触发特性）
 				var apply_target := target
 				if String(action.get("apply_to", "")) == "context_target":
@@ -75,11 +87,11 @@ func _execute_action(target: Dictionary, action: Dictionary, context: Dictionary
 						apply_target = ctx_target
 					else:
 						battle_log.append("[WARN] apply_to=context_target 但 context 缺少 target，状态将施加到自身")
-				status_service.add_status(apply_target, status_to_apply)
+				service.add_status(apply_target, status_to_apply)
 		TriggerEvents.ACTION_REMOVE_STATUS:
 			var remove_id := String(action.get("status_id", ""))
-			if remove_id != "" and status_service != null:
-				status_service.remove_status(target, remove_id)
+			if remove_id != "" and service != null:
+				service.remove_status(target, remove_id)
 		TriggerEvents.ACTION_EXTRA_DAMAGE:
 			var extra_value := _resolve_action_value(action, context, target)
 			if extra_value > 0 and session != null:

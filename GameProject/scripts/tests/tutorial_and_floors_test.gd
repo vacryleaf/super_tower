@@ -11,6 +11,10 @@ var failures: Array[String] = []
 
 func _init() -> void:
 	run_all()
+	call_deferred("_finish")
+
+
+func _finish() -> void:
 	if failures.is_empty():
 		print("ALL TESTS PASSED")
 		quit(0)
@@ -31,3 +35,4 @@ func run_all() -> void:
 func _run(suite: RefCounted) -> void:
 	suite.run()
 	failures.append_array(suite.failures)
+	suite = null

@@ -27,7 +27,7 @@ var condition_evaluator := ConditionEvaluator.new()
 
 
 func _init() -> void:
-	trigger_service.status_service = self
+	trigger_service.set_status_service(self)
 
 
 func add_status(target: Dictionary, status: Dictionary) -> void:
