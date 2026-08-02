@@ -29,7 +29,7 @@ func choose_reward(session: Variant, index: int) -> void:
 			session.player["hp"] = mini(int(session.player["max_hp"]), int(session.player["hp"]) + int(reward["value"]))
 		"permanent_equipment":
 			apply_permanent_equipment(session, reward)
-	session.simulator._recalculate_player_stats(session.player, false)
+	session.character.recalculate_player_stats(session.player, false)
 	session._advance_after_reward()
 
 
@@ -40,8 +40,8 @@ func choose_reward_target(session: Variant, index: int) -> void:
 	if index < 0 or index >= session.reward_targets.size():
 		return
 	var target: Dictionary = session.reward_targets[index]
-	session.simulator.attach_reward(session.player, target, session.pending_reward)
-	session.simulator._recalculate_player_stats(session.player, false)
+	session.character.attach_reward(session.player, target, session.pending_reward)
+	session.character.recalculate_player_stats(session.player, false)
 	session.message = "%s 已附着到 %s。" % [
 		RewardService.short_label(session.pending_reward),
 		session._target_label(target)
@@ -75,20 +75,20 @@ func build_reward_options(session: Variant) -> void:
 func apply_tutorial_unlock(session: Variant) -> void:
 	var unlock_id: String = DataCatalog.TUTORIAL_UNLOCKS[session.class_id][session.battle_index - 1]
 	if DataCatalog.EQUIPMENT.has(unlock_id):
-		session.simulator.equip_item(session.player, unlock_id)
+		session.character.equip_item(session.player, unlock_id)
 	else:
-		session.simulator.unlock_skill(session.player, unlock_id, true)
+		session.character.unlock_skill(session.player, unlock_id, true)
 
 
 func unlock_next_skill(session: Variant) -> void:
-	session.simulator._unlock_next_skill(session.player)
+	session.character.unlock_next_skill(session.player)
 
 
 func apply_permanent_equipment(session: Variant, reward: Dictionary) -> void:
 	var item_id := String(reward.get("item_id", ""))
 	if item_id == "" or not DataCatalog.EQUIPMENT.has(item_id):
 		return
-	session.simulator.equip_item(session.player, item_id)
+	session.character.equip_item(session.player, item_id)
 	session.message = "获得永久装备：%s。" % DataCatalog.EQUIPMENT[item_id]["name"]
 
 

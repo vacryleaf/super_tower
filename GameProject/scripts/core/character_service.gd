@@ -10,9 +10,10 @@ var equipment := EquipmentService.new()
 
 
 func create_character(class_id: String) -> Dictionary:
-	var class_data: Dictionary = DataCatalog.CLASSES[class_id]
+	var normalized_class_id := DataCatalog.normalize_class_id(class_id)
+	var class_data: Dictionary = DataCatalog.CLASSES[normalized_class_id]
 	var player := {
-		"class_id": class_id,
+		"class_id": normalized_class_id,
 		"side": "player",
 		"base_max_hp": int(class_data["max_hp"]),
 		"base_attack": int(class_data["base_attack"]),
@@ -26,14 +27,22 @@ func create_character(class_id: String) -> Dictionary:
 		"state_attack_bonus": 0,
 		"state_defense_bonus": 0,
 		"extra_hits": 0,
-		"set_counts": {},
-		"active_set_effects": {},
+		"agility": 15,
+		"critical_weight": 20,
+		"critical_damage_bonus": 0.0,
+		"attack_energy_gain": DataCatalog.ATTACK_ENERGY,
+		"weapon_profile_id": "unarmed",
+		"weapon_skill_1": "po_jun",
+		"weapon_skill_2": "explosive_strike",
 		"equipment_attachments": {},
 		"skill_attachments": {},
 		"equipment": {},
 		"equipment_ids": [],
 		"consumables": [],
 		"consumable_ids": [],
+		"blood_potion_level": 0,
+		"blood_potion_uses": 0,
+		"blood_potion_seed": 0,
 		"unlocked_skills": [],
 		"equipped_skills": [],
 		"passive_skills": ["", "", "", ""],
@@ -59,7 +68,19 @@ func create_character(class_id: String) -> Dictionary:
 
 func equip_item(player: Dictionary, item_id: String) -> void:
 	equipment.equip_item(player, item_id)
+	recalculate_player_stats(player, false)
 
+
+
+func skill_id_for_slot(player: Dictionary, slot_index: int) -> String:
+	if slot_index == 0:
+		return String(player.get("weapon_skill_1", ""))
+	if slot_index == 1:
+		return String(player.get("weapon_skill_2", ""))
+	var equipped: Array = player.get("equipped_skills", [])
+	if slot_index >= 0 and slot_index < equipped.size():
+		return String(equipped[slot_index])
+	return ""
 
 func unlock_skill(player: Dictionary, skill_id: String, equip_now: bool) -> void:
 	equipment.unlock_skill(player, skill_id, equip_now)
@@ -183,7 +204,16 @@ func recalculate_player_stats(player: Dictionary, reset_hp: bool) -> void:
 		"defend": "innate_defend",
 		"dodge": "innate_dodge"
 	}
-	var set_counts := _equipment_set_counts(player)
+	var weapon_profile := DataCatalog.weapon_profile_for_player(player)
+	player["agility"] = int(weapon_profile.get("agility", 15))
+	player["critical_weight"] = int(weapon_profile.get("critical_weight", 0))
+	player["critical_damage_bonus"] = float(weapon_profile.get("critical_damage_bonus", 0.0))
+	player["attack_energy_gain"] = int(weapon_profile.get("attack_energy_gain", DataCatalog.ATTACK_ENERGY))
+	player["weapon_skill_1"] = String(weapon_profile.get("skill_1", ""))
+	player["weapon_skill_2"] = String(weapon_profile.get("skill_2", ""))
+	var weapon_id := String(player.get("equipment", {}).get("weapon", ""))
+	player["weapon_profile_id"] = String(weapon_id if weapon_id != "" else "unarmed")
+	attack += int(weapon_profile.get("attack_damage", 0))
 	var equipment_attachments: Dictionary = player.get("equipment_attachments", {})
 	var equipped_ids := _equipped_item_ids(player)
 	for item_id in equipped_ids:
@@ -206,17 +236,6 @@ func recalculate_player_stats(player: Dictionary, reset_hp: bool) -> void:
 					player["state_defense_bonus"] += int(attachment.get("value", 0))
 				"extra_hits":
 					player["extra_hits"] += int(attachment.get("value", 0))
-	var active_set_effects := _active_set_effects(set_counts)
-	player["set_counts"] = set_counts
-	player["active_set_effects"] = active_set_effects
-	var flat_stats: Dictionary = active_set_effects.get("flat_stats", {})
-	hp += int(flat_stats.get("hp", 0))
-	attack += int(flat_stats.get("attack", 0))
-	defense += int(flat_stats.get("armor", flat_stats.get("defense", 0)))
-	block_power += int(flat_stats.get("block", 0))
-	player["state_attack_bonus"] += int(flat_stats.get("state_attack", 0))
-	player["state_defense_bonus"] += int(flat_stats.get("state_defense", 0))
-	player["extra_hits"] += int(flat_stats.get("extra_hits", 0))
 	var skill_attachments: Dictionary = player.get("skill_attachments", {})
 	for skill_id in player["equipped_skills"]:
 		if String(skill_id) == "":
@@ -241,9 +260,10 @@ func recalculate_player_stats(player: Dictionary, reset_hp: bool) -> void:
 
 
 func _ensure_player_schema(player: Dictionary) -> void:
-	var class_data := _class_data_for(String(player.get("class_id", "warrior")))
-	if not player.has("class_id") or String(player.get("class_id", "")) == "":
-		player["class_id"] = String(class_data.get("class_id", "warrior"))
+	var legacy_class_id := String(player.get("class_id", ""))
+	var normalized_class_id := DataCatalog.normalize_class_id(legacy_class_id)
+	var class_data := _class_data_for(normalized_class_id)
+	player["class_id"] = normalized_class_id
 	if not player.has("side"):
 		player["side"] = "player"
 	if not player.has("base_max_hp"):
@@ -264,16 +284,38 @@ func _ensure_player_schema(player: Dictionary) -> void:
 		player["block_bonus"] = 0
 	if not player.has("skill_bonus"):
 		player["skill_bonus"] = 0
+	if not player.has("agility"):
+		player["agility"] = 15
+	if not player.has("critical_weight"):
+		player["critical_weight"] = 20
+	if not player.has("critical_damage_bonus"):
+		player["critical_damage_bonus"] = 0.0
+	if not player.has("attack_energy_gain"):
+		player["attack_energy_gain"] = DataCatalog.ATTACK_ENERGY
+	if not player.has("weapon_profile_id"):
+		player["weapon_profile_id"] = "unarmed"
+	if not player.has("weapon_skill_1"):
+		player["weapon_skill_1"] = "po_jun"
+	if not player.has("weapon_skill_2"):
+		player["weapon_skill_2"] = "explosive_strike"
 	if not player.has("equipment"):
 		player["equipment"] = {}
 	if not player.has("equipment_ids"):
 		player["equipment_ids"] = []
 	if not player.has("consumables"):
 		player["consumables"] = []
-	while player["consumables"].size() < 5:
+	while player["consumables"].size() < DataCatalog.NORMAL_CONSUMABLE_SLOTS:
 		player["consumables"].append("")
+	if player["consumables"].size() > DataCatalog.NORMAL_CONSUMABLE_SLOTS:
+		player["consumables"].resize(DataCatalog.NORMAL_CONSUMABLE_SLOTS)
 	if not player.has("consumable_ids"):
 		player["consumable_ids"] = []
+	if not player.has("blood_potion_level"):
+		player["blood_potion_level"] = 0
+	if not player.has("blood_potion_uses"):
+		player["blood_potion_uses"] = 0
+	if not player.has("blood_potion_seed"):
+		player["blood_potion_seed"] = 0
 	if player["consumable_ids"].is_empty():
 		player["consumable_ids"] = DataCatalog.STARTER_CONSUMABLES.duplicate()
 	if not player.has("unlocked_skills"):
@@ -299,12 +341,11 @@ func _ensure_player_schema(player: Dictionary) -> void:
 		player["equipment_attachments"] = {}
 	if not player.has("skill_attachments"):
 		player["skill_attachments"] = {}
-	if not player.has("set_counts"):
-		player["set_counts"] = {}
-	if not player.has("active_set_effects"):
-		player["active_set_effects"] = {}
+	player.erase("set_counts")
+	player.erase("active_set_effects")
 	if not player.has("statuses"):
 		player["statuses"] = []
+	equipment.normalize_equipment(player)
 	var equipment_dict := _dictionary(player.get("equipment", {}))
 	if player["equipment_ids"].is_empty() and not equipment_dict.is_empty():
 		for item_id in equipment_dict.values():
@@ -314,9 +355,7 @@ func _ensure_player_schema(player: Dictionary) -> void:
 
 
 func _class_data_for(class_id: String) -> Dictionary:
-	if DataCatalog.CLASSES.has(class_id):
-		return DataCatalog.CLASSES[class_id]
-	return DataCatalog.CLASSES["warrior"]
+	return DataCatalog.CLASSES[DataCatalog.normalize_class_id(class_id)]
 
 
 func _dictionary(value: Variant) -> Dictionary:
@@ -325,73 +364,9 @@ func _dictionary(value: Variant) -> Dictionary:
 	return {}
 
 
-func _equipment_set_counts(player: Dictionary) -> Dictionary:
-	var counts := {}
-	for item_id in _equipped_item_ids(player):
-		if not DataCatalog.EQUIPMENT.has(item_id):
-			continue
-		var item: Dictionary = DataCatalog.EQUIPMENT[item_id]
-		var set_id := String(item.get("set_id", ""))
-		if set_id == "":
-			continue
-		counts[set_id] = int(counts.get(set_id, 0)) + 1
-	return counts
-
-
 func _equipped_item_ids(player: Dictionary) -> Array[String]:
 	var result: Array[String] = []
 	var equipped: Dictionary = player.get("equipment", {})
 	for item_id in equipped.values():
 		result.append(String(item_id))
 	return result
-
-
-func _active_set_effects(set_counts: Dictionary) -> Dictionary:
-	var effects := {
-		"modifiers": [],
-		"on_battle_start": [],
-		"flat_stats": {"hp": 0, "attack": 0, "armor": 0, "defense": 0, "block": 0, "state_attack": 0, "state_defense": 0, "extra_hits": 0},
-		"set_requirement_delta": 0
-	}
-	var requirement_delta := 0
-	for set_id in set_counts.keys():
-		if not DataCatalog.EQUIPMENT_SETS.has(set_id):
-			continue
-		var set_data: Dictionary = DataCatalog.EQUIPMENT_SETS[set_id]
-		var bonuses: Dictionary = set_data.get("bonuses", {})
-		if int(set_counts[set_id]) >= 2 and bonuses.has(2):
-			requirement_delta += int((bonuses[2] as Dictionary).get("set_requirement_delta", 0))
-	effects["set_requirement_delta"] = requirement_delta
-	for set_id in set_counts.keys():
-		if not DataCatalog.EQUIPMENT_SETS.has(set_id):
-			continue
-		var set_data: Dictionary = DataCatalog.EQUIPMENT_SETS[set_id]
-		var bonuses: Dictionary = set_data.get("bonuses", {})
-		for raw_threshold in bonuses.keys():
-			var threshold := int(raw_threshold)
-			var adjusted_threshold := threshold
-			if threshold >= 3:
-				adjusted_threshold = maxi(2, threshold - requirement_delta)
-			if int(set_counts[set_id]) >= adjusted_threshold:
-				_merge_set_bonus(effects, bonuses[raw_threshold], String(set_id), threshold)
-	return effects
-
-
-func _merge_set_bonus(effects: Dictionary, bonus: Dictionary, set_id: String, threshold: int) -> void:
-	for key in bonus.keys():
-		if key == "label":
-			continue
-		if key == "modifiers":
-			for mod in bonus[key]:
-				var mod_copy: Dictionary = mod.duplicate(true)
-				mod_copy["source"] = "set:%s:%d" % [set_id, threshold]
-				effects["modifiers"].append(mod_copy)
-		elif key == "on_battle_start":
-			for action in bonus[key]:
-				effects["on_battle_start"].append(action.duplicate(true))
-		elif key == "set_requirement_delta":
-			pass
-		elif effects["flat_stats"].has(key):
-			effects["flat_stats"][key] = effects["flat_stats"][key] + bonus[key]
-		else:
-			effects[key] = effects.get(key, 0) + bonus[key]

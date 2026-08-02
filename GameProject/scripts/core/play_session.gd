@@ -3,7 +3,8 @@ class_name PlaySession
 
 const DataCatalog = preload("res://scripts/core/data_catalog.gd")
 const Combatant = preload("res://scripts/core/combatant.gd")
-const RunSimulator = preload("res://scripts/core/run_simulator.gd")
+const EncounterService = preload("res://scripts/core/encounter_service.gd")
+const CharacterService = preload("res://scripts/core/character_service.gd")
 const RewardService = preload("res://scripts/core/reward_service.gd")
 const SaveProfile = preload("res://scripts/core/save_profile.gd")
 const BattleService = preload("res://scripts/core/battle_service.gd")
@@ -21,14 +22,14 @@ const BattleState = preload("res://scripts/core/battle_state.gd")
 const ActionSource = preload("res://scripts/core/action_source.gd")
 const ActionContext = preload("res://scripts/core/action_context.gd")
 const ActionPipeline = preload("res://scripts/core/action_pipeline.gd")
-const SetEffectService = preload("res://scripts/core/set_effect_service.gd")
 
 const MAX_CHARGES := 5
 const BATTLE_LOG_LIMIT := 200
 
 var debug_logger: Variant = null
 var debug_mode := false
-var simulator := RunSimulator.new()
+var encounters := EncounterService.new()
+var character := CharacterService.new()
 var rewards := RewardService.new()
 var save_profile := SaveProfile.new()
 var battle_service := BattleService.new()
@@ -39,7 +40,6 @@ var reward_apply := RewardApplyService.new()
 var run_state_serializer := RunStateSerializer.new()
 var enemy_rules := EnemyActionRules.new()
 var status_service := StatusService.new()
-var set_effect_service := SetEffectService.new()
 var rng := RandomNumberGenerator.new()
 
 var battle_state := BattleState.new()
@@ -74,6 +74,11 @@ var floor_group_id: String:
 		return battle_state.floor_group_id
 	set(value):
 		battle_state.floor_group_id = value
+var tutorial_active: bool:
+	get:
+		return battle_state.tutorial_active
+	set(value):
+		battle_state.tutorial_active = value
 var phase: String:
 	get:
 		return battle_state.phase
@@ -129,6 +134,11 @@ var round_index: int:
 		return battle_state.round_index
 	set(value):
 		battle_state.round_index = value
+var ai_turn_stage: String:
+	get:
+		return battle_state.ai_turn_stage
+	set(value):
+		battle_state.ai_turn_stage = value
 var pending_state_card: String:
 	get:
 		return battle_state.pending_state_card
@@ -149,16 +159,6 @@ var enemy_attack_multiplier: float:
 		return battle_state.enemy_attack_multiplier
 	set(value):
 		battle_state.enemy_attack_multiplier = value
-var focus_target_index: int:
-	get:
-		return battle_state.focus_target_index
-	set(value):
-		battle_state.focus_target_index = value
-var focus_combo_multiplier: float:
-	get:
-		return battle_state.focus_combo_multiplier
-	set(value):
-		battle_state.focus_combo_multiplier = value
 var counter_stance_charges: int:
 	get:
 		return battle_state.counter_stance_charges
@@ -174,21 +174,6 @@ var dodge_streak: int:
 		return battle_state.dodge_streak
 	set(value):
 		battle_state.dodge_streak = value
-var meticulous_stacks: int:
-	get:
-		return battle_state.meticulous_stacks
-	set(value):
-		battle_state.meticulous_stacks = value
-var seek_bloom_stacks: int:
-	get:
-		return battle_state.seek_bloom_stacks
-	set(value):
-		battle_state.seek_bloom_stacks = value
-var ranger_hit_count: int:
-	get:
-		return battle_state.ranger_hit_count
-	set(value):
-		battle_state.ranger_hit_count = value
 var attacked_this_turn: bool:
 	get:
 		return battle_state.attacked_this_turn
@@ -264,23 +249,27 @@ func _load_account() -> void:
 
 
 func start_new_game(selected_class: String, start_floor: int = 0) -> void:
+	selected_class = DataCatalog.normalize_class_id(selected_class)
 	class_id = selected_class
 	save_profile.set_slot(save_profile.current_slot())
 	_load_account()
 	rng.randomize()
 	player = _roster_player_or_new(selected_class)
-	simulator._recalculate_player_stats(player, false)
+	character.recalculate_player_stats(player, false)
 	pending_tutorial_epilogue = false
 	floor_group_id = ""
 	if start_floor >= 1:
-		if start_floor >= 2:
-			player["tutorial_completed"] = true
+		# Explicit floor selection is an intentional skip of the opening tutorial.
+		player["tutorial_completed"] = true
+		tutorial_active = false
 		floor_index = start_floor
 	else:
-		floor_index = 2 if bool(player.get("tutorial_completed", false)) else 1
+		# The tutorial is a three-battle prologue; formal tower floor 1 starts afterwards.
+		floor_index = 1
+		tutorial_active = not bool(player.get("tutorial_completed", false))
 	battle_index = 1
 	phase = "battle"
-	message = "派遣%s进入高塔。" % DataCatalog.CLASSES[selected_class]["name"]
+	message = "开始新手引导。" if tutorial_active else "派遣%s进入高塔。" % DataCatalog.CLASSES[selected_class]["name"]
 	_debug_log("start_new_game class=%s floor=%d tutorial=%s" % [selected_class, floor_index, str(is_tutorial())])
 	_start_current_battle()
 
@@ -307,11 +296,16 @@ func has_active_run() -> bool:
 
 
 func get_roster_player(selected_class: String) -> Dictionary:
+	var requested_class_id := selected_class
+	selected_class = DataCatalog.normalize_class_id(selected_class)
 	var profile := save_profile.read_profile(Callable(self, "_persistent_player_snapshot"))
 	var roster := _dictionary(profile.get("roster", {}))
 	var player := _dictionary(roster.get(selected_class, {}))
+	if player.is_empty() and requested_class_id != selected_class:
+		player = _dictionary(roster.get(requested_class_id, {}))
 	if not player.is_empty():
-		simulator._recalculate_player_stats(player, false)
+		player["class_id"] = selected_class
+		character.recalculate_player_stats(player, false)
 	return player
 
 
@@ -392,7 +386,7 @@ func _reset_to_camp_state() -> void:
 
 
 func is_tutorial() -> bool:
-	return floor_index == 1 and not bool(player.get("tutorial_completed", false))
+	return tutorial_active
 
 
 func _start_current_battle() -> void:
@@ -407,17 +401,14 @@ func _start_current_battle() -> void:
 	player_block = 0
 	dodge_layers = 0
 	round_index = 0
+	ai_turn_stage = "after_player_pending"
 	pending_state_card = ""
 	battle_attack_multiplier = 1.0
 	player["statuses"] = []
 	enemy_attack_multiplier = 1.0
-	focus_target_index = -1
-	focus_combo_multiplier = 1.0
 	counter_stance_charges = 0
 	counter_attack_multiplier = 1.0
 	dodge_streak = 0
-	meticulous_stacks = 0
-	seek_bloom_stacks = 0
 	attacked_this_turn = false
 	charge_used = {}
 	charge_ready = {}
@@ -430,7 +421,6 @@ func _start_current_battle() -> void:
 	phase = "battle"
 	message = _battle_title()
 	_debug_log("battle_start %s floor=%d battle=%d enemies=%d" % [String(current_encounter.get("name", current_encounter.get("id", "战斗"))), floor_index, battle_index, enemies.size()])
-	_apply_opening_set_effects()
 	_fire_battle_start_triggers()
 	if _has_first_strike():
 		_enemy_attack(enemies[0], 0, true)
@@ -440,7 +430,7 @@ func _start_current_battle() -> void:
 func _get_current_encounter() -> Dictionary:
 	if is_tutorial():
 		return DataCatalog.TUTORIAL_ENCOUNTERS[battle_index - 1]
-	return simulator.generate_encounter(floor_index, battle_index, floor_group_id)
+	return encounters.generate_encounter(floor_index, battle_index, floor_group_id)
 
 
 func _ensure_floor_group_id() -> void:
@@ -449,7 +439,7 @@ func _ensure_floor_group_id() -> void:
 		return
 	if floor_group_id != "":
 		return
-	floor_group_id = simulator.select_floor_group_id(rng)
+	floor_group_id = encounters.select_floor_group_id(rng)
 
 
 func _build_enemies(encounter: Dictionary) -> Array[Dictionary]:
@@ -459,6 +449,7 @@ func _begin_player_turn() -> void:
 	round_index += 1
 	has_acted = false
 	perfect_deflect = false
+	ai_turn_stage = "after_player_pending"
 	_tick_skill_cooldowns()
 	player_block = 0
 	pending_state_card = _draw_state_buff()
@@ -472,38 +463,49 @@ func _begin_player_turn() -> void:
 	_process_tick_effects(player)
 	status_service.fire_trigger(player, TriggerEvents.ON_TURN_START, {"battle_log": battle_log, "session": self, "not_attacked_last_turn": not attacked_this_turn})
 	for enemy in enemies:
-		if int(enemy["hp"]) > 0:
-			status_service.tick_statuses(enemy)
-			_process_tick_effects(enemy)
-			status_service.fire_trigger(enemy, TriggerEvents.ON_TURN_START, {"battle_log": battle_log, "session": self, "not_attacked_last_turn": false})
+		if int(enemy["hp"]) <= 0:
+			continue
+		CombatRules.tick_enemy_cooldowns(enemy)
+		status_service.tick_statuses(enemy)
+		_process_tick_effects(enemy)
+		status_service.fire_trigger(enemy, TriggerEvents.ON_TURN_START, {"battle_log": battle_log, "session": self, "round_index": round_index})
 	for ally in allies:
-		if int(ally["hp"]) > 0:
-			status_service.tick_statuses(ally)
-			_process_tick_effects(ally)
-			status_service.fire_trigger(ally, TriggerEvents.ON_TURN_START, {"battle_log": battle_log, "session": self, "not_attacked_last_turn": false})
+		if int(ally["hp"]) <= 0 or String(ally.get("controlled_by", "")) != "ai":
+			continue
+		status_service.tick_statuses(ally)
+		_process_tick_effects(ally)
+		status_service.fire_trigger(ally, TriggerEvents.ON_TURN_START, {"battle_log": battle_log, "session": self, "round_index": round_index})
 	attacked_this_turn = false
-	ranger_hit_count = 0
+	var action_order := CombatRules.action_order(player, enemies, allies, status_service, round_index)
+	var player_position := -1
+	for index in range(action_order.size()):
+		if String(action_order[index].get("type", "")) == "player":
+			player_position = index
+			break
+	if player_position > 0:
+		# 敏捷较高的敌方单位先行动；之后仍保留玩家的一次手动行动。
+		_enemy_turn(true)
+		if int(player["hp"]) <= 0:
+			_on_defeat()
+			return
 	var charged_label := _random_ready_charge()
 	message = "你的回合。状态 Buff：%s" % _state_name(pending_state_card)
 	if charged_label != "":
 		message += " 随机充能：%s。" % charged_label
-	_debug_log("turn_start round=%d energy=%d hp=%d/%d block=%d" % [round_index, energy, int(player.get("hp", 0)), int(player.get("max_hp", player.get("base_max_hp", 0))), player_block])
+	_debug_log("turn_start round=%d energy=%d hp=%d/%d block=%d action_order=%s" % [round_index, energy, int(player.get("hp", 0)), int(player.get("max_hp", player.get("base_max_hp", 0))), player_block, _action_order_debug_text(action_order)])
 
 
 func _draw_state_buff() -> String:
 	return state_buffs.draw_state_buff(self)
 
 
-func _apply_opening_set_effects() -> void:
-	var state := {
-		"enemy_attack_multiplier": enemy_attack_multiplier,
-		"player_block": player_block,
-		"dodge_layers": dodge_layers
-	}
-	var result := set_effect_service.apply_battle_start(player, state, battle_log, status_service)
-	enemy_attack_multiplier = float(result.get("enemy_attack_multiplier", 1.0))
-	player_block = int(result.get("player_block", 0))
-	dodge_layers = int(result.get("dodge_layers", 0))
+func _action_order_debug_text(action_order: Array[Dictionary]) -> String:
+	var labels: Array[String] = []
+	for entry in action_order:
+		var actor_type := String(entry.get("type", ""))
+		var unit: Dictionary = entry.get("unit", {})
+		labels.append("%s:%s" % [actor_type, String(unit.get("name", actor_type))])
+	return ",".join(labels)
 
 
 func _fire_battle_start_triggers() -> void:
@@ -562,30 +564,12 @@ func _player_combatant() -> Dictionary:
 	return Combatant.from_player(player, player_block, dodge_layers, status_service)
 
 
-func _resolve_focus_combo(target_index: int) -> float:
-	if not _has_set_modifier("dynamic:focus_combo"):
-		return 1.0
-	if focus_target_index == target_index:
-		focus_combo_multiplier *= 1.20
-	else:
-		focus_target_index = target_index
-		focus_combo_multiplier = 1.0
-	return focus_combo_multiplier
-
-
 func _current_attack_value(action_source: String = "") -> int:
 	return CombatRules.current_attack_value(self, action_source)
 
 
 func _defense_value() -> int:
 	return CombatRules.defense_value(self)
-
-
-func _has_set_modifier(dynamic_value: String) -> bool:
-	for mod in player.get("active_set_effects", {}).get("modifiers", []):
-		if String(mod.get("value", "")) == dynamic_value:
-			return true
-	return false
 
 
 func _skill_attack_value(skill_id: String, action_source: String = "") -> int:
@@ -622,8 +606,8 @@ func _add_player_dodge(layers: int) -> void:
 	_sync_player_combatant(combatant_unit)
 
 
-func _enemy_turn() -> void:
-	battle_service.enemy_turn(self)
+func _enemy_turn(before_player: bool = false) -> void:
+	battle_service.enemy_turn(self, before_player)
 
 
 func _clear_enemy_taunts() -> void:
@@ -661,7 +645,6 @@ func _trigger_counter_attack(enemy_index: int) -> void:
 		return
 	counter_stance_charges -= 1
 	var damage := maxi(1, int(round(float(_current_attack_value(ActionSource.COUNTER_ATTACK)) * counter_attack_multiplier)))
-	damage = maxi(1, int(round(float(damage) * _resolve_focus_combo(enemy_index))))
 	battle_log.append("反击架势触发，对 %s 反击 %d 点。" % [enemies[enemy_index]["name"], damage])
 	var counter_ctx := ActionContext.create_attack(ActionSource.COUNTER_ATTACK, enemy_index, "", "physical", 1)
 	counter_ctx["final_damage"] = damage
@@ -693,18 +676,11 @@ func _check_dodge_streak() -> void:
 
 func get_counter(name: String) -> int:
 	match name:
-		"meticulous_stacks": return meticulous_stacks
-		"seek_bloom_stacks": return seek_bloom_stacks
-		"ranger_hit_count": return ranger_hit_count
 		_: return 0
 
 
 func set_counter(name: String, value: int) -> void:
-	match name:
-		"meticulous_stacks": meticulous_stacks = value
-		"seek_bloom_stacks": seek_bloom_stacks = value
-		"ranger_hit_count": ranger_hit_count = value
-
+	pass
 
 func _apply_damage_to_enemy(target_index: int, damage: int, ignore_taunt: bool = false, damage_type: String = "physical") -> void:
 	var taunt_target := _active_taunt_target()
@@ -788,7 +764,7 @@ func _on_defeat() -> void:
 
 
 func _unlock_next_class_skill() -> void:
-	simulator._unlock_next_skill(player)
+	character.unlock_next_skill(player)
 
 
 func _unlock_enemies_in_bestiary() -> void:
@@ -821,7 +797,7 @@ func buy_common_skill(skill_id: String) -> bool:
 	tower_coins -= 15
 	for class_key in roster.keys():
 		var class_player: Dictionary = roster[class_key]
-		simulator.unlock_skill(class_player, skill_id, _roster_has_empty_skill_slot(class_player))
+		character.unlock_skill(class_player, skill_id, _roster_has_empty_skill_slot(class_player))
 	profile["roster"] = roster
 	profile["tower_coins"] = tower_coins
 	save_profile.write_profile(profile)
@@ -911,11 +887,11 @@ func _target_label(target: Dictionary) -> String:
 
 
 func _skill_attachment_bonus(skill_id: String, kind: String) -> int:
-	return simulator.skill_attachment_bonus(player, skill_id, kind)
+	return character.skill_attachment_bonus(player, skill_id, kind)
 
 
 func _skill_multiplier_bonus(skill_id: String, kind: String = "") -> float:
-	return simulator.skill_multiplier_bonus(player, skill_id, kind)
+	return character.skill_multiplier_bonus(player, skill_id, kind)
 
 
 func available_charges() -> Array[Dictionary]:
@@ -1171,12 +1147,13 @@ func _trim_battle_log() -> void:
 
 
 func _roster_player_or_new(selected_class: String) -> Dictionary:
+	selected_class = DataCatalog.normalize_class_id(selected_class)
 	var saved_player := get_roster_player(selected_class)
 	if saved_player.is_empty():
-		return simulator.create_character(selected_class)
+		return character.create_character(selected_class)
 	if not saved_player.has("side"):
 		saved_player["side"] = "player"
-		simulator._recalculate_player_stats(saved_player, true)
+		character.recalculate_player_stats(saved_player, true)
 	return saved_player
 
 
@@ -1190,7 +1167,7 @@ func _persistent_player_snapshot(source_player: Dictionary) -> Dictionary:
 	snapshot["normal_rewards"] = int(snapshot.get("normal_rewards", 0))
 	snapshot["elite_rewards"] = int(snapshot.get("elite_rewards", 0))
 	snapshot["boss_rewards"] = int(snapshot.get("boss_rewards", 0))
-	simulator._recalculate_player_stats(snapshot, true)
+	character.recalculate_player_stats(snapshot, true)
 	return snapshot
 
 
@@ -1209,8 +1186,9 @@ func _dictionary(value: Variant) -> Dictionary:
 
 
 func _battle_title() -> String:
-	var label := "新手引导" if is_tutorial() else "高塔"
-	return "%s 第 %d 层 第 %d 场：%s" % [label, floor_index, battle_index, current_encounter.get("name", current_encounter.get("id", "战斗"))]
+	if is_tutorial():
+		return "新手引导 第 %d 场：%s" % [battle_index, current_encounter.get("name", current_encounter.get("id", "战斗"))]
+	return "高塔 第 %d 层 第 %d 场：%s" % [floor_index, battle_index, current_encounter.get("name", current_encounter.get("id", "战斗"))]
 
 
 func is_boss_battle() -> bool:
@@ -1248,10 +1226,12 @@ func set_consumable_slot(class_key: String, slot: int, item_id: String) -> void:
 		return
 	var player_data: Dictionary = roster[class_key]
 	var equipped: Array = player_data.get("consumables", [])
-	while equipped.size() < 5:
+	while equipped.size() < DataCatalog.NORMAL_CONSUMABLE_SLOTS:
 		equipped.append("")
+	if equipped.size() > DataCatalog.NORMAL_CONSUMABLE_SLOTS:
+		equipped.resize(DataCatalog.NORMAL_CONSUMABLE_SLOTS)
 	var idx := slot - 1
-	if idx < 0 or idx >= 5:
+	if idx < 0 or idx >= DataCatalog.NORMAL_CONSUMABLE_SLOTS:
 		return
 	if String(equipped[idx]) == item_id:
 		equipped[idx] = ""
@@ -1281,7 +1261,7 @@ func swap_equipment(class_key: String, slot: String, item_id: String) -> void:
 	var item_slot := String(item.get("slot", ""))
 	var target_slot := slot
 	if item_slot == "ring" and slot == "ring" and equipment.has("ring"):
-		target_slot = "ring2"
+		target_slot = "accessory"
 	var previous := String(equipment.get(target_slot, ""))
 	var displaced_slot := ""
 	for existing_slot in equipment.keys():
@@ -1305,7 +1285,7 @@ func is_shop_unlocked() -> bool:
 	var profile = save_profile.read_profile(Callable(self, "_persistent_player_snapshot"))
 	var roster: Dictionary = profile.get("roster", {})
 	for class_key in roster.keys():
-		if int(roster[class_key].get("highest_floor", 0)) >= 10:
+		if int(roster[class_key].get("highest_floor", 0)) >= DataCatalog.MAX_TOWER_FLOOR:
 			return true
 	return false
 

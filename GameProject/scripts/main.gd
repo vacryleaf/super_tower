@@ -932,8 +932,8 @@ func _on_pre_run_action(action: String, arg: String) -> void:
 		pre_run_view.hover_id = ""
 		pre_run_view.hover_slot = ""
 		var roster: Dictionary = session.get_roster_player(arg)
-		if roster.is_empty() and session.simulator != null:
-			roster = session.simulator.create_character(arg)
+		if roster.is_empty() and session != null:
+			roster = session.character.create_character(arg)
 		pre_run_view.start_floor = maxi(1, int(roster.get("highest_floor", 0)) - 3)
 	elif action == "focus_equipment_slot":
 		pre_run_view.browse_mode = "equipment"

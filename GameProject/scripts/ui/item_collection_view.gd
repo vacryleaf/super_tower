@@ -43,7 +43,7 @@ func _group_by_slot(equipment_ids: Array) -> Dictionary:
 	for item_id in equipment_ids:
 		if not DataCatalog.EQUIPMENT.has(item_id):
 			continue
-		var slot := String(DataCatalog.EQUIPMENT[item_id].get("slot", ""))
+		var slot := DataCatalog.equipment_slot(DataCatalog.EQUIPMENT[item_id])
 		if not result.has(slot):
 			result[slot] = []
 		result[slot].append(item_id)
@@ -63,7 +63,4 @@ func _item_summary(item: Dictionary) -> String:
 		stats.append("格挡 %+d" % int(item["block"]))
 	if not stats.is_empty():
 		parts.append("（%s）" % "，".join(stats))
-	var set_id := String(item.get("set_id", ""))
-	if set_id != "" and DataCatalog.EQUIPMENT_SETS.has(set_id):
-		parts.append(" 套装：%s" % DataCatalog.EQUIPMENT_SETS[set_id]["name"])
 	return "  ".join(parts)

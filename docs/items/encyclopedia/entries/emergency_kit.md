@@ -1,0 +1,10 @@
+# 物品：应急包
+
+状态：已实现（具体数值以 `DataCatalog.CONSUMABLES["emergency_kit"]` 为准）。
+
+- ID：`emergency_kit`
+- 类型：消耗品
+- 初始池：由 `DataCatalog.STARTER_CONSUMABLES` 决定
+- 权威数据：`GameProject/scripts/core/data_catalog.gd`
+
+图鉴只引用规范化效果，不复制一份使用逻辑。

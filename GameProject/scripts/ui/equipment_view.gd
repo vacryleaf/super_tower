@@ -28,8 +28,6 @@ func panel(session: Variant, label_factory: Callable, close_callback: Callable) 
 	outer.add_child(columns)
 	_render_body_slots(columns, session, label_factory)
 	_render_bag(columns, session, label_factory)
-	if not session.player.get("set_counts", {}).is_empty():
-		_render_set_summary(columns, session, label_factory)
 	return panel
 
 
@@ -38,7 +36,7 @@ func target_label(target: Dictionary) -> String:
 	var target_id := String(target.get("id", ""))
 	if target_type == "equipment" and DataCatalog.EQUIPMENT.has(target_id):
 		var item: Dictionary = DataCatalog.EQUIPMENT[target_id]
-		return "装备：%s（%s）" % [item["name"], slot_label(item["slot"])]
+		return "装备：%s（%s）" % [item["name"], slot_label(DataCatalog.equipment_slot(item))]
 	if target_type == "skill" and DataCatalog.SKILLS.has(target_id):
 		var skill: Dictionary = DataCatalog.SKILLS[target_id]
 		return "技能：%s" % skill["name"]
@@ -65,7 +63,7 @@ func _render_body_slots(parent: Control, session: Variant, label_factory: Callab
 	var body_slots := VBoxContainer.new()
 	body_slots.custom_minimum_size = Vector2(205, 0)
 	parent.add_child(body_slots)
-	body_slots.add_child(label_factory.call("人体装备栏", 16))
+	body_slots.add_child(label_factory.call("已装备", 16))
 	for slot in UIHelpers.SLOTS:
 		body_slots.add_child(label_factory.call("%s：%s" % [slot_label(slot), _equipped_name(session, slot)], 13))
 
@@ -89,8 +87,7 @@ func _render_bag(parent: Control, session: Variant, label_factory: Callable) -> 
 			var item: Dictionary = DataCatalog.EQUIPMENT[String(item_id)]
 			bag.add_child(label_factory.call("%s%s\n%s  生命+%d 攻击+%d 护甲+%d 格挡+%d\n%s" % [
 				item["name"],
-				_set_suffix(item),
-				slot_label(item["slot"]),
+				slot_label(DataCatalog.equipment_slot(item)),
 				int(item["hp"]),
 				int(item["attack"]),
 				int(item["armor"]),
@@ -105,31 +102,6 @@ func _render_bag(parent: Control, session: Variant, label_factory: Callable) -> 
 				DataCatalog.SKILLS[String(skill_id)]["name"],
 				attachment_summary(session, "skill", String(skill_id))
 			], 12))
-
-
-func _render_set_summary(parent: Control, session: Variant, label_factory: Callable) -> void:
-	var set_box := VBoxContainer.new()
-	set_box.custom_minimum_size = Vector2(195, 0)
-	parent.add_child(set_box)
-	set_box.add_child(label_factory.call("套装", 16))
-	var set_counts: Dictionary = session.player.get("set_counts", {})
-	for set_id in set_counts.keys():
-		if not DataCatalog.EQUIPMENT_SETS.has(set_id):
-			continue
-		var set_data: Dictionary = DataCatalog.EQUIPMENT_SETS[set_id]
-		set_box.add_child(label_factory.call("%s（%d件）" % [set_data["name"], int(set_counts[set_id])], 13))
-		var bonuses: Dictionary = set_data.get("bonuses", {})
-		for threshold in bonuses.keys():
-			var bonus: Dictionary = bonuses[threshold]
-			var active := int(set_counts[set_id]) >= int(threshold)
-			set_box.add_child(label_factory.call("%s%d件：%s" % ["已激活 " if active else "", int(threshold), bonus.get("label", "")], 12))
-
-
-func _set_suffix(item: Dictionary) -> String:
-	var set_id := String(item.get("set_id", ""))
-	if set_id == "" or not DataCatalog.EQUIPMENT_SETS.has(set_id):
-		return ""
-	return "（%s）" % DataCatalog.EQUIPMENT_SETS[set_id]["name"]
 
 
 func _equipped_name(session: Variant, slot: String) -> String:

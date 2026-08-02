@@ -5,6 +5,7 @@ const ConditionEvaluator = preload("res://scripts/core/condition_evaluator.gd")
 const TriggerService = preload("res://scripts/core/trigger_service.gd")
 
 const STAT_ATTACK := "attack"
+const STAT_AGILITY := "agility"
 const STAT_DAMAGE_TAKEN := "damage_taken"
 const STAT_DEFENSE := "defense"
 const STAT_BLOCK_POWER := "block_power"

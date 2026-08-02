@@ -3,13 +3,36 @@ class_name DataCatalog
 
 const DataRepository = preload("res://scripts/core/data_repository.gd")
 
-const BATTLE_TYPES := ["normal", "normal", "normal", "elite", "normal", "normal", "normal", "elite", "normal", "boss"]
+const BATTLE_TYPES := ["normal", "normal", "elite", "normal", "normal", "elite", "normal", "normal", "normal", "boss"]
 
 const ENERGY_MAX := 60
 const ENERGY_START := 0
 const ATTACK_ENERGY := 4
-const DEFEND_ENERGY := 3
+const DEFEND_ENERGY := 2
 const DODGE_ENERGY := 2
+const MAX_TOWER_FLOOR := 7
+const NORMAL_CONSUMABLE_SLOTS := 3
+
+const WEAPON_PROFILES := {
+	"unarmed": {"name": "空手", "agility": 15, "attack_damage": 2, "critical_weight": 20, "skill_1": "po_jun", "skill_2": "explosive_strike"},
+	"short_sword": {"name": "匕首", "agility": 13, "attack_damage": 4, "critical_weight": 30, "skill_1": "weak_point_break", "skill_2": "backstab"},
+	"long_sword": {"name": "剑", "agility": 11, "attack_damage": 7, "critical_weight": 10, "skill_1": "tiao_zhan", "skill_2": "shattering_blow"},
+	"short_bow": {"name": "弓", "agility": 11, "attack_damage": 6, "critical_weight": 15, "skill_1": "precise_shot", "skill_2": "quick_shot"},
+	"hand_crossbow": {"name": "弩", "agility": 9, "attack_damage": 10, "critical_weight": 0, "skill_1": "quick_strike", "skill_2": "backstab"},
+	"hand_axe": {"name": "斧", "agility": 8, "attack_damage": 10, "critical_weight": 0, "skill_1": "zhong_kan", "skill_2": "vacuum_slash"},
+	"one_hand_hammer": {"name": "锤", "agility": 7, "attack_damage": 12, "critical_weight": 0, "skill_1": "weak_point_break", "skill_2": "backstab"},
+	"whip": {"name": "鞭子", "agility": 13, "attack_damage": 6, "critical_weight": 15, "skill_1": "quick_strike", "skill_2": "hunter_mark"}
+}
+
+const WEAPON_ITEM_PROFILES := {
+	"warrior_training_sword": "long_sword",
+	"archer_practice_bow": "short_bow",
+	"sparta_damascus_sword": "short_sword",
+	"jungle_bow": "short_bow",
+	"circus_whip": "whip"
+}
+
+const EQUIPMENT_SLOTS := ["weapon", "armor", "accessory", "offhand"]
 
 const STATE_CARDS := {
 	"steady": {"name": "平稳", "weight": 50, "multiplier": 1.0, "tag": "numeric"},
@@ -22,23 +45,14 @@ const STATE_CARDS := {
 }
 
 const CLASSES := {
-	"warrior": {
-		"name": "战士",
-		"max_hp": 90,
+	"unified": {
+		"name": "探索者",
+		"max_hp": 80,
 		"base_attack": 7,
 		"base_defense": 1,
-		"base_block": 5,
-		"resource": "rage",
+		"base_block": 4,
+		"resource": "adrenaline",
 		"first_skill": "po_jun"
-	},
-	"archer": {
-		"name": "弓箭手",
-		"max_hp": 70,
-		"base_attack": 8,
-		"base_defense": 0,
-		"base_block": 3,
-		"resource": "focus",
-		"first_skill": "precise_shot"
 	}
 }
 
@@ -63,7 +77,10 @@ const SKILLS := {
 			"shattering_blow": {"name": "碎裂斩", "class": "warrior", "type": "attack", "slot": 2, "energy_cost": 22, "cooldown": 0, "armor_reduce": 0.75, "multiplier": 3.00, "hits": 1, "aoe_multiplier": 2.00, "damage_type": "physical", "actions": [{"type": "modify_armor", "target": "selected", "multiplier": 0.25}, {"type": "damage", "target": "selected", "multiplier": 3.00, "hits": 1, "damage_type": "physical"}, {"type": "damage", "target": "all_enemies", "multiplier": 2.00, "hits": 1, "damage_type": "physical", "repeat_with_charge": false, "include_extra_hits": false}]},
 			"vacuum_slash": {"name": "真空斩", "class": "warrior", "type": "attack", "slot": 2, "energy_cost": 21, "cooldown": 0, "multiplier": 5.00, "hits": 1, "damage_type": "true", "weaken_multiplier": 0.60, "actions": [{"type": "damage", "target": "selected", "multiplier": 5.00, "hits": 1, "damage_type": "true"}, {"type": "apply_status", "target": "selected", "status": {"id": "vacuum_slash", "name": "真空斩", "kind": "debuff", "stack": "replace", "effects": [{"stat": "attack", "type": "multiply", "value": 0.60}], "duration": 2}}]},
 		"precise_shot": {"name": "精准射击", "class": "archer", "type": "attack", "slot": 1, "energy_cost": 12, "cooldown": 0, "multiplier": 2.10, "hits": 1, "armor_reduce": 0.30, "damage_type": "physical", "actions": [{"type": "modify_armor", "target": "selected", "multiplier": 0.70}, {"type": "damage", "target": "selected", "multiplier": 2.10, "hits": 1, "damage_type": "physical"}]},
-		"quick_shot": {"name": "连珠箭", "class": "archer", "type": "attack", "slot": 2, "energy_cost": 30, "cooldown": 0, "multiplier": 0.60, "hits": 4, "damage_type": "physical", "actions": [{"type": "damage", "target": "selected", "multiplier": 0.60, "hits": 4, "damage_type": "physical"}]},
+	"quick_shot": {"name": "连珠箭", "class": "archer", "type": "attack", "slot": 2, "energy_cost": 20, "cooldown": 0, "multiplier": 0.80, "hits": 7, "damage_type": "physical", "ignore_armor": 1.0, "actions": [{"type": "damage", "target": "selected", "multiplier": 0.80, "hits": 7, "damage_type": "physical", "ignore_armor": 1.0}]},
+	"weak_point_break": {"name": "弱点击破", "class": "common", "type": "attack", "slot": 1, "energy_cost": 9, "cooldown": 0, "multiplier": 2.00, "hits": 1, "damage_type": "physical", "ignore_armor": 0.50, "actions": [{"type": "damage", "target": "selected", "multiplier": 2.00, "hits": 1, "damage_type": "physical", "ignore_armor": 0.50}]},
+	"backstab": {"name": "背刺", "class": "common", "type": "attack", "slot": 2, "energy_cost": 20, "cooldown": 0, "multiplier": 6.00, "hits": 1, "damage_type": "physical", "ignore_armor": 1.0, "actions": [{"type": "damage", "target": "selected", "multiplier": 6.00, "hits": 1, "damage_type": "physical", "ignore_armor": 1.0}]},
+	"quick_strike": {"name": "快速打击", "class": "common", "type": "attack", "slot": 1, "energy_cost": 9, "cooldown": 0, "multiplier": 1.00, "hits": 3, "damage_type": "physical", "actions": [{"type": "damage", "target": "selected", "multiplier": 1.00, "hits": 3, "damage_type": "physical"}]},
 	"hunter_mark": {"name": "猎人标记", "class": "archer", "type": "debuff", "slot": 3, "energy_cost": 18, "cooldown": 0, "mark_multiplier": 1.35, "weaken_multiplier": 0.75, "actions": [{"type": "apply_status", "target": "selected", "status": {"id": "hunter_mark", "name": "猎人标记", "kind": "debuff", "stack": "replace", "effects": [{"stat": "damage_taken", "type": "multiply", "value": 1.35, "skill_bonus_stat": "attack"}, {"stat": "attack", "type": "multiply", "value": 0.75}], "duration": -1}}]},
 	"roll": {"name": "翻滚", "class": "archer", "type": "dodge", "slot": 4, "energy_cost": 0, "cooldown": 3, "block_multiplier": 1.20, "dodge_layers": 1, "actions": [{"type": "gain_dodge", "target": "self", "layers": 1, "double_with_state": "read"}, {"type": "gain_block", "target": "self", "stat": "block_power", "multiplier": 1.20, "skill_bonus_stat": "defense", "repeat_with_charge": false}]},
 	"first_aid": {"name": "急救", "class": "common", "type": "heal", "slot": 3, "energy_cost": 18, "cooldown": 0, "heal_multiplier": 0.25, "actions": [{"type": "heal", "target": "ally_selected", "stat": "max_hp", "multiplier": 0.25, "skill_bonus_stat": "hp"}]},
@@ -96,51 +113,51 @@ const INNATE_SKILLS := {
 }
 
 const EQUIPMENT := {
-	"warrior_training_helm": {"class": "warrior", "slot": "head", "name": "训练铁盔", "hp": 5, "attack": 0, "armor": 1, "block": 1},
-	"warrior_old_chest": {"class": "warrior", "slot": "body", "name": "旧胸甲", "hp": 7, "attack": 0, "armor": 1, "block": 2},
-	"warrior_soldier_belt": {"class": "warrior", "slot": "waist", "name": "士兵腰带", "hp": 4, "attack": 0, "armor": 0, "block": 1},
-	"warrior_practice_greaves": {"class": "warrior", "slot": "legs", "name": "练习腿裤", "hp": 5, "attack": 0, "armor": 1, "block": 1},
-	"warrior_cloth_gloves": {"class": "warrior", "slot": "hands", "name": "粗布手套", "hp": 2, "attack": 0, "armor": 0, "block": 0},
-	"warrior_old_leggings": {"class": "warrior", "slot": "leggings", "name": "旧护腿", "hp": 4, "attack": 0, "armor": 1, "block": 1},
-	"warrior_march_boots": {"class": "warrior", "slot": "feet", "name": "行军靴", "hp": 3, "attack": 0, "armor": 0, "block": 0},
+	"warrior_training_helm": {"class": "warrior", "slot": "armor", "name": "训练铁盔", "hp": 5, "attack": 0, "armor": 1, "block": 1},
+	"warrior_old_chest": {"class": "warrior", "slot": "armor", "name": "旧胸甲", "hp": 7, "attack": 0, "armor": 1, "block": 2},
+	"warrior_soldier_belt": {"class": "warrior", "slot": "armor", "name": "士兵腰带", "hp": 4, "attack": 0, "armor": 0, "block": 1},
+	"warrior_practice_greaves": {"class": "warrior", "slot": "armor", "name": "练习腿裤", "hp": 5, "attack": 0, "armor": 1, "block": 1},
+	"warrior_cloth_gloves": {"class": "warrior", "slot": "armor", "name": "粗布手套", "hp": 2, "attack": 0, "armor": 0, "block": 0},
+	"warrior_old_leggings": {"class": "warrior", "slot": "armor", "name": "旧护腿", "hp": 4, "attack": 0, "armor": 1, "block": 1},
+	"warrior_march_boots": {"class": "warrior", "slot": "armor", "name": "行军靴", "hp": 3, "attack": 0, "armor": 0, "block": 0},
 	"warrior_training_sword": {"class": "warrior", "slot": "weapon", "name": "训练剑", "hp": 0, "attack": 4, "armor": 0, "block": 0},
 	"warrior_wooden_shield": {"class": "warrior", "slot": "offhand", "name": "木盾", "hp": 0, "attack": 0, "armor": 2, "block": 2},
-	"archer_practice_hood": {"class": "archer", "slot": "head", "name": "练习兜帽", "hp": 4, "attack": 1, "armor": 0, "block": 1},
-	"archer_old_leather": {"class": "archer", "slot": "body", "name": "旧皮甲", "hp": 6, "attack": 0, "armor": 1, "block": 1},
-	"archer_hunter_belt": {"class": "archer", "slot": "waist", "name": "猎人腰带", "hp": 4, "attack": 0, "armor": 0, "block": 1},
-	"archer_light_pants": {"class": "archer", "slot": "legs", "name": "轻便护裤", "hp": 5, "attack": 0, "armor": 1, "block": 1},
-	"archer_bracers": {"class": "archer", "slot": "hands", "name": "射手护腕", "hp": 2, "attack": 0, "armor": 0, "block": 0},
-	"archer_soft_leggings": {"class": "archer", "slot": "leggings", "name": "软皮绑腿", "hp": 3, "attack": 0, "armor": 1, "block": 1},
-	"archer_light_boots": {"class": "archer", "slot": "feet", "name": "轻便靴", "hp": 2, "attack": 0, "armor": 0, "block": 0},
+	"archer_practice_hood": {"class": "archer", "slot": "armor", "name": "练习兜帽", "hp": 4, "attack": 1, "armor": 0, "block": 1},
+	"archer_old_leather": {"class": "archer", "slot": "armor", "name": "旧皮甲", "hp": 6, "attack": 0, "armor": 1, "block": 1},
+	"archer_hunter_belt": {"class": "archer", "slot": "armor", "name": "猎人腰带", "hp": 4, "attack": 0, "armor": 0, "block": 1},
+	"archer_light_pants": {"class": "archer", "slot": "armor", "name": "轻便护裤", "hp": 5, "attack": 0, "armor": 1, "block": 1},
+	"archer_bracers": {"class": "archer", "slot": "armor", "name": "射手护腕", "hp": 2, "attack": 0, "armor": 0, "block": 0},
+	"archer_soft_leggings": {"class": "archer", "slot": "armor", "name": "软皮绑腿", "hp": 3, "attack": 0, "armor": 1, "block": 1},
+	"archer_light_boots": {"class": "archer", "slot": "armor", "name": "轻便靴", "hp": 2, "attack": 0, "armor": 0, "block": 0},
 	"archer_practice_bow": {"class": "archer", "slot": "weapon", "name": "练习弓", "hp": 0, "attack": 3, "armor": 0, "block": 0},
 	"archer_simple_quiver": {"class": "archer", "slot": "offhand", "name": "简易箭袋", "hp": 0, "attack": 2, "armor": 1, "block": 2},
-	"common_moon_necklace": {"class": "common", "slot": "necklace", "name": "清辉", "hp": 3, "attack": 0, "armor": 0, "block": 1, "set_id": "moon_pair"},
-	"common_moon_ring": {"class": "common", "slot": "ring", "name": "流霜", "hp": 2, "attack": 1, "armor": 0, "block": 1, "set_id": "moon_pair"},
-	"sparta_damascus_sword": {"class": "warrior", "slot": "weapon", "name": "大马士革钢刀", "hp": 0, "attack": 5, "armor": 0, "block": 0, "set_id": "sparta"},
-	"sparta_shield": {"class": "warrior", "slot": "offhand", "name": "斯巴达盾", "hp": 2, "attack": 0, "armor": 2, "block": 2, "set_id": "sparta"},
-	"sparta_chest": {"class": "warrior", "slot": "body", "name": "斯巴达胸甲", "hp": 8, "attack": 0, "armor": 1, "block": 2, "set_id": "sparta"},
-	"sparta_helm": {"class": "warrior", "slot": "head", "name": "斯巴达头盔", "hp": 5, "attack": 0, "armor": 1, "block": 1, "set_id": "sparta"},
-	"sparta_greaves": {"class": "warrior", "slot": "leggings", "name": "斯巴达护胫", "hp": 5, "attack": 0, "armor": 1, "block": 1, "set_id": "sparta"},
-	"sparta_boots": {"class": "warrior", "slot": "feet", "name": "斯巴达鞋", "hp": 3, "attack": 0, "armor": 0, "block": 1, "set_id": "sparta"},
-	"boxer_belt": {"class": "warrior", "slot": "waist", "name": "冠军腰带", "hp": 4, "attack": 2, "armor": 0, "block": 1, "set_id": "boxer"},
-	"boxer_pants": {"class": "warrior", "slot": "legs", "name": "拳击裤", "hp": 5, "attack": 1, "armor": 1, "block": 1, "set_id": "boxer"},
-	"boxer_gloves": {"class": "warrior", "slot": "hands", "name": "拳击手套", "hp": 2, "attack": 3, "armor": 0, "block": 0, "set_id": "boxer"},
-	"circus_whip": {"class": "common", "slot": "weapon", "name": "鞭子", "hp": 0, "attack": 4, "armor": 0, "block": 0, "set_id": "circus"},
-	"circus_torch": {"class": "common", "slot": "offhand", "name": "火把", "hp": 3, "attack": 1, "armor": 0, "block": 1, "set_id": "circus"},
-	"circus_mask": {"class": "common", "slot": "head", "name": "小丑面具", "hp": 4, "attack": 0, "armor": 1, "block": 1, "set_id": "circus"},
-	"circus_gloves": {"class": "common", "slot": "hands", "name": "杂技手套", "hp": 2, "attack": 2, "armor": 0, "block": 0, "set_id": "circus"},
-	"jungle_bow": {"class": "archer", "slot": "weapon", "name": "丛林弓", "hp": 0, "attack": 5, "armor": 0, "block": 0, "set_id": "jungle"},
-	"jungle_knife": {"class": "archer", "slot": "offhand", "name": "剥皮刀", "hp": 2, "attack": 2, "armor": 0, "block": 0, "set_id": "jungle"},
-	"jungle_hat": {"class": "archer", "slot": "head", "name": "草帽", "hp": 4, "attack": 0, "armor": 1, "block": 1, "set_id": "jungle"},
-	"jungle_vest": {"class": "archer", "slot": "body", "name": "树叶衣", "hp": 5, "attack": 0, "armor": 1, "block": 1, "set_id": "jungle"},
-	"jungle_pants": {"class": "archer", "slot": "legs", "name": "树叶裤", "hp": 5, "attack": 0, "armor": 1, "block": 1, "set_id": "jungle"},
-	"jungle_gloves": {"class": "archer", "slot": "hands", "name": "编制手套", "hp": 2, "attack": 2, "armor": 0, "block": 0, "set_id": "jungle"},
-	"ranger_hat": {"class": "archer", "slot": "head", "name": "游侠帽", "hp": 4, "attack": 0, "armor": 1, "block": 1, "set_id": "ranger"},
-	"ranger_cape": {"class": "archer", "slot": "cape", "name": "游侠披风", "hp": 3, "attack": 0, "armor": 0, "block": 1, "set_id": "ranger"},
-	"ranger_vest": {"class": "archer", "slot": "body", "name": "游侠紧身衣", "hp": 5, "attack": 0, "armor": 1, "block": 1, "set_id": "ranger"},
-	"ranger_shoulder": {"class": "archer", "slot": "shoulder", "name": "游侠护肩", "hp": 3, "attack": 0, "armor": 1, "block": 1, "set_id": "ranger"},
-	"ranger_belt": {"class": "archer", "slot": "waist", "name": "游侠腰带", "hp": 4, "attack": 0, "armor": 0, "block": 1, "set_id": "ranger"},
-	"ranger_gloves": {"class": "archer", "slot": "hands", "name": "游侠护手", "hp": 2, "attack": 2, "armor": 0, "block": 0, "set_id": "ranger"}
+	"common_moon_necklace": {"class": "common", "slot": "accessory", "name": "清辉", "hp": 3, "attack": 0, "armor": 0, "block": 1},
+	"common_moon_ring": {"class": "common", "slot": "accessory", "name": "流霜", "hp": 2, "attack": 1, "armor": 0, "block": 1},
+	"sparta_damascus_sword": {"class": "warrior", "slot": "weapon", "name": "大马士革钢刀", "hp": 0, "attack": 5, "armor": 0, "block": 0},
+	"sparta_shield": {"class": "warrior", "slot": "offhand", "name": "斯巴达盾", "hp": 2, "attack": 0, "armor": 2, "block": 2},
+	"sparta_chest": {"class": "warrior", "slot": "armor", "name": "斯巴达胸甲", "hp": 8, "attack": 0, "armor": 1, "block": 2},
+	"sparta_helm": {"class": "warrior", "slot": "armor", "name": "斯巴达头盔", "hp": 5, "attack": 0, "armor": 1, "block": 1},
+	"sparta_greaves": {"class": "warrior", "slot": "armor", "name": "斯巴达护胫", "hp": 5, "attack": 0, "armor": 1, "block": 1},
+	"sparta_boots": {"class": "warrior", "slot": "armor", "name": "斯巴达鞋", "hp": 3, "attack": 0, "armor": 0, "block": 1},
+	"boxer_belt": {"class": "warrior", "slot": "armor", "name": "冠军腰带", "hp": 4, "attack": 2, "armor": 0, "block": 1},
+	"boxer_pants": {"class": "warrior", "slot": "armor", "name": "拳击裤", "hp": 5, "attack": 1, "armor": 1, "block": 1},
+	"boxer_gloves": {"class": "warrior", "slot": "armor", "name": "拳击手套", "hp": 2, "attack": 3, "armor": 0, "block": 0},
+	"circus_whip": {"class": "common", "slot": "weapon", "name": "鞭子", "hp": 0, "attack": 4, "armor": 0, "block": 0},
+	"circus_torch": {"class": "common", "slot": "offhand", "name": "火把", "hp": 3, "attack": 1, "armor": 0, "block": 1},
+	"circus_mask": {"class": "common", "slot": "armor", "name": "小丑面具", "hp": 4, "attack": 0, "armor": 1, "block": 1},
+	"circus_gloves": {"class": "common", "slot": "armor", "name": "杂技手套", "hp": 2, "attack": 2, "armor": 0, "block": 0},
+	"jungle_bow": {"class": "archer", "slot": "weapon", "name": "丛林弓", "hp": 0, "attack": 5, "armor": 0, "block": 0},
+	"jungle_knife": {"class": "archer", "slot": "offhand", "name": "剥皮刀", "hp": 2, "attack": 2, "armor": 0, "block": 0},
+	"jungle_hat": {"class": "archer", "slot": "armor", "name": "草帽", "hp": 4, "attack": 0, "armor": 1, "block": 1},
+	"jungle_vest": {"class": "archer", "slot": "armor", "name": "树叶衣", "hp": 5, "attack": 0, "armor": 1, "block": 1},
+	"jungle_pants": {"class": "archer", "slot": "armor", "name": "树叶裤", "hp": 5, "attack": 0, "armor": 1, "block": 1},
+	"jungle_gloves": {"class": "archer", "slot": "armor", "name": "编制手套", "hp": 2, "attack": 2, "armor": 0, "block": 0},
+	"ranger_hat": {"class": "archer", "slot": "armor", "name": "游侠帽", "hp": 4, "attack": 0, "armor": 1, "block": 1},
+	"ranger_cape": {"class": "archer", "slot": "armor", "name": "游侠披风", "hp": 3, "attack": 0, "armor": 0, "block": 1},
+	"ranger_vest": {"class": "archer", "slot": "armor", "name": "游侠紧身衣", "hp": 5, "attack": 0, "armor": 1, "block": 1},
+	"ranger_shoulder": {"class": "archer", "slot": "armor", "name": "游侠护肩", "hp": 3, "attack": 0, "armor": 1, "block": 1},
+	"ranger_belt": {"class": "archer", "slot": "armor", "name": "游侠腰带", "hp": 4, "attack": 0, "armor": 0, "block": 1},
+	"ranger_gloves": {"class": "archer", "slot": "armor", "name": "游侠护手", "hp": 2, "attack": 2, "armor": 0, "block": 0}
 }
 
 const CONSUMABLES := {
@@ -155,59 +172,60 @@ const CONSUMABLES := {
 
 const STARTER_CONSUMABLES := ["minor_heal", "iron_skin", "swift_step", "rage_draught", "focus_tea", "emergency_kit", "huangqi_juice"]
 
-const EQUIPMENT_SETS := {
-	"moon_pair": {
-		"name": "清辉流霜",
-		"bonuses": {
-			2: {"label": "其余 3 件套以上套装要求 -1。", "set_requirement_delta": 1}
-		}
-	},
-	"sparta": {
-		"name": "斯巴达",
-		"bonuses": {
-			2: {"label": "斯巴达气势：结算时增加 20% 伤害。", "modifiers": [{"stat": "attack", "type": "multiply", "value": 1.20, "priority": 300}]},
-			4: {"label": "斯巴达战吼：降低所有敌人 20% 伤害，持续 3 回合。", "on_battle_start": [{"action": "weaken_enemies", "value": 0.20}]},
-			6: {"label": "狂战血统：血量越低攻击越高，满血时无加成，30% 血量时攻击翻倍。", "modifiers": [{"stat": "attack", "type": "multiply", "value": "dynamic:berserker", "priority": 300}]}
-		}
-	},
-	"boxer": {
-		"name": "拳击手",
-		"bonuses": {
-			2: {"label": "专注：连续攻击同一敌人时，每次伤害提升 20%，切换敌人重置。", "modifiers": [{"stat": "attack", "type": "multiply", "value": "dynamic:focus_combo", "priority": 300}]},
-			3: {"label": "KO：暴击 buff 下攻击造成 3 倍伤害。", "modifiers": [{"stat": "attack", "type": "multiply", "value": "dynamic:ko_critical", "priority": 300}]}
-		}
-	},
-	"circus": {
-		"name": "马戏团",
-		"bonuses": {
-			2: {"label": "杂耍：闪避成功时给攻击者追加100%攻击伤害。", "on_battle_start": [{"action": "apply_status", "status": {"id": "circus_juggling", "name": "杂耍", "kind": "buff", "duration": -1, "triggers": [{"event": "on_dodge", "actions": [{"type": "reflect", "target_stat": "attack", "target_ratio": 1.0}]}]}}]},
-			4: {"label": "表演：连续两次闪避成功时，给全部敌人追加100%攻击的伤害。", "on_battle_start": [{"action": "apply_status", "status": {"id": "circus_performance", "name": "表演", "kind": "buff", "duration": -1, "triggers": [{"event": "on_dodge", "actions": [{"type": "counter_all", "threshold": 2, "target_stat": "attack", "target_ratio": 1.0}]}]}}]}
-		}
-	},
-	"jungle": {
-		"name": "丛林",
-		"bonuses": {
-			2: {"label": "缜密：每闪避成功一次，增加10%伤害，最多增加50%伤害。", "on_battle_start": [{"action": "apply_status", "status": {"id": "jungle_meticulous", "name": "缜密", "kind": "buff", "duration": -1, "triggers": [{"event": "on_dodge", "actions": [{"type": "increment_counter", "counter": "meticulous_stacks", "max": 5}]}, {"event": "on_hit_received", "actions": [{"type": "reset_counter", "counter": "meticulous_stacks"}]}]}}], "modifiers": [{"stat": "attack", "type": "multiply", "value": "dynamic:meticulous", "priority": 300}]},
-			4: {"label": "寻绽：每个不攻击的回合增加30%伤害，最多增加90%伤害。", "on_battle_start": [{"action": "apply_status", "status": {"id": "jungle_seek_bloom", "name": "寻绽", "kind": "buff", "duration": -1, "triggers": [{"event": "on_turn_start", "condition": {"not_attacked_last_turn": true}, "actions": [{"type": "increment_counter", "counter": "seek_bloom_stacks", "max": 3}]}]}}], "modifiers": [{"stat": "attack", "type": "multiply", "value": "dynamic:seek_bloom", "priority": 300}]},
-			6: {"label": "狩猎：缜密5层后追加50%伤害，寻绽3层后追加90%伤害。造成伤害后重置。", "on_battle_start": [{"action": "apply_status", "status": {"id": "jungle_hunt", "name": "狩猎", "kind": "buff", "duration": -1, "triggers": [{"event": "on_hit_dealt", "actions": [{"type": "reset_counter", "counter": "meticulous_stacks"}, {"type": "reset_counter", "counter": "seek_bloom_stacks"}]}]}}], "modifiers": [{"stat": "attack", "type": "multiply", "value": "dynamic:hunt", "priority": 300}]}
-		}
-	},
-	"ranger": {
-		"name": "游侠",
-		"bonuses": {
-			2: {"label": "攻防一体：普攻变为0.3×4次攻击，每攻击4次提供1层闪避。", "on_battle_start": [{"action": "set_innate_skill", "slot": "attack", "skill_id": "ranger_flurry"}, {"action": "apply_status", "status": {"id": "ranger_attack_defense", "name": "攻防一体", "kind": "buff", "duration": -1, "triggers": [{"event": "on_hit_dealt", "actions": [{"type": "increment_counter", "counter": "ranger_hit_count", "max": 999, "threshold": 4, "threshold_actions": [{"type": "gain_dodge", "value": 1}]}]}]}}]},
-			4: {"label": "追击：攻击结束后，追加1倍攻击力×攻击段数的伤害。", "on_battle_start": [{"action": "apply_status", "status": {"id": "ranger_pursuit", "name": "追击", "kind": "buff", "duration": -1, "triggers": [{"event": "on_attack_complete", "actions": [{"type": "extra_damage", "source_stat": "attack", "source_ratio": 1.0, "counter": "ranger_hit_count", "damage_type": "true"}]}]}}]},
-			6: {"label": "折返：闪避后对进攻方进行一次普攻反击（0.3×4段）。", "modifiers": [{"stat": "attack", "type": "multiply", "value": "dynamic:ranger_return", "priority": 302, "action_source": "counter_attack"}]}
-		}
-	}
-}
+static func weapon_profile_for_item(item_id: String) -> Dictionary:
+	var profile_id := String(WEAPON_ITEM_PROFILES.get(item_id, ""))
+	if profile_id == "" or not WEAPON_PROFILES.has(profile_id):
+		return {}
+	return (WEAPON_PROFILES[profile_id] as Dictionary).duplicate(true)
+
+
+static func weapon_profile_for_player(player: Dictionary) -> Dictionary:
+	var equipment: Dictionary = player.get("equipment", {})
+	var weapon_id := String(equipment.get("weapon", ""))
+	if weapon_id == "":
+		return (WEAPON_PROFILES["unarmed"] as Dictionary).duplicate(true)
+	var profile := weapon_profile_for_item(weapon_id)
+	if profile.is_empty():
+		return (WEAPON_PROFILES["unarmed"] as Dictionary).duplicate(true)
+	return profile
+
+static func normalize_class_id(class_id: String) -> String:
+	if CLASSES.has(class_id):
+		return class_id
+	# warrior/archer are historical save identifiers; all new runtime data uses unified.
+	return "unified"
+
+
+static func skill_class_compatible(skill: Dictionary, class_id: String) -> bool:
+	var skill_class := String(skill.get("class", ""))
+	var normalized_class := normalize_class_id(class_id)
+	if skill_class == "common" or skill_class == "unified":
+		return true
+	if normalized_class == "unified" and skill_class in ["warrior", "archer"]:
+		return true
+	return skill_class == normalized_class
+
+
+static func equipment_slot(item_or_slot: Variant) -> String:
+	var raw_slot := ""
+	if typeof(item_or_slot) == TYPE_DICTIONARY:
+		raw_slot = String((item_or_slot as Dictionary).get("slot", ""))
+	else:
+		raw_slot = String(item_or_slot)
+	match raw_slot:
+		"weapon":
+			return "weapon"
+		"offhand":
+			return "offhand"
+		"accessory", "necklace", "ring", "ring2":
+			return "accessory"
+		"armor", "head", "body", "waist", "legs", "hands", "leggings", "feet", "shoulders", "shoulder", "cloak", "cape":
+			return "armor"
+	return ""
 
 const TUTORIAL_UNLOCKS := {
-	"warrior": [
+	"unified": [
 		"po_jun", "warrior_old_chest", "warrior_wooden_shield"
-	],
-	"archer": [
-		"precise_shot", "archer_old_leather", "archer_simple_quiver"
 	]
 }
 
@@ -216,7 +234,6 @@ const TUTORIAL_ENCOUNTERS := [
 	{"id": "tutorial_02", "type": "normal", "name": "防御考官", "units": [{"name": "防御考官", "rank": "normal", "hp": 38, "attack": 5, "defense": 1, "passive_skills": ["tutorial_ramp", "", "", ""], "skills": ["enemy_rend", "enemy_fortify"]}]},
 	{"id": "tutorial_03", "type": "normal", "name": "闪避考官", "units": [{"name": "闪避考官", "rank": "normal", "hp": 34, "attack": 6, "defense": 1, "passive_skills": ["tutorial_evade", "", "", ""], "skills": ["enemy_heavy_strike", "enemy_quick_evade"]}]}
 ]
-
 const NORMAL_UNITS := [
 	{"id": "normal_rat_01", "name": "腐鼠", "fixed_stats": true, "hp": 30, "attack": 10, "defense": 1, "block_power": 3, "passive_skills": ["swarm", "corruption", "", ""], "skills": [], "behavior_weights": {"innate_attack_1": 50, "innate_defend": 10, "innate_dodge": 10}},
 	{"id": "normal_rat_02", "name": "尖牙鼠", "fixed_stats": true, "hp": 40, "attack": 12, "defense": 1, "block_power": 2, "passive_skills": ["swarm", "fang", "", ""], "skills": [], "behavior_weights": {"innate_attack_1": 50, "innate_defend": 10, "innate_dodge": 10}},

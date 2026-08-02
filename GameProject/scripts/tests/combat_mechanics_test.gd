@@ -2,8 +2,7 @@ extends "res://scripts/tests/test_base.gd"
 
 const TestHelpers = preload("res://scripts/tests/test_helpers.gd")
 const DataCatalog = preload("res://scripts/core/data_catalog.gd")
-const RunSimulator = preload("res://scripts/core/run_simulator.gd")
-const CombatEngine = preload("res://scripts/core/combat_engine.gd")
+const CharacterService = preload("res://scripts/core/character_service.gd")
 const Combatant = preload("res://scripts/core/combatant.gd")
 const StatusService = preload("res://scripts/core/status_service.gd")
 const CombatRules = preload("res://scripts/core/combat_rules.gd")
@@ -28,6 +27,8 @@ func run() -> void:
 	test_enemy_ai_skill_selection()
 	test_enemy_taunt_skill()
 	test_rank_skill_multiplier()
+	test_basic_attack_agility_segments()
+	test_agility_action_order()
 	test_skeleton_passive_damage_rules()
 	test_skeleton_taunt_requires_an_ally()
 
@@ -43,6 +44,62 @@ func test_rat_corruption_and_armor_reduction() -> void:
 	CombatRules.apply_armor_reduction(player, 3, status_service, "测试减防")
 	var combatant := Combatant.from_player(player, 0, 0, status_service)
 	assert_equal(int(combatant["armor"]), -2, "armor reduction should allow negative defense")
+
+
+func test_basic_attack_agility_segments() -> void:
+	var status_service := StatusService.new()
+	var attacker := {"agility": 12, "statuses": []}
+	var target := {"agility": 6, "statuses": []}
+	assert_equal(CombatRules.basic_attack_hit_count(attacker, target, status_service), 2, "agility 12 versus 6 should produce two basic attack hits")
+	attacker["agility"] = 11
+	assert_equal(CombatRules.basic_attack_hit_count(attacker, target, status_service), 1, "agility 11 versus 6 should remain one basic attack hit")
+
+	var session_script = load("res://scripts/core/play_session.gd")
+	var realtime = session_script.new()
+	realtime.start_new_game("unified")
+	realtime.player["attack"] = 10
+	realtime.player["agility"] = 12
+	realtime.player["statuses"] = []
+	var realtime_enemies: Array[Dictionary] = [TestHelpers.test_enemy("实时敏捷目标", 100, 0, [])]
+	realtime.enemies = realtime_enemies
+	realtime.enemies[0]["agility"] = 6
+	realtime.enemies[0]["statuses"] = []
+	realtime.has_acted = false
+	realtime.player_attack(0)
+	assert_equal(int(realtime.enemies[0]["hp"]), 80, "realtime basic attack should apply two agility-derived hits")
+
+
+
+func test_agility_action_order() -> void:
+	var status_service := StatusService.new()
+	var player := {"name": "玩家", "side": "player", "hp": 100, "agility": 10, "statuses": []}
+	var fast_enemy := TestHelpers.test_enemy("高速敌人", 100, 1, [])
+	fast_enemy["agility"] = 20
+	var slow_enemy := TestHelpers.test_enemy("低速敌人", 100, 1, [])
+	slow_enemy["agility"] = 5
+	var ordered := CombatRules.action_order(player, [fast_enemy, slow_enemy] as Array[Dictionary], [] as Array[Dictionary], status_service, 1)
+	assert_equal(String(ordered[0]["unit"]["name"]), "高速敌人", "higher agility enemy should act first")
+	assert_equal(String(ordered[1]["unit"]["name"]), "玩家", "player should be between faster and slower enemies")
+	assert_equal(String(ordered[2]["unit"]["name"]), "低速敌人", "slower enemy should act after player")
+	player["agility"] = 20
+	fast_enemy["agility"] = 20
+	ordered = CombatRules.action_order(player, [fast_enemy] as Array[Dictionary], [] as Array[Dictionary], status_service, 1)
+	assert_equal(String(ordered[0]["unit"]["name"]), "玩家", "equal agility should prefer player")
+
+	var session_script = load("res://scripts/core/play_session.gd")
+	var realtime = session_script.new()
+	realtime.start_new_game("unified")
+	realtime.player["hp"] = 100
+	realtime.player["max_hp"] = 100
+	realtime.player["agility"] = 5
+	var realtime_enemy := TestHelpers.test_enemy("实时高速敌人", 100, 1, [])
+	realtime_enemy["agility"] = 20
+	realtime.enemies = [realtime_enemy] as Array[Dictionary]
+	realtime.round_index = 0
+	realtime.battle_log.clear()
+	realtime._begin_player_turn()
+	assert_true(int(realtime.player["hp"]) < 100, "faster realtime enemy should attack before player's action")
+
 
 
 func test_skeleton_passive_damage_rules() -> void:
@@ -156,8 +213,7 @@ func test_swarm_triggers_one_assist_per_living_ally() -> void:
 
 
 func test_block_power_is_separate_from_armor() -> void:
-	assert_equal(int(DataCatalog.CLASSES["warrior"]["base_block"]), 5, "warrior base block")
-	assert_equal(int(DataCatalog.CLASSES["archer"]["base_block"]), 3, "archer base block")
+	assert_equal(int(DataCatalog.CLASSES["unified"]["base_block"]), 4, "unified base block")
 	var session_script = load("res://scripts/core/play_session.gd")
 	var session = session_script.new()
 	session.start_new_game("archer")
@@ -197,8 +253,8 @@ func test_enemy_block_power_is_separate_from_armor() -> void:
 
 
 func test_player_and_enemy_share_combatant_contract() -> void:
-	var simulator := RunSimulator.new()
-	var player := simulator.create_character("warrior")
+	var character := CharacterService.new()
+	var player := character.create_character("warrior")
 	var player_unit := Combatant.from_player(player, 0, 0)
 	var enemy_unit := Combatant.from_enemy_unit({
 		"name": "统一模板测试敌人",
@@ -218,8 +274,7 @@ func test_player_and_enemy_share_combatant_contract() -> void:
 
 
 func test_thick_skin_always_grants_armor() -> void:
-	var combat: CombatEngine = CombatEngine.new()
-	var enemy: Dictionary = combat.scale_enemy({
+	var enemy: Dictionary = Combatant.scaled_enemy({
 		"name": "厚皮测试",
 		"hp": 1.0,
 		"attack": 1.0,
@@ -251,9 +306,9 @@ func test_skill_multiplier_effects() -> void:
 	var session_script = load("res://scripts/core/play_session.gd")
 	var warrior = session_script.new()
 	warrior.start_new_game("warrior")
-	warrior.player["equipped_skills"] = ["war_cry"]
+	warrior.player["equipped_skills"] = ["", "", "war_cry", ""]
 	warrior.energy = 12
-	warrior.use_skill(0, 0)
+	warrior.use_skill(2, 0)
 	var statuses: Array = warrior.player.get("statuses", [])
 	assert_true(statuses.size() > 0, "war cry should add a status to player")
 	var resolved_attack: float = warrior.status_service.resolve_stat(warrior.player, float(warrior.player["attack"]), StatusService.STAT_ATTACK)
@@ -261,7 +316,7 @@ func test_skill_multiplier_effects() -> void:
 
 	var archer = session_script.new()
 	archer.start_new_game("archer")
-	archer.player["equipped_skills"] = ["hunter_mark"]
+	archer.player["equipped_skills"] = ["", "", "hunter_mark", ""]
 	archer.player["attack"] = 10
 	var marked_enemies: Array[Dictionary] = [{
 		"name": "标记测试敌人",
@@ -279,7 +334,7 @@ func test_skill_multiplier_effects() -> void:
 	}]
 	archer.enemies = marked_enemies
 	archer.energy = int(DataCatalog.SKILLS["hunter_mark"]["energy_cost"])
-	archer.use_skill(0, 0)
+	archer.use_skill(2, 0)
 	assert_true(archer.enemies[0].get("statuses", []).size() > 0, "hunter mark should add a debuff status to enemy")
 	var dmg_mult: float = archer.status_service.resolve_stat(archer.enemies[0], 1.0, StatusService.STAT_DAMAGE_TAKEN)
 	assert_true(dmg_mult > 1.0, "hunter mark should increase damage taken multiplier")
@@ -305,14 +360,14 @@ func test_counter_stance_and_multihit_dodge() -> void:
 
 	var archer = session_script.new()
 	archer.start_new_game("archer")
-	archer.player["equipped_skills"] = ["quick_shot"]
+	archer.player["weapon_skill_2"] = "quick_shot"
 	archer.player["attack"] = 10
 	var dodging_enemies: Array[Dictionary] = [TestHelpers.test_enemy("闪避测试敌人", 100, 0, [])]
 	dodging_enemies[0]["dodge_layers"] = 1
 	archer.enemies = dodging_enemies
 	archer.energy = int(DataCatalog.SKILLS["quick_shot"]["energy_cost"])
-	archer.use_skill(0, 0)
-	assert_equal(int(archer.enemies[0]["hp"]), 82, "quick shot should only lose its first hit to one dodge layer")
+	archer.use_skill(1, 0)
+	assert_equal(int(archer.enemies[0]["hp"]), 52, "quick shot should only lose its first hit to one dodge layer")
 
 	var dodger = session_script.new()
 	dodger.start_new_game("warrior")

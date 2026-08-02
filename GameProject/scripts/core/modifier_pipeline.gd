@@ -3,11 +3,9 @@ class_name ModifierPipeline
 
 const DataCatalog = preload("res://scripts/core/data_catalog.gd")
 const StatusService = preload("res://scripts/core/status_service.gd")
-const DynamicValueResolver = preload("res://scripts/core/dynamic_value_resolver.gd")
 
 const PRIORITY_FLAT   := 100
 const PRIORITY_STATUS := 200
-const PRIORITY_SET    := 300
 const PRIORITY_STATE  := 400
 const PRIORITY_CHARGE := 500
 const PRIORITY_FINAL  := 700
@@ -40,8 +38,6 @@ static func collect_from_session(session, stat_key: String, context: Dictionary 
 					"priority": PRIORITY_STATE
 				})
 
-			_collect_set_modifiers(modifiers, player, "attack", context, is_skill, session, action_source)
-
 			if is_skill:
 				var skill_multiplier := float(context.get("skill_multiplier", 1.0))
 				if skill_multiplier != 1.0:
@@ -64,8 +60,6 @@ static func collect_from_session(session, stat_key: String, context: Dictionary 
 					"priority": PRIORITY_STATE
 				})
 
-			_collect_set_modifiers(modifiers, player, "defense", context, is_skill, session, action_source)
-
 			if is_skill:
 				var skill_multiplier := float(context.get("skill_multiplier", 1.0))
 				if skill_multiplier != 1.0:
@@ -78,34 +72,6 @@ static func collect_from_session(session, stat_key: String, context: Dictionary 
 					})
 
 	return modifiers
-
-
-static func _collect_set_modifiers(modifiers: Array, player: Dictionary, stat_key: String, context: Dictionary, is_skill: bool, session = null, action_source: String = "") -> void:
-	var set_effects: Dictionary = player.get("active_set_effects", {})
-	for set_mod in set_effects.get("modifiers", []):
-		if String(set_mod.get("stat", "")) != stat_key:
-			continue
-		var mod_action_source := String(set_mod.get("action_source", ""))
-		if mod_action_source != "" and mod_action_source != action_source:
-			continue
-		var raw_value = set_mod["value"]
-		if typeof(raw_value) == TYPE_STRING and raw_value == "dynamic:focus_combo":
-			continue
-		var ctx_with_counters := context.duplicate()
-		ctx_with_counters["meticulous_stacks"] = session.meticulous_stacks if session else 0
-		ctx_with_counters["seek_bloom_stacks"] = session.seek_bloom_stacks if session else 0
-		ctx_with_counters["state_card"] = session.pending_state_card if session else ""
-		ctx_with_counters["focus_combo_multiplier"] = session.focus_combo_multiplier if session else 1.0
-		var resolved_value = DynamicValueResolver.resolve(raw_value, player, ctx_with_counters)
-		if typeof(resolved_value) == TYPE_FLOAT and abs(resolved_value - 1.0) < 0.0001:
-			continue
-		modifiers.append({
-			"source": String(set_mod.get("source", "set")),
-			"stat": stat_key,
-			"type": String(set_mod.get("type", "multiply")),
-			"value": resolved_value,
-			"priority": int(set_mod.get("priority", PRIORITY_SET))
-		})
 
 
 static func resolve(base: float, modifiers: Array[Dictionary]) -> float:

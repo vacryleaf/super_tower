@@ -2,63 +2,65 @@ extends "res://scripts/tests/test_base.gd"
 
 const TestHelpers = preload("res://scripts/tests/test_helpers.gd")
 const DataCatalog = preload("res://scripts/core/data_catalog.gd")
-const RunSimulator = preload("res://scripts/core/run_simulator.gd")
-const CombatEngine = preload("res://scripts/core/combat_engine.gd")
-const DynamicValueResolver = preload("res://scripts/core/dynamic_value_resolver.gd")
-
-const BASELINE_CAMPAIGN_SEED := 3
+const EncounterService = preload("res://scripts/core/encounter_service.gd")
+const CharacterService = preload("res://scripts/core/character_service.gd")
 
 
 func run() -> void:
-	test_tutorial_unlocks("warrior")
-	test_tutorial_unlocks("archer")
+	test_tutorial_data()
+	test_tutorial_is_before_formal_floor_one()
 	test_encounter_generation()
 	test_late_battles_are_stronger_than_openers()
-	test_baseline_campaign_difficulty_gate("warrior")
-	test_baseline_campaign_difficulty_gate("archer")
-	test_circus_set_juggling()
-	test_jungle_set_meticulous()
+	test_equipment_slots_without_sets()
 
 
-func test_tutorial_unlocks(class_id: String) -> void:
-	var simulator := RunSimulator.new()
-	var result := simulator.run_tutorial(class_id)
-	assert_true(result["success"], "%s tutorial must complete" % class_id)
-	var player: Dictionary = result["player"]
-	assert_true(player["tutorial_completed"], "%s tutorial completed flag" % class_id)
-	assert_equal(int(player["battles_completed"]), 3, "%s tutorial battle count" % class_id)
-	assert_equal(player["equipment_ids"].size(), 2, "%s tutorial equipment count" % class_id)
-	var equipped_skill_count := 0
-	for skill_id in player["equipped_skills"]:
-		if String(skill_id) != "":
-			equipped_skill_count += 1
-	assert_equal(equipped_skill_count, 1, "%s first skill equipped" % class_id)
-	assert_equal(player["unlocked_skills"].size(), 1, "%s first skill unlocked once" % class_id)
-	assert_true(int(player["tutorial_restarts"]) <= 2, "%s tutorial protection should rarely restart with low-armor baseline" % class_id)
+func test_tutorial_data() -> void:
+	assert_equal(DataCatalog.TUTORIAL_ENCOUNTERS.size(), 3, "tutorial should define three encounter entries")
+	for encounter in DataCatalog.TUTORIAL_ENCOUNTERS:
+		assert_true(encounter.get("units", []).size() >= 1, "tutorial encounter has at least one enemy")
+	var unlocks: Array = DataCatalog.TUTORIAL_UNLOCKS.get("unified", [])
+	assert_equal(unlocks.size(), 3, "unified tutorial should define three unlock rewards")
+	for unlock_id in unlocks:
+		assert_true(DataCatalog.EQUIPMENT.has(unlock_id) or DataCatalog.SKILLS.has(unlock_id), "tutorial unlock should reference a known item or skill")
 
-	var first_skill: String = DataCatalog.CLASSES[class_id]["first_skill"]
-	assert_true(player["equipped_skills"].has(first_skill), "%s first skill id" % class_id)
-	for item_id in player["equipment_ids"]:
-		var item: Dictionary = DataCatalog.EQUIPMENT[item_id]
-		assert_true(item.has("hp") and item.has("attack") and item.has("armor"), "%s equipment has hp/attack/armor" % item_id)
-		assert_true(item["slot"] != "necklace" and item["slot"] != "ring", "%s tutorial must not unlock necklace or ring" % item_id)
+
+func test_tutorial_is_before_formal_floor_one() -> void:
+	var session_script = load("res://scripts/core/play_session.gd")
+	var session = session_script.new()
+	session.delete_save()
+	session.start_new_game("warrior")
+	assert_true(session.is_tutorial(), "a new character should start with the three-battle prologue")
+	assert_true(session.tutorial_active, "tutorial mode should be independent from floor index")
+	assert_equal(session.floor_index, 1, "tutorial should not advance the formal floor index")
+	while session.is_tutorial():
+		if session.phase == "battle":
+			TestHelpers.force_win(session)
+		elif session.phase == "reward":
+			session.choose_reward(0)
+	assert_equal(session.floor_index, 1, "tutorial completion should leave formal floor 1 available")
+	assert_equal(session.battle_index, 1, "formal floor should begin at battle 1")
+	assert_true(not session.tutorial_active, "tutorial mode should be disabled after the third battle")
+	assert_true(session.end_run_to_camp(), "tutorial completion should return to camp")
+	session.start_new_game("warrior")
+	assert_true(not session.is_tutorial(), "completed tutorial should not restart")
+	assert_equal(session.floor_index, 1, "completed tutorial should start formal floor 1")
+	assert_equal(session.battle_index, 1, "formal floor 1 should start at battle 1")
+	assert_true(not String(session.current_encounter.get("id", "")).begins_with("tutorial_"), "formal floor 1 should use normal tower encounters")
+	session.delete_save()
 
 
 func test_encounter_generation() -> void:
-	var simulator := RunSimulator.new()
-	for tower_floor in range(2, 11):
+	var encounters := EncounterService.new()
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 17
+	for tower_floor in range(2, DataCatalog.MAX_TOWER_FLOOR + 1):
 		var counts := {"normal": 0, "elite": 0, "boss": 0}
+		var floor_group_id := encounters.select_floor_group_id(rng)
 		var has_multi_enemy := false
-		var floor_group_id := ""
 		for battle_index in range(1, 11):
-			var encounter := simulator.generate_encounter(tower_floor, battle_index)
+			var encounter := encounters.generate_encounter(tower_floor, battle_index, floor_group_id)
 			counts[encounter["type"]] += 1
-			var encounter_group_id := String(encounter.get("group_id", ""))
-			assert_true(encounter_group_id != "", "floor %d battle %d should have a monster group" % [tower_floor, battle_index])
-			if floor_group_id == "":
-				floor_group_id = encounter_group_id
-			else:
-				assert_equal(encounter_group_id, floor_group_id, "floor %d should keep one monster group" % tower_floor)
+			assert_equal(String(encounter.get("group_id", "")), floor_group_id, "floor %d should keep one monster group" % tower_floor)
 			if encounter["units"].size() > 1:
 				has_multi_enemy = true
 			assert_true(encounter["units"].size() >= 1, "encounter has at least one enemy")
@@ -71,174 +73,33 @@ func test_encounter_generation() -> void:
 
 
 func test_late_battles_are_stronger_than_openers() -> void:
-	var simulator := RunSimulator.new()
-	var combat := CombatEngine.new()
-	for tower_floor in range(2, 11):
+	var encounters := EncounterService.new()
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 19
+	for tower_floor in range(2, DataCatalog.MAX_TOWER_FLOOR + 1):
+		var floor_group_id := encounters.select_floor_group_id(rng)
 		var opener_total := 0.0
 		for battle_index in range(1, 4):
-			opener_total += TestHelpers.encounter_threat(combat, simulator.generate_encounter(tower_floor, battle_index), tower_floor)
+			opener_total += TestHelpers.encounter_threat(encounters.generate_encounter(tower_floor, battle_index, floor_group_id), tower_floor)
 		var late_total := 0.0
 		for battle_index in range(4, 10):
-			late_total += TestHelpers.encounter_threat(combat, simulator.generate_encounter(tower_floor, battle_index), tower_floor)
-		assert_true((late_total / 6.0) > (opener_total / 3.0), "floor %d battles 4-9 average threat should exceed battles 1-3" % tower_floor)
+			late_total += TestHelpers.encounter_threat(encounters.generate_encounter(tower_floor, battle_index, floor_group_id), tower_floor)
+		assert_true((late_total / 6.0) > (opener_total / 3.0), "floor %d battles 4-9 average threat should exceed battles 1-3 (late=%.2f opener=%.2f)" % [tower_floor, late_total / 6.0, opener_total / 3.0])
 
 
-func test_baseline_campaign_difficulty_gate(class_id: String) -> void:
-	var simulator := RunSimulator.new()
-	simulator.set_seed(BASELINE_CAMPAIGN_SEED)
-	var floor_three_attempt := simulator.run_campaign(class_id, 3)
-	assert_true(not bool(floor_three_attempt["success"]), "%s low-armor baseline should hit a build gate before clearing floor 3" % class_id)
-	assert_true(int(floor_three_attempt.get("failed_floor", 0)) >= 2, "%s baseline failure should reach formal floors, got floor %d battle %d" % [
-		class_id,
-		int(floor_three_attempt.get("failed_floor", 0)),
-		TestHelpers.failed_battle(floor_three_attempt)
-	])
-	assert_true(TestHelpers.failed_battle(floor_three_attempt) >= 3, "%s baseline should reach a formal floor gate, got battle %d" % [
-		class_id,
-		TestHelpers.failed_battle(floor_three_attempt)
-	])
-	var player: Dictionary = floor_three_attempt["player"]
-	assert_true(player["tutorial_completed"], "%s campaign tutorial flag" % class_id)
-	assert_true(player["equipped_skills"].size() <= 4, "%s max four skill slots" % class_id)
-	assert_true(TestHelpers.has_no_duplicates(player["unlocked_skills"]), "%s skill unlocks must not duplicate" % class_id)
+func test_equipment_slots_without_sets() -> void:
+	var character := CharacterService.new()
+	var player := character.create_character("unified")
+	character.equip_item(player, "common_moon_necklace")
+	character.equip_item(player, "common_moon_ring")
+	assert_equal(player["equipment"].size(), 1, "accessories should share one slot")
+	assert_equal(String(player["equipment"].get("accessory", "")), "common_moon_ring", "latest accessory should replace previous accessory")
+	assert_true(not player.has("set_counts"), "set counts should not exist after recalculation")
+	assert_true(not player.has("active_set_effects"), "set effects should not exist after recalculation")
 
-	var deep_attempt := simulator.run_campaign(class_id, 10)
-	assert_true(not bool(deep_attempt["success"]), "%s baseline campaign should not clear floor 10 without stronger set synergies" % class_id)
-	assert_true(int(deep_attempt["failed_floor"]) >= 2, "%s baseline failure should happen in formal floors, got floor %d battle %d" % [
-		class_id,
-		int(deep_attempt.get("failed_floor", 0)),
-		TestHelpers.failed_battle(deep_attempt)
-	])
-
-
-func test_circus_set_juggling() -> void:
-	var session_script = load("res://scripts/core/play_session.gd")
-	var session = session_script.new()
-	session.start_new_game("warrior")
-	while session.is_tutorial():
-		if session.phase == "battle":
-			TestHelpers.force_win(session)
-		elif session.phase == "reward":
-			session.choose_reward(0)
-	session.player["equipment"] = {}
-	session.player["equipment_ids"] = []
-	session.player["set_counts"] = {}
-	session.player["active_set_effects"] = {}
-	session.player["equipment_attachments"] = {}
-	session.player["skill_attachments"] = {}
-	var simulator = RunSimulator.new()
-	simulator.equip_item(session.player, "circus_whip")
-	simulator.equip_item(session.player, "circus_torch")
-	simulator.equip_item(session.player, "circus_mask")
-	simulator.equip_item(session.player, "circus_gloves")
-	simulator._recalculate_player_stats(session.player, true)
-	var effects: Dictionary = session.player.get("active_set_effects", {})
-	assert_true(effects.get("modifiers", []).size() >= 0, "circus set should have modifiers slot")
-	var on_start: Array = effects.get("on_battle_start", [])
-	var has_juggling := false
-	var has_performance := false
-	for action in on_start:
-		var status: Dictionary = action.get("status", {})
-		if status.get("id", "") == "circus_juggling":
-			has_juggling = true
-		if status.get("id", "") == "circus_performance":
-			has_performance = true
-	assert_true(has_juggling, "circus 2-piece should grant juggling status")
-	assert_true(has_performance, "circus 4-piece should grant performance status")
-	session._start_current_battle()
-	var has_juggling_status := false
-	var has_performance_status := false
-	for status in session.player.get("statuses", []):
-		if status.get("id", "") == "circus_juggling":
-			has_juggling_status = true
-		if status.get("id", "") == "circus_performance":
-			has_performance_status = true
-	assert_true(has_juggling_status, "juggling status should be on player after battle start")
-	assert_true(has_performance_status, "performance status should be on player after battle start")
-	session._add_player_dodge(5)
-	var enemy: Dictionary = session.enemies[0]
-	session.battle_service.enemy_attack(session, enemy, 0, false)
-	assert_equal(session.dodge_streak, 1, "dodge streak should be 1 after first dodge")
-	session._add_player_dodge(5)
-	session.battle_service.enemy_attack(session, enemy, 0, false)
-	assert_equal(session.dodge_streak, 0, "dodge streak should reset after performance triggers")
-
-
-func test_jungle_set_meticulous() -> void:
-	var session_script = load("res://scripts/core/play_session.gd")
-	var session = session_script.new()
-	session.start_new_game("archer")
-	while session.is_tutorial():
-		if session.phase == "battle":
-			TestHelpers.force_win(session)
-		elif session.phase == "reward":
-			session.choose_reward(0)
-	session.player["equipment"] = {}
-	session.player["equipment_ids"] = []
-	session.player["set_counts"] = {}
-	session.player["active_set_effects"] = {}
-	session.player["equipment_attachments"] = {}
-	session.player["skill_attachments"] = {}
-	var simulator = RunSimulator.new()
-	simulator.equip_item(session.player, "jungle_bow")
-	simulator.equip_item(session.player, "jungle_knife")
-	simulator.equip_item(session.player, "jungle_hat")
-	simulator.equip_item(session.player, "jungle_vest")
-	simulator.equip_item(session.player, "jungle_pants")
-	simulator.equip_item(session.player, "jungle_gloves")
-	simulator._recalculate_player_stats(session.player, true)
-	var effects: Dictionary = session.player.get("active_set_effects", {})
-	var on_start: Array = effects.get("on_battle_start", [])
-	var has_meticulous := false
-	var has_seek_bloom := false
-	var has_hunt := false
-	for action in on_start:
-		var status: Dictionary = action.get("status", {})
-		if status.get("id", "") == "jungle_meticulous":
-			has_meticulous = true
-		if status.get("id", "") == "jungle_seek_bloom":
-			has_seek_bloom = true
-		if status.get("id", "") == "jungle_hunt":
-			has_hunt = true
-	assert_true(has_meticulous, "jungle 2-piece should grant meticulous status")
-	assert_true(has_seek_bloom, "jungle 4-piece should grant seek_bloom status")
-	assert_true(has_hunt, "jungle 6-piece should grant hunt status")
-	session._start_current_battle()
-	var has_meticulous_status := false
-	var has_seek_bloom_status := false
-	var has_hunt_status := false
-	for status in session.player.get("statuses", []):
-		if status.get("id", "") == "jungle_meticulous":
-			has_meticulous_status = true
-		if status.get("id", "") == "jungle_seek_bloom":
-			has_seek_bloom_status = true
-		if status.get("id", "") == "jungle_hunt":
-			has_hunt_status = true
-	assert_true(has_meticulous_status, "meticulous status should be on player")
-	assert_true(has_seek_bloom_status, "seek_bloom status should be on player")
-	assert_true(has_hunt_status, "hunt status should be on player")
-	assert_equal(session.meticulous_stacks, 0, "meticulous should start at 0")
-	assert_equal(session.seek_bloom_stacks, 1, "seek_bloom should be 1 after first turn start")
-	session._add_player_dodge(5)
-	var enemy: Dictionary = session.enemies[0]
-	session.battle_service.enemy_attack(session, enemy, 0, false)
-	assert_equal(session.meticulous_stacks, 1, "meticulous should be 1 after one dodge")
-	session.dodge_layers = 0
-	session.battle_service.enemy_attack(session, enemy, 0, false)
-	assert_equal(session.meticulous_stacks, 0, "meticulous should reset after being hit")
-	session._add_player_dodge(10)
-	for i in range(5):
-		session.battle_service.enemy_attack(session, enemy, 0, false)
-	assert_equal(session.meticulous_stacks, 5, "meticulous should cap at 5 stacks")
-	session.attacked_this_turn = false
-	session._begin_player_turn()
-	assert_equal(session.seek_bloom_stacks, 2, "seek_bloom should be 2 after two non-attack turns")
-	session.attacked_this_turn = false
-	session._begin_player_turn()
-	assert_equal(session.seek_bloom_stacks, 3, "seek_bloom should cap at 3 stacks")
-	var hunt_bonus := DynamicValueResolver.resolve("dynamic:hunt", session.player, {"meticulous_stacks": 5, "seek_bloom_stacks": 3})
-	assert_true(abs(hunt_bonus - 2.85) < 0.001, "hunt bonus should be 2.85 with 5 meticulous + 3 seek_bloom")
-	session.energy = 4
-	session.player_attack(0)
-	assert_equal(session.meticulous_stacks, 0, "meticulous should reset after dealing damage")
-	assert_equal(session.seek_bloom_stacks, 0, "seek_bloom should reset after dealing damage")
+	var equipment_service_script = load("res://scripts/core/equipment_service.gd")
+	var equipment_service = equipment_service_script.new()
+	var legacy_player := {"equipment": {"ring": "common_moon_necklace", "head": "circus_mask"}}
+	equipment_service.normalize_equipment(legacy_player)
+	assert_equal(String(legacy_player["equipment"].get("accessory", "")), "common_moon_necklace", "legacy ring should migrate to accessory")
+	assert_equal(String(legacy_player["equipment"].get("armor", "")), "circus_mask", "legacy head should migrate to armor")

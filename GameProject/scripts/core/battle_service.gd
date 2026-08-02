@@ -12,6 +12,9 @@ const ActionPipeline = preload("res://scripts/core/action_pipeline.gd")
 const CombatRules = preload("res://scripts/core/combat_rules.gd")
 const ModifierPipeline = preload("res://scripts/core/modifier_pipeline.gd")
 const SkillActionService = preload("res://scripts/core/skill_action_service.gd")
+const CharacterService = preload("res://scripts/core/character_service.gd")
+
+var character_service := CharacterService.new()
 
 
 func player_attack(session: RefCounted, target_index: int) -> void:
@@ -24,7 +27,7 @@ func player_attack(session: RefCounted, target_index: int) -> void:
 	session.attacked_this_turn = true
 	var skill_id: String = session.player["innate_skills"]["attack_1"]
 	execute_skill(session, skill_id, target, session.player)
-	session.energy = mini(DataCatalog.ENERGY_MAX, session.energy + DataCatalog.ATTACK_ENERGY)
+	session.energy = mini(DataCatalog.ENERGY_MAX, session.energy + int(session.player.get("attack_energy_gain", DataCatalog.ATTACK_ENERGY)))
 	session.has_acted = true
 	session._consume_state_after_action("attack")
 	session._after_player_action()
@@ -58,10 +61,9 @@ func use_skill(session: RefCounted, slot_index: int, target_index: int) -> void:
 	session.last_events.clear()
 	if session.phase != "battle":
 		return
-	var equipped: Array = session.player.get("equipped_skills", [])
 	if slot_index < 0 or slot_index >= 4:
 		return
-	var skill_id: String = equipped[slot_index] if slot_index < equipped.size() else ""
+	var skill_id := character_service.skill_id_for_slot(session.player, slot_index)
 	if skill_id == "":
 		session.message = "该技能槽还没有技能。"
 		return
@@ -111,8 +113,8 @@ func execute_skill(session: RefCounted, skill_id: String, target_index: int, act
 			var is_aoe := bool(skill.get("aoe", false))
 			var skill_damage_type: String = String(skill.get("damage_type", "physical"))
 			var extra_hits := int(session.status_service.resolve_stat(session.player, float(session.player.get("extra_hits", 0)), StatusService.STAT_EXTRA_HITS))
-			var base_hits := maxi(1, int(skill.get("hits", 1)) + extra_hits)
 			if is_aoe:
+				var base_hits := maxi(1, int(skill.get("hits", 1)) + extra_hits)
 				# AOE 攻击：对所有敌人造成伤害
 				var aoe_damage: int = session._skill_attack_value(skill_id, ActionSource.ACTIVE_ATTACK)
 				var aoe_ctx := ActionContext.create_attack(ActionSource.ACTIVE_ATTACK, 0, skill_id, skill_damage_type, 1)
@@ -146,7 +148,10 @@ func execute_skill(session: RefCounted, skill_id: String, target_index: int, act
 				if target < 0:
 					return
 				var base_damage: int = session._skill_attack_value(skill_id, ActionSource.ACTIVE_ATTACK)
-				var skill_ctx := ActionContext.create_attack(ActionSource.ACTIVE_ATTACK, target, skill_id, skill_damage_type, maxi(1, int(skill.get("hits", 1))))
+				var base_hits := maxi(1, int(skill.get("hits", 1)) + extra_hits)
+				if skill_id.begins_with("innate_attack_"):
+					base_hits = CombatRules.basic_attack_hit_count(actor, opposing[target], session.status_service)
+				var skill_ctx := ActionContext.create_attack(ActionSource.ACTIVE_ATTACK, target, skill_id, skill_damage_type, base_hits)
 				skill_ctx["base_damage"] = base_damage
 				ActionPipeline.compute(skill_ctx, session)
 				var armor_reduce := float(skill.get("armor_reduce", 0.0))
@@ -465,36 +470,46 @@ func end_turn(session: RefCounted) -> void:
 	session.last_events.clear()
 	if session.phase != "battle":
 		return
-	enemy_turn(session)
+	# 玩家行动后执行本回合剩余的 AI 单位；敌人先手时，先手段已经在
+	# _begin_player_turn() 中执行，这里只会执行玩家之后的单位。
+	enemy_turn(session, false)
 	if session._opposing_units_alive() > 0 and int(session.player["hp"]) > 0:
 		session._begin_player_turn()
 
 
-func enemy_turn(session: RefCounted) -> void:
-	session._clear_enemy_blocks()
-	session._clear_enemy_taunts()
-	for enemy in session.enemies:
-		if int(enemy["hp"]) <= 0:
+func enemy_turn(session: RefCounted, before_player: bool = false) -> void:
+	var action_order := CombatRules.action_order(session.player, session.enemies, session.allies, session.status_service, session.round_index)
+	var player_position := -1
+	for order_index in range(action_order.size()):
+		if String(action_order[order_index].get("type", "")) == "player":
+			player_position = order_index
+			break
+	if before_player or player_position == 0:
+		session._clear_enemy_blocks()
+		session._clear_enemy_taunts()
+	for order_index in range(action_order.size()):
+		var entry: Dictionary = action_order[order_index]
+		var actor_type := String(entry.get("type", ""))
+		if actor_type == "player":
 			continue
-		CombatRules.tick_enemy_cooldowns(enemy)
-		session.status_service.fire_trigger(enemy, TriggerEvents.ON_TURN_START, {"battle_log": session.battle_log, "session": session, "round_index": session.round_index})
-	for ally in session.allies:
-		if int(ally["hp"]) <= 0 or String(ally.get("controlled_by", "")) != "ai":
+		var is_before_player := player_position >= 0 and order_index < player_position
+		if is_before_player != before_player:
 			continue
-		session.status_service.fire_trigger(ally, TriggerEvents.ON_TURN_START, {"battle_log": session.battle_log, "session": session, "round_index": session.round_index})
-	for i in range(session.enemies.size()):
-		var enemy: Dictionary = session.enemies[i]
-		if int(enemy["hp"]) <= 0 or int(enemy.get("available_round", 0)) > session.round_index:
+		var actor: Dictionary = entry.get("unit", {})
+		var actor_index := int(entry.get("index", -1))
+		if int(actor.get("hp", 0)) <= 0:
 			continue
-		if bool(enemy.get("interrupted", false)):
-			enemy["interrupted"] = false
-			session.battle_log.append("%s 被中断，本回合无法行动。" % enemy["name"])
+		if bool(actor.get("interrupted", false)):
+			actor["interrupted"] = false
+			session.battle_log.append("%s 被中断，本回合无法行动。" % actor["name"])
 			continue
-		resolve_enemy_action(session, enemy, i)
-	for ally in session.allies:
-		if int(ally["hp"]) <= 0 or String(ally.get("controlled_by", "")) != "ai":
-			continue
-		resolve_enemy_action(session, ally, session.find_enemy_index(ally))
+		resolve_enemy_action(session, actor, actor_index)
+		if int(session.player.get("hp", 0)) <= 0:
+			break
+	if before_player:
+		session.ai_turn_stage = "after_player_pending"
+		return
+
 	for enemy in session.enemies:
 		if int(enemy["hp"]) <= 0:
 			continue
@@ -504,11 +519,14 @@ func enemy_turn(session: RefCounted) -> void:
 			continue
 		session.status_service.fire_trigger(ally, TriggerEvents.ON_TURN_END, {"battle_log": session.battle_log, "session": session, "round_index": session.round_index})
 	if int(session.player["hp"]) <= 0:
+		session.ai_turn_stage = "complete"
 		session._on_defeat()
+		return
 
 	# 回合结束特性结算：corrode 腐蚀玩家护甲，support 治疗友军
 	CombatRules.apply_end_round_traits(session.player, session.enemies, session.round_index, session.status_service, session.battle_log)
 	CombatRules.apply_arena_effects(session.player, session.enemies, session.round_index, session.status_service, session.allies, session.battle_log, session.scene_skill_sources)
+	session.ai_turn_stage = "complete"
 
 
 func resolve_enemy_action(session: RefCounted, enemy: Dictionary, enemy_index: int) -> void:
@@ -557,23 +575,6 @@ func enemy_attack(session: RefCounted, enemy: Dictionary, enemy_index: int, firs
 				session._check_dodge_streak()
 				dodge_counted = true
 			session.status_service.fire_trigger(session.player, TriggerEvents.ON_DODGE, {"battle_log": session.battle_log, "session": session, "source": enemy, "target": session.player})
-			if session._has_set_modifier("dynamic:ranger_return") and int(enemy["hp"]) > 0:
-				var counter_skill_id: String = session.player["innate_skills"]["attack_1"]
-				var counter_skill: Dictionary = _get_skill_data(counter_skill_id)
-				var counter_multiplier: float = float(counter_skill.get("multiplier", 1.0))
-				var counter_hits: int = maxi(1, int(counter_skill.get("hits", 1)))
-				var counter_attack: int = session._current_attack_value(ActionSource.COUNTER_ATTACK)
-				counter_attack = maxi(1, int(round(float(counter_attack) * session._resolve_focus_combo(enemy_index))))
-				var counter_hit_damage := maxi(1, int(round(float(counter_attack) * counter_multiplier)))
-				var saved_hit_count: int = session.ranger_hit_count
-				for _hit in range(counter_hits):
-					if int(enemy["hp"]) <= 0:
-						break
-					var counter_ctx := ActionContext.create_attack(ActionSource.COUNTER_ATTACK, enemy_index, "", "physical", 1)
-					counter_ctx["final_damage"] = counter_hit_damage
-					session.deal_damage(counter_ctx)
-				session.ranger_hit_count = saved_hit_count
-				session.battle_log.append("折返：反击 %s，造成 %d 段伤害。" % [enemy["name"], counter_hits])
 			continue
 		was_hit = true
 		session.battle_log.append("%s 攻击：护甲减免 %d，格挡吸收 %d，造成 %d 点伤害。" % [
@@ -624,7 +625,8 @@ func deal_damage_to_target(target: Dictionary, raw_damage: int, damage_type: Str
 		marked_damage = maxi(0, int(ceil(float(marked_damage) * resist_mult)))
 	if String(target.get("side", "")) == "enemy":
 		marked_damage = maxi(0, int(ceil(float(marked_damage) * CombatRules.ally_guard_damage_multiplier(target, session.enemies))))
-	var result := Combatant.apply_damage(target, marked_damage, damage_type, CombatRules.armor_multiplier_against(attacker))
+	var armor_multiplier := CombatRules.armor_multiplier_against(attacker)
+	var result := Combatant.apply_damage(target, marked_damage, damage_type, armor_multiplier)
 	_apply_shadow_armor_reflect(session, target, attacker, result)
 	if String(target.get("side", "")) == "enemy" and int(result.get("damage", 0)) > 0:
 		CombatRules.check_split_after_damage(session.enemies, target, session.round_index, session.battle_log)

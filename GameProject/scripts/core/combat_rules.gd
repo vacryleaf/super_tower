@@ -12,7 +12,7 @@ const RANK_SKILL_MULTIPLIER := {
 	"boss": 1.45
 }
 
-# 回合结束特性效果常量（集中管理，combat_engine 和 battle_service 共用）
+# 回合结束特性效果常量（集中管理，battle_service 使用）
 const CURSE_INTERVAL := 3
 const CURSE_DAMAGE := 1
 const CORRODE_DEFENSE_MULTIPLIER := 0.85
@@ -120,6 +120,66 @@ static func alive_count(enemies: Array[Dictionary]) -> int:
 	return count
 
 
+# 普通攻击段数由当前攻击者与目标的敏捷比值决定；主动技能 hits 不走此规则。
+static func basic_attack_hit_count(attacker: Dictionary, target: Dictionary, status_service = null) -> int:
+	var attacker_agility := maxf(1.0, float(attacker.get("agility", 9)))
+	var target_agility := maxf(1.0, float(target.get("agility", 9)))
+	if status_service != null:
+		attacker_agility = maxf(1.0, status_service.resolve_stat(attacker, attacker_agility, StatusService.STAT_AGILITY))
+		target_agility = maxf(1.0, status_service.resolve_stat(target, target_agility, StatusService.STAT_AGILITY))
+	return maxi(1, int(floor(attacker_agility / target_agility)))
+
+
+# 返回本回合的统一行动顺序：敏捷高者先行动；同敏捷时玩家优先；
+# 同一方内部保留生成顺序，供实时战斗流程统一使用。
+static func action_order(player: Dictionary, enemies: Array[Dictionary], allies: Array[Dictionary], status_service = null, round_index: int = -1) -> Array[Dictionary]:
+	var actors: Array[Dictionary] = []
+	if int(player.get("hp", 0)) > 0:
+		actors.append(_action_entry(player, "player", -1, 0, status_service))
+	for index in range(enemies.size()):
+		var enemy: Dictionary = enemies[index]
+		if int(enemy.get("hp", 0)) <= 0:
+			continue
+		if round_index >= 0 and int(enemy.get("available_round", 0)) > round_index:
+			continue
+		actors.append(_action_entry(enemy, "enemy", index, index + 1, status_service))
+	for index in range(allies.size()):
+		var ally: Dictionary = allies[index]
+		if int(ally.get("hp", 0)) <= 0 or String(ally.get("controlled_by", "")) != "ai":
+			continue
+		if round_index >= 0 and int(ally.get("available_round", 0)) > round_index:
+			continue
+		actors.append(_action_entry(ally, "ally", index, enemies.size() + index + 1, status_service))
+	actors.sort_custom(Callable(CombatRules, "_action_entry_before"))
+	return actors
+
+
+static func _action_entry(unit: Dictionary, actor_type: String, index: int, order: int, status_service = null) -> Dictionary:
+	var agility := maxf(1.0, float(unit.get("agility", 9)))
+	if status_service != null:
+		agility = maxf(1.0, status_service.resolve_stat(unit, agility, StatusService.STAT_AGILITY))
+	return {
+		"type": actor_type,
+		"index": index,
+		"unit": unit,
+		"agility": agility,
+		"priority": 0 if actor_type == "player" else 1,
+		"order": order
+	}
+
+
+static func _action_entry_before(left: Dictionary, right: Dictionary) -> bool:
+	var left_agility := float(left.get("agility", 0.0))
+	var right_agility := float(right.get("agility", 0.0))
+	if not is_equal_approx(left_agility, right_agility):
+		return left_agility > right_agility
+	var left_priority := int(left.get("priority", 1))
+	var right_priority := int(right.get("priority", 1))
+	if left_priority != right_priority:
+		return left_priority < right_priority
+	return int(left.get("order", 0)) < int(right.get("order", 0))
+
+
 static func active_taunt_target(enemies: Array[Dictionary]) -> int:
 	for i in range(enemies.size()):
 		if int(enemies[i].get("hp", 0)) > 0 and int(enemies[i].get("taunt", 0)) > 0:
@@ -187,7 +247,6 @@ static func current_attack_value(session: RefCounted, action_source: String = ""
 	var resolved_attack: float = session.status_service.resolve_stat(session.player, float(session.player["attack"]), StatusService.STAT_ATTACK)
 	var modifiers: Array = ModifierPipeline.collect_from_session(session, "attack", {
 		"state_card": session.pending_state_card,
-		"focus_combo_multiplier": session.focus_combo_multiplier
 	}, action_source)
 	return maxi(1, int(round(ModifierPipeline.resolve(resolved_attack, modifiers))))
 
@@ -290,6 +349,14 @@ static func _rank_skill_multiplier(actor: Dictionary) -> float:
 
 static func enemy_attack_segments(session: RefCounted, enemy: Dictionary, first_strike: bool) -> Array[int]:
 	var segments: Array[int] = session.enemy_rules.attack_segments(enemy, session.round_index, first_strike)
+	# 敌人的 innate 普攻同样按敏捷比值拆分；first_strike 只改变伤害，不改变段数规则。
+	var basic_hits := basic_attack_hit_count(enemy, session.player, session.status_service)
+	if basic_hits > 1:
+		var repeated_segments: Array[int] = []
+		for damage in segments:
+			for _hit in range(basic_hits):
+				repeated_segments.append(damage)
+		segments = repeated_segments
 	var base_attack := float(enemy["attack"])
 	var resolved_attack: float = session.status_service.resolve_stat(enemy, base_attack, StatusService.STAT_ATTACK)
 	var status_ratio := resolved_attack / maxf(1.0, base_attack)

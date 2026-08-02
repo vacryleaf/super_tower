@@ -27,8 +27,7 @@ func test_state_card_weights() -> void:
 
 
 func test_player_armor_baseline_is_low() -> void:
-	assert_equal(int(DataCatalog.CLASSES["warrior"]["base_defense"]), 1, "warrior base armor")
-	assert_equal(int(DataCatalog.CLASSES["archer"]["base_defense"]), 0, "archer base armor")
+	assert_equal(int(DataCatalog.CLASSES["unified"]["base_defense"]), 1, "unified base armor")
 	for item_id in DataCatalog.EQUIPMENT.keys():
 		assert_true(int(DataCatalog.EQUIPMENT[item_id]["armor"]) <= 2, "%s equipment armor cap" % item_id)
 		assert_true(DataCatalog.EQUIPMENT[item_id].has("block"), "%s equipment has block" % item_id)
@@ -180,6 +179,8 @@ func test_external_runtime_field_parity() -> void:
 		var runtime_table: Dictionary = migrated_tables[table_name]
 		for entry_id in external_table.keys():
 			assert_true(runtime_table.has(entry_id), "%s.%s should exist in runtime catalog" % [table_name, entry_id])
+			if not runtime_table.has(entry_id):
+				continue
 			var external_entry: Dictionary = external_table[entry_id]
 			var runtime_entry: Dictionary = runtime_table[entry_id]
 			for field in external_entry.keys():

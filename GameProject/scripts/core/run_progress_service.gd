@@ -1,6 +1,8 @@
 extends RefCounted
 class_name RunProgressService
 
+const DataCatalog = preload("res://scripts/core/data_catalog.gd")
+
 
 func on_victory(session: Variant) -> void:
 	session.player["battles_completed"] += 1
@@ -26,15 +28,21 @@ func on_defeat(session: Variant) -> void:
 
 func advance_after_reward(session: Variant) -> void:
 	if session.is_tutorial() and session.battle_index == 3:
+		# The opening prologue is separate from the tower. Leave the player at
+		# formal floor 1 battle 1 for the next run instead of consuming floor 1.
 		session.player["tutorial_completed"] = true
+		session.tutorial_active = false
+		session.floor_index = 1
+		session.battle_index = 1
+		session.floor_group_id = ""
 		session.pending_tutorial_epilogue = true
 		session.phase = "tutorial_epilogue"
-		session.message = "城外有座塔拔地而起，众多冒险家纷纷前往，但绝大部分都无法通过第十层，更别提看起来有数百层。"
+		session.message = "城外有座塔拔地而起，众多冒险家纷纷前往，但绝大部分都无法通过第七层，更别提看起来有数百层。"
 		return
 	if session.battle_index >= 10:
-		if session.floor_index >= 10:
+		if session.floor_index >= DataCatalog.MAX_TOWER_FLOOR:
 			session.phase = "victory"
-			session.message = "你已通关第 10 层，当前版本目标完成。"
+			session.message = "你已通关第 %d 层，当前版本目标完成。" % DataCatalog.MAX_TOWER_FLOOR
 			return
 		session.floor_index += 1
 		session.battle_index = 1

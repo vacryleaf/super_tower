@@ -4,14 +4,6 @@ class_name EquipmentManageView
 const DataCatalog = preload("res://scripts/core/data_catalog.gd")
 const UIHelpers = preload("res://scripts/ui/ui_helpers.gd")
 
-const SLOTS := ["head", "body", "waist", "legs", "hands", "leggings", "feet", "weapon", "offhand", "shoulders", "cloak", "necklace", "ring", "ring2"]
-const SLOT_LABELS := {
-	"head": "头部", "body": "上身", "waist": "腰部", "legs": "腿部",
-	"hands": "手套", "leggings": "护腿", "feet": "鞋子", "weapon": "武器",
-	"offhand": "副手", "shoulders": "肩部", "cloak": "披风", "necklace": "项链",
-	"ring": "戒指1", "ring2": "戒指2"
-}
-
 var selected_slot := ""
 
 
@@ -103,9 +95,6 @@ func _render_bag(parent: Control, roster_player: Dictionary, class_key: String, 
 		if current_slot != "":
 			text += "（已装备：%s）" % UIHelpers.slot_label(current_slot)
 		text += "  HP %d  攻击 %d  护甲 %d  格挡 %d" % [int(item["hp"]), int(item["attack"]), int(item["armor"]), int(item.get("block", 0))]
-		var set_id := String(item.get("set_id", ""))
-		if set_id != "" and DataCatalog.EQUIPMENT_SETS.has(set_id):
-			text += "  [%s]" % DataCatalog.EQUIPMENT_SETS[set_id]["name"]
 		button.text = text
 		button.custom_minimum_size = Vector2(300, 34)
 		button.alignment = HORIZONTAL_ALIGNMENT_LEFT

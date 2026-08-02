@@ -1,18 +1,14 @@
 extends RefCounted
 class_name UIHelpers
 
-const SLOTS := ["head", "body", "waist", "legs", "hands", "leggings", "feet", "weapon", "offhand", "shoulders", "cloak", "necklace", "ring", "ring2"]
+const SLOTS := ["weapon", "armor", "accessory", "offhand"]
 
 const SLOT_LABELS := {
-	"head": "头部", "body": "上身", "waist": "腰部", "legs": "腿部",
-	"hands": "手套", "leggings": "护腿", "feet": "鞋子", "weapon": "武器",
-	"offhand": "副手", "shoulders": "肩部", "cloak": "披风", "necklace": "项链",
-	"ring": "戒指1", "ring2": "戒指2"
+	"weapon": "武器", "armor": "防具", "accessory": "饰品", "offhand": "副手"
 }
 
 const CATEGORIES := [
 	["状态Buff", "state_cards"],
-	["套装效果", "set_effects"],
 	["技能", "skills"],
 	["职业", "classes"],
 	["被动技能", "traits"],

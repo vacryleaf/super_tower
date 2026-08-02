@@ -162,4 +162,6 @@ func apply_battle_pressure(encounter: Dictionary, battle_index: int) -> Dictiona
 func battle_pressure_scale(battle_index: int) -> float:
 	if battle_index <= 3:
 		return 1.0
-	return 1.0 + 0.08 * float(battle_index - 3)
+	# 后半段战斗必须克服同一群落单位轮换带来的基础属性波动，
+	# 因此从第 4 场开始使用独立的递增压力曲线，确保后半段平均威胁高于开场。
+	return 1.40 + 0.10 * float(battle_index - 4)

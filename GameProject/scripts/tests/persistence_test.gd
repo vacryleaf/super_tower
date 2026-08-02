@@ -7,7 +7,7 @@ const DataCatalog = preload("res://scripts/core/data_catalog.gd")
 func run() -> void:
 	test_save_round_trip()
 	test_end_run_to_camp_clears_active_run()
-	test_profile_keeps_multiple_classes()
+	test_profile_migrates_legacy_class_ids_to_unified()
 	test_tower_coins_persist()
 
 
@@ -42,7 +42,7 @@ func test_end_run_to_camp_clears_active_run() -> void:
 		elif session.phase == "reward":
 			session.choose_reward(0)
 	var target := {"type": "equipment", "id": String(session.player["equipment_ids"][0])}
-	session.simulator.attach_reward(session.player, target, {
+	session.character.attach_reward(session.player, target, {
 		"kind": "attack",
 		"label": "塔内测试攻击 +99",
 		"value": 99
@@ -65,28 +65,22 @@ func test_end_run_to_camp_clears_active_run() -> void:
 	session.delete_save()
 
 
-func test_profile_keeps_multiple_classes() -> void:
+func test_profile_migrates_legacy_class_ids_to_unified() -> void:
 	var session_script = load("res://scripts/core/play_session.gd")
-	var warrior_session = session_script.new()
-	warrior_session.delete_save()
-	warrior_session.start_new_game("warrior")
-	TestHelpers.force_win(warrior_session)
-	warrior_session.choose_reward(0)
-	assert_true(warrior_session.save_game(), "warrior profile save")
-
-	var archer_session = session_script.new()
-	archer_session.start_new_game("archer")
-	TestHelpers.force_win(archer_session)
-	archer_session.choose_reward(0)
-	assert_true(archer_session.save_game(), "archer profile save")
+	var session = session_script.new()
+	session.delete_save()
+	session.start_new_game("warrior")
+	TestHelpers.force_win(session)
+	session.choose_reward(0)
+	assert_true(session.save_game(), "unified profile save")
 
 	var profile_session = session_script.new()
-	var warrior: Dictionary = profile_session.get_roster_player("warrior")
-	var archer: Dictionary = profile_session.get_roster_player("archer")
-	assert_true(not warrior.is_empty(), "profile keeps warrior")
-	assert_true(not archer.is_empty(), "profile keeps archer")
-	assert_equal(warrior.get("class_id", ""), "warrior", "warrior roster class")
-	assert_equal(archer.get("class_id", ""), "archer", "archer roster class")
+	var unified: Dictionary = profile_session.get_roster_player("unified")
+	var legacy_warrior: Dictionary = profile_session.get_roster_player("warrior")
+	var legacy_archer: Dictionary = profile_session.get_roster_player("archer")
+	assert_true(not unified.is_empty(), "profile keeps unified role")
+	assert_equal(legacy_warrior.get("class_id", ""), "unified", "warrior legacy id migrates")
+	assert_equal(legacy_archer.get("class_id", ""), "unified", "archer legacy id migrates")
 	profile_session.delete_save()
 
 func test_tower_coins_persist() -> void:

@@ -61,8 +61,8 @@ func _run() -> void:
 	await _wait_for_render()
 	_assert_phase(main, "battle")
 	if main.session.player.get("equipment_ids", []).is_empty():
-		main.session.simulator.equip_item(main.session.player, "warrior_training_sword")
-		main.session.simulator._recalculate_player_stats(main.session.player, false)
+		main.session.character.equip_item(main.session.player, "warrior_training_sword")
+		main.session.character.recalculate_player_stats(main.session.player, false)
 
 	main.session.phase = "reward"
 	main.session.reward_options.clear()

@@ -3,66 +3,245 @@
   "description": "Prototype external data catalog. Runtime still reads DataCatalog constants while migration proceeds table by table.",
   "migration_notes": {
     "runtime_source": "DataCatalog constants remain authoritative until a table is fully migrated and tested.",
-    "migrated_tables": ["state_cards", "classes", "skills", "equipment_sets", "equipment_manifest", "enemy_unit_manifest"],
-    "next_tables": ["traits", "equipment_full_stats", "tutorial_unlocks", "tutorial_encounters", "reward_pools"],
+    "migrated_tables": [
+      "state_cards",
+      "classes",
+      "skills",
+      "equipment_sets",
+      "equipment_manifest",
+      "enemy_unit_manifest"
+    ],
+    "next_tables": [
+      "traits",
+      "equipment_full_stats",
+      "tutorial_unlocks",
+      "tutorial_encounters",
+      "reward_pools"
+    ],
     "rule": "Content data belongs here or in split JSON resources; runtime services should consume catalog accessors instead of embedding content lists.",
     "switching_policy": "Do not switch runtime authority for a table until that table has parity tests against DataCatalog constants and UI smoke coverage."
   },
   "tables": {
     "state_cards": {
-      "steady": {"name": "平稳", "weight": 50, "multiplier": 1.0, "tag": "numeric"},
-      "good": {"name": "效果不错", "weight": 20, "multiplier": 1.1, "tag": "numeric"},
-      "great": {"name": "效果拔群", "weight": 10, "multiplier": 1.2, "tag": "numeric"},
-      "critical": {"name": "暴击", "weight": 5, "multiplier": 2.0, "tag": "attack"},
-      "read": {"name": "识破", "weight": 5, "multiplier": 2.0, "tag": "dodge"},
-      "perfect_guard": {"name": "完美格挡", "weight": 5, "multiplier": 2.0, "tag": "defense"},
-      "fallback": {"name": "紧急回撤", "weight": 5, "multiplier": 1.0, "tag": "hybrid"}
+      "steady": {
+        "name": "平稳",
+        "weight": 50,
+        "multiplier": 1.0,
+        "tag": "numeric"
+      },
+      "good": {
+        "name": "效果不错",
+        "weight": 20,
+        "multiplier": 1.1,
+        "tag": "numeric"
+      },
+      "great": {
+        "name": "效果拔群",
+        "weight": 10,
+        "multiplier": 1.2,
+        "tag": "numeric"
+      },
+      "critical": {
+        "name": "暴击",
+        "weight": 5,
+        "multiplier": 2.0,
+        "tag": "attack"
+      },
+      "read": {
+        "name": "识破",
+        "weight": 5,
+        "multiplier": 2.0,
+        "tag": "dodge"
+      },
+      "perfect_guard": {
+        "name": "完美格挡",
+        "weight": 5,
+        "multiplier": 2.0,
+        "tag": "defense"
+      },
+      "fallback": {
+        "name": "紧急回撤",
+        "weight": 5,
+        "multiplier": 1.0,
+        "tag": "hybrid"
+      }
     },
     "classes": {
-      "warrior": {
-        "name": "战士",
-        "max_hp": 90,
+      "unified": {
+        "name": "探索者",
+        "max_hp": 80,
         "base_attack": 7,
         "base_defense": 1,
-        "base_block": 5,
-        "resource": "rage",
+        "base_block": 4,
+        "resource": "adrenaline",
         "first_skill": "po_jun"
-      },
-      "archer": {
-        "name": "弓箭手",
-        "max_hp": 70,
-        "base_attack": 8,
-        "base_defense": 0,
-        "base_block": 3,
-        "resource": "focus",
-        "first_skill": "precise_shot"
       }
     },
     "skills": {
-      "po_jun": {"name": "破军", "class": "warrior", "type": "attack", "energy_cost": 8, "cooldown": 0, "multiplier": 2.0, "hits": 1, "armor_reduce": 0.3, "damage_type": "physical"},
-      "shield_wall": {"name": "盾墙", "class": "warrior", "type": "defense", "energy_cost": 18, "cooldown": 0, "multiplier": 2.4},
-      "counter_stance": {"name": "反击架势", "class": "warrior", "type": "stance", "energy_cost": 18, "cooldown": 0, "block_multiplier": 1.2, "counter_multiplier": 1.35},
-      "war_cry": {"name": "战吼", "class": "warrior", "type": "buff", "energy_cost": 0, "cooldown": 3, "attack_multiplier": 1.25},
-      "precise_shot": {"name": "精准射击", "class": "archer", "type": "attack", "energy_cost": 12, "cooldown": 0, "multiplier": 2.1, "hits": 1, "armor_reduce": 0.3, "damage_type": "physical"},
-      "quick_shot": {"name": "连珠箭", "class": "archer", "type": "attack", "energy_cost": 30, "cooldown": 0, "multiplier": 0.6, "hits": 4, "damage_type": "physical"},
-      "hunter_mark": {"name": "猎人标记", "class": "archer", "type": "debuff", "energy_cost": 18, "cooldown": 0, "mark_multiplier": 1.35, "weaken_multiplier": 0.75},
-      "roll": {"name": "翻滚", "class": "archer", "type": "dodge", "energy_cost": 0, "cooldown": 3, "block_multiplier": 1.2, "dodge_layers": 1},
-      "first_aid": {"name": "急救", "class": "common", "type": "heal", "energy_cost": 18, "cooldown": 0, "heal_multiplier": 0.25},
-      "tactical_retreat": {"name": "战术后撤", "class": "common", "type": "dodge", "energy_cost": 0, "cooldown": 3, "block_multiplier": 0.9, "dodge_layers": 1}
+      "po_jun": {
+        "name": "破军",
+        "class": "warrior",
+        "type": "attack",
+        "energy_cost": 8,
+        "cooldown": 0,
+        "multiplier": 2.0,
+        "hits": 1,
+        "armor_reduce": 0.3,
+        "damage_type": "physical"
+      },
+      "shield_wall": {
+        "name": "盾墙",
+        "class": "warrior",
+        "type": "defense",
+        "energy_cost": 18,
+        "cooldown": 0,
+        "multiplier": 2.4
+      },
+      "counter_stance": {
+        "name": "反击架势",
+        "class": "warrior",
+        "type": "stance",
+        "energy_cost": 18,
+        "cooldown": 0,
+        "block_multiplier": 1.2,
+        "counter_multiplier": 1.35
+      },
+      "war_cry": {
+        "name": "战吼",
+        "class": "warrior",
+        "type": "buff",
+        "energy_cost": 0,
+        "cooldown": 3,
+        "attack_multiplier": 1.25
+      },
+      "precise_shot": {
+        "name": "精准射击",
+        "class": "archer",
+        "type": "attack",
+        "energy_cost": 12,
+        "cooldown": 0,
+        "multiplier": 2.1,
+        "hits": 1,
+        "armor_reduce": 0.3,
+        "damage_type": "physical"
+      },
+      "quick_shot": {
+        "name": "连珠箭",
+        "class": "archer",
+        "type": "attack",
+        "energy_cost": 20,
+        "cooldown": 0,
+        "multiplier": 0.8,
+        "hits": 7,
+        "damage_type": "physical",
+        "ignore_armor": 1.0
+      },
+      "hunter_mark": {
+        "name": "猎人标记",
+        "class": "archer",
+        "type": "debuff",
+        "energy_cost": 18,
+        "cooldown": 0,
+        "mark_multiplier": 1.35,
+        "weaken_multiplier": 0.75
+      },
+      "roll": {
+        "name": "翻滚",
+        "class": "archer",
+        "type": "dodge",
+        "energy_cost": 0,
+        "cooldown": 3,
+        "block_multiplier": 1.2,
+        "dodge_layers": 1
+      },
+      "first_aid": {
+        "name": "急救",
+        "class": "common",
+        "type": "heal",
+        "energy_cost": 18,
+        "cooldown": 0,
+        "heal_multiplier": 0.25
+      },
+      "tactical_retreat": {
+        "name": "战术后撤",
+        "class": "common",
+        "type": "dodge",
+        "energy_cost": 0,
+        "cooldown": 3,
+        "block_multiplier": 0.9,
+        "dodge_layers": 1
+      }
     },
     "equipment_sets": {
-      "moon_pair": {"name": "清辉流霜", "tiers": ["2: 其余3件套以上要求-1"]}
+      "moon_pair": {
+        "name": "清辉流霜",
+        "tiers": [
+          "2: 其余3件套以上要求-1"
+        ]
+      }
     },
     "equipment_manifest": {
       "runtime_authority": "DataCatalog.EQUIPMENT",
-      "base_equipment": ["warrior_training_helm", "warrior_old_chest", "warrior_soldier_belt", "warrior_practice_greaves", "warrior_cloth_gloves", "warrior_old_leggings", "warrior_march_boots", "warrior_training_sword", "warrior_wooden_shield", "archer_practice_hood", "archer_old_leather", "archer_hunter_belt", "archer_light_pants", "archer_bracers", "archer_soft_leggings", "archer_light_boots", "archer_practice_bow", "archer_simple_quiver"],
-      "set_equipment": ["common_moon_ring", "common_moon_necklace", "sparta_damascus_sword", "sparta_shield", "sparta_chest", "sparta_helm", "sparta_greaves", "sparta_boots", "boxer_belt", "boxer_pants", "boxer_gloves"]
+      "base_equipment": [
+        "warrior_training_helm",
+        "warrior_old_chest",
+        "warrior_soldier_belt",
+        "warrior_practice_greaves",
+        "warrior_cloth_gloves",
+        "warrior_old_leggings",
+        "warrior_march_boots",
+        "warrior_training_sword",
+        "warrior_wooden_shield",
+        "archer_practice_hood",
+        "archer_old_leather",
+        "archer_hunter_belt",
+        "archer_light_pants",
+        "archer_bracers",
+        "archer_soft_leggings",
+        "archer_light_boots",
+        "archer_practice_bow",
+        "archer_simple_quiver"
+      ],
+      "set_equipment": [
+        "common_moon_ring",
+        "common_moon_necklace",
+        "sparta_damascus_sword",
+        "sparta_shield",
+        "sparta_chest",
+        "sparta_helm",
+        "sparta_greaves",
+        "sparta_boots",
+        "boxer_belt",
+        "boxer_pants",
+        "boxer_gloves"
+      ]
     },
     "enemy_unit_manifest": {
       "runtime_authority": "DataCatalog.NORMAL_UNITS / ELITE_UNITS / BOSS_UNITS",
-      "normal": ["normal_rat_01", "normal_rat_02", "normal_guard_01", "normal_guard_03", "normal_shadow_01", "normal_shadow_02", "normal_caster_01", "normal_mutant_02"],
-      "elite": ["elite_rat_01", "elite_guard_01", "elite_shadow_01", "elite_caster_01", "elite_mutant_01"],
-      "boss": ["boss_rat_king", "boss_iron_warden", "boss_shadow_duke", "boss_deep_oracle", "boss_tower_core"]
+      "normal": [
+        "normal_rat_01",
+        "normal_rat_02",
+        "normal_guard_01",
+        "normal_guard_03",
+        "normal_shadow_01",
+        "normal_shadow_02",
+        "normal_caster_01",
+        "normal_mutant_02"
+      ],
+      "elite": [
+        "elite_rat_01",
+        "elite_guard_01",
+        "elite_shadow_01",
+        "elite_caster_01",
+        "elite_mutant_01"
+      ],
+      "boss": [
+        "boss_rat_king",
+        "boss_iron_warden",
+        "boss_shadow_duke",
+        "boss_deep_oracle",
+        "boss_tower_core"
+      ]
     }
   }
 }

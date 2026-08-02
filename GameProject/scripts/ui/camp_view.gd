@@ -255,8 +255,6 @@ func _on_encyclopedia_category_pressed(index: int) -> void:
 	match cat_id:
 		"state_cards":
 			_render_state_cards()
-		"set_effects":
-			_render_set_effects()
 		"skills":
 			_render_skills()
 		"classes":
@@ -307,17 +305,6 @@ func _render_state_cards() -> void:
 		var text := "%s（权重：%d，倍率：x%.2f）" % [card["name"], int(card["weight"]), float(card["multiplier"])]
 		_detail_container.add_child(_label_factory.call(text, 15))
 		_detail_container.add_child(_label_factory.call("  %s" % tag_explain.get(tag, ""), 13))
-
-
-func _render_set_effects() -> void:
-	_detail_container.add_child(_label_factory.call("套装效果", 22))
-	for set_id in DataCatalog.EQUIPMENT_SETS.keys():
-		var set_data: Dictionary = DataCatalog.EQUIPMENT_SETS[set_id]
-		_detail_container.add_child(_label_factory.call(set_data["name"], 18))
-		var bonuses: Dictionary = set_data.get("bonuses", {})
-		for threshold in bonuses.keys():
-			var bonus: Dictionary = bonuses[threshold]
-			_detail_container.add_child(_label_factory.call("  %d 件套：%s" % [int(threshold), String(bonus.get("label", ""))], 14))
 
 
 func _render_skills() -> void:

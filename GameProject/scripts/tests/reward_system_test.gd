@@ -2,13 +2,13 @@ extends "res://scripts/tests/test_base.gd"
 
 const TestHelpers = preload("res://scripts/tests/test_helpers.gd")
 const DataCatalog = preload("res://scripts/core/data_catalog.gd")
-const RunSimulator = preload("res://scripts/core/run_simulator.gd")
+const CharacterService = preload("res://scripts/core/character_service.gd")
 
 
 func run() -> void:
 	test_reward_attachment_flow()
 	test_random_reward_pool_counts()
-	test_set_equipment_effects()
+	test_equipment_slot_replacement()
 	test_boss_permanent_equipment_reward()
 	test_reward_options_do_not_include_charge_rewards()
 	test_huangqi_juice_three_use_heal()
@@ -70,16 +70,15 @@ func test_random_reward_pool_counts() -> void:
 	assert_true(TestHelpers.has_core_growth_reward(session.reward_options), "boss rewards should include at least one core growth option")
 
 
-func test_set_equipment_effects() -> void:
-	var simulator := RunSimulator.new()
-	var player := simulator.create_character("warrior")
-	simulator.equip_item(player, "common_moon_necklace")
-	simulator.equip_item(player, "common_moon_ring")
-	simulator._recalculate_player_stats(player, true)
-	var effects: Dictionary = player.get("active_set_effects", {})
-	assert_equal(int(effects.get("set_requirement_delta", 0)), 1, "moon pair should reduce set requirements")
-	assert_true(player.get("set_counts", {}).has("moon_pair"), "set count should include moon pair")
-
+func test_equipment_slot_replacement() -> void:
+	var character := CharacterService.new()
+	var player := character.create_character("warrior")
+	character.equip_item(player, "common_moon_necklace")
+	assert_equal(String(player["equipment"].get("accessory", "")), "common_moon_necklace", "first accessory should occupy accessory slot")
+	character.equip_item(player, "common_moon_ring")
+	assert_equal(String(player["equipment"].get("accessory", "")), "common_moon_ring", "second accessory should replace the single accessory slot")
+	assert_true(not player.has("set_counts"), "set counts should not be created")
+	assert_true(not player.has("active_set_effects"), "set effects should not be created")
 
 func test_boss_permanent_equipment_reward() -> void:
 	var session_script = load("res://scripts/core/play_session.gd")
@@ -154,7 +153,7 @@ func test_skill_bound_charge_only_triggers_on_that_skill() -> void:
 			session.choose_reward(0)
 	var skill_id := String(session.player["equipped_skills"][0])
 	var bonus := 11
-	session.simulator.attach_reward(session.player, {"type": "skill", "id": skill_id}, {
+	session.character.attach_reward(session.player, {"type": "skill", "id": skill_id}, {
 		"kind": "charge_bonus_damage",
 		"label": "技能绑定充能测试",
 		"value": bonus
@@ -209,7 +208,7 @@ func test_charge_limit() -> void:
 			session.choose_reward(0)
 	var target := {"type": "equipment", "id": String(session.player["equipment_ids"][0])}
 	for i in range(6):
-		session.simulator.attach_reward(session.player, target, {
+		session.character.attach_reward(session.player, target, {
 			"kind": "charge_bonus_damage",
 			"label": "充能测试 %d" % i,
 			"value": i + 1
@@ -269,8 +268,8 @@ func test_skill_shop_purchase() -> void:
 	assert_equal(session.tower_coins, 15, "tower_coins should decrease by 15")
 	var profile = session.save_profile.read_profile(Callable(session, "_persistent_player_snapshot"))
 	var roster: Dictionary = profile.get("roster", {})
-	var warrior: Dictionary = roster.get("warrior", {})
-	assert_true(warrior.get("unlocked_skills", []).has("first_aid"), "warrior should have first_aid unlocked")
+	var warrior: Dictionary = roster.get("unified", {})
+	assert_true(warrior.get("unlocked_skills", []).has("first_aid"), "unified role should have first_aid unlocked")
 	var dup_result: bool = session.buy_common_skill("first_aid")
 	assert_true(not dup_result, "duplicate purchase should fail")
 	session.delete_save()

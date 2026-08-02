@@ -15,8 +15,8 @@ var selected_class := ""
 var start_floor := 1
 var floor_menu_open := false
 var browse_mode := "equipment"
-var selected_equipment_tab := "head"
-var selected_equipment_slot := "head"
+var selected_equipment_tab := "weapon"
+var selected_equipment_slot := "weapon"
 var selected_skill_filter := "skill_1"
 var selected_consumable_slot := 1
 var hover_kind := ""
@@ -32,8 +32,8 @@ func reset() -> void:
 	start_floor = 1
 	floor_menu_open = false
 	browse_mode = "equipment"
-	selected_equipment_tab = "head"
-	selected_equipment_slot = "head"
+	selected_equipment_tab = "weapon"
+	selected_equipment_slot = "weapon"
 	selected_skill_filter = "skill_1"
 	selected_consumable_slot = 1
 	hover_kind = ""
@@ -201,11 +201,8 @@ func _build_equipment_panel(session: Variant, roster: Dictionary, label_factory:
 	grid.add_theme_constant_override("v_separation", 6)
 	box.add_child(grid)
 
-	for slot_data in [
-		["head", "头部"], ["necklace", "项链"], ["ring", "戒指1"], ["ring2", "戒指2"], ["weapon", "武器"], ["offhand", "副手"],
-		["body", "上身"], ["waist", "腰部"], ["legs", "下身"], ["hands", "手部"], ["leggings", "护腿"], ["feet", "脚部"]
-	]:
-		grid.add_child(_build_slot_button(session, roster, String(slot_data[0]), String(slot_data[1]), action_callback, false))
+	for slot in UIHelpers.SLOTS:
+		grid.add_child(_build_slot_button(session, roster, slot, UIHelpers.slot_label(slot), action_callback, false))
 	return box
 
 
@@ -239,16 +236,18 @@ func _build_skill_panel(session: Variant, roster: Dictionary, label_factory: Cal
 func _build_consumable_panel(session: Variant, roster: Dictionary, label_factory: Callable, action_callback: Callable) -> Control:
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 8)
-	box.add_child(_nowrap_label(label_factory, "消耗品栏（最多 5 个）", 16, 180))
+	box.add_child(_nowrap_label(label_factory, "消耗品栏（最多 3 个）", 16, 180))
 
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 8)
 	box.add_child(row)
 
 	var equipped: Array = roster.get("consumables", [])
-	while equipped.size() < 5:
+	while equipped.size() < DataCatalog.NORMAL_CONSUMABLE_SLOTS:
 		equipped.append("")
-	for i in range(5):
+	if equipped.size() > DataCatalog.NORMAL_CONSUMABLE_SLOTS:
+		equipped.resize(DataCatalog.NORMAL_CONSUMABLE_SLOTS)
+	for i in range(DataCatalog.NORMAL_CONSUMABLE_SLOTS):
 		var item_id := String(equipped[i])
 		row.add_child(_build_consumable_slot(session, roster, i + 1, item_id, action_callback))
 
@@ -368,7 +367,7 @@ func _build_slot_button(session: Variant, roster: Dictionary, slot_key: String, 
 	button.add_theme_font_size_override("font_size", 12)
 	button.pressed.connect(func():
 		selected_equipment_slot = slot_key
-		selected_equipment_tab = "ring" if slot_key.begins_with("ring") else slot_key
+		selected_equipment_tab = slot_key
 		browse_mode = "equipment"
 		selected_consumable_slot = 1
 		floor_menu_open = false
@@ -534,32 +533,19 @@ func _equipment_preview_lines(session: Variant, roster: Dictionary, slot_key: St
 	var preview := _preview_equipment(roster, slot_key, item_id)
 	var preview_stats := _preview_stats(session, preview)
 	result.append("装备：%s" % String(item["name"]))
-	result.append("部位：%s" % _slot_label(slot_key))
+	result.append("部位：%s" % UIHelpers.slot_label(DataCatalog.equipment_slot(slot_key)))
 	result.append("基础：生命 +%d / 攻击 +%d / 护甲 +%d / 格挡 +%d" % [
 		int(item.get("hp", 0)),
 		int(item.get("attack", 0)),
 		int(item.get("armor", 0)),
 		int(item.get("block", 0))
 	])
-	var set_id := String(item.get("set_id", ""))
-	if set_id != "" and DataCatalog.EQUIPMENT_SETS.has(set_id):
-		result.append("套装：%s" % String(DataCatalog.EQUIPMENT_SETS[set_id]["name"]))
-	else:
-		result.append("套装：无")
 	result.append("更换后：生命 %d (%s) / 攻击 %d (%s) / 护甲 %d (%s) / 格挡 %d (%s)" % [
 		int(preview_stats.get("max_hp", 0)), _delta_text(int(preview_stats.get("max_hp", 0)) - int(current.get("max_hp", 0))),
 		int(preview_stats.get("attack", 0)), _delta_text(int(preview_stats.get("attack", 0)) - int(current.get("attack", 0))),
 		int(preview_stats.get("defense", 0)), _delta_text(int(preview_stats.get("defense", 0)) - int(current.get("defense", 0))),
 		int(preview_stats.get("block_power", 0)), _delta_text(int(preview_stats.get("block_power", 0)) - int(current.get("block_power", 0)))
 	])
-	var current_sets: Dictionary = current.get("set_counts", {})
-	var preview_sets: Dictionary = preview_stats.get("set_counts", {})
-	var set_changes := _set_change_lines(current_sets, preview_sets)
-	if set_changes.is_empty():
-		result.append("套装变化：无")
-	else:
-		for line in set_changes:
-			result.append(line)
 	return result
 
 
@@ -602,12 +588,13 @@ func _preview_stats(session: Variant, roster: Dictionary) -> Dictionary:
 	var class_id := String(snapshot.get("class_id", selected_class))
 	if class_id == "":
 		class_id = selected_class
-	if class_id == "" and DataCatalog.CLASSES.has("warrior"):
-		class_id = "warrior"
+	if class_id == "":
+		class_id = "unified"
+	class_id = DataCatalog.normalize_class_id(class_id)
 	if not snapshot.has("class_id"):
 		snapshot["class_id"] = class_id
 	if snapshot.is_empty():
-		return {"max_hp": 0, "attack": 0, "defense": 0, "block_power": 0, "set_counts": {}}
+		return {"max_hp": 0, "attack": 0, "defense": 0, "block_power": 0}
 	snapshot["equipment_attachments"] = snapshot.get("equipment_attachments", {})
 	snapshot["skill_attachments"] = snapshot.get("skill_attachments", {})
 	snapshot["statuses"] = []
@@ -617,16 +604,17 @@ func _preview_stats(session: Variant, roster: Dictionary) -> Dictionary:
 		snapshot["equipped_skills"].append("")
 	if not snapshot.has("consumables"):
 		snapshot["consumables"] = []
-	while snapshot["consumables"].size() < 5:
+	while snapshot["consumables"].size() < DataCatalog.NORMAL_CONSUMABLE_SLOTS:
 		snapshot["consumables"].append("")
-	if session != null and session.simulator != null:
-		session.simulator._recalculate_player_stats(snapshot, true)
+	if snapshot["consumables"].size() > DataCatalog.NORMAL_CONSUMABLE_SLOTS:
+		snapshot["consumables"].resize(DataCatalog.NORMAL_CONSUMABLE_SLOTS)
+	if session != null and session != null:
+		session.character.recalculate_player_stats(snapshot, true)
 	return {
 		"max_hp": int(snapshot.get("max_hp", 0)),
 		"attack": int(snapshot.get("attack", 0)),
 		"defense": int(snapshot.get("defense", 0)),
 		"block_power": int(snapshot.get("block_power", 0)),
-		"set_counts": snapshot.get("set_counts", {})
 	}
 
 
@@ -652,62 +640,12 @@ func _preview_equipment(roster: Dictionary, slot_key: String, item_id: String) -
 	return preview
 
 
-func _set_change_lines(current_sets: Dictionary, preview_sets: Dictionary) -> PackedStringArray:
-	var result := PackedStringArray()
-	var keys := []
-	for key in current_sets.keys():
-		if not keys.has(String(key)):
-			keys.append(String(key))
-	for key in preview_sets.keys():
-		if not keys.has(String(key)):
-			keys.append(String(key))
-	for set_id in keys:
-		var before := int(current_sets.get(set_id, 0))
-		var after := int(preview_sets.get(set_id, 0))
-		if before == after:
-			continue
-		var set_name: String = set_id
-		if DataCatalog.EQUIPMENT_SETS.has(set_id):
-			set_name = String(DataCatalog.EQUIPMENT_SETS[set_id]["name"])
-		result.append("套装：%s %d -> %d" % [set_name, before, after])
-	return result
-
-
 func _skill_name(skill_id: String) -> String:
 	if DataCatalog.SKILLS.has(skill_id):
 		return String(DataCatalog.SKILLS[skill_id]["name"])
 	if DataCatalog.INNATE_SKILLS.has(skill_id):
 		return String(DataCatalog.INNATE_SKILLS[skill_id]["name"])
 	return "空"
-
-
-func _slot_label(slot_key: String) -> String:
-	match slot_key:
-		"head":
-			return "头部"
-		"body":
-			return "上身"
-		"waist":
-			return "腰部"
-		"legs":
-			return "下身"
-		"hands":
-			return "手部"
-		"leggings":
-			return "护腿"
-		"feet":
-			return "脚部"
-		"weapon":
-			return "武器"
-		"offhand":
-			return "副手"
-		"necklace":
-			return "项链"
-		"ring":
-			return "戒指"
-		"ring2":
-			return "戒指2"
-	return slot_key
 
 
 func _floor_limit(roster: Dictionary) -> int:
@@ -727,8 +665,8 @@ func _player_snapshot(session: Variant, class_key: String) -> Dictionary:
 	if session == null:
 		return {}
 	var roster_player: Dictionary = session.get_roster_player(class_key)
-	if roster_player.is_empty() and session.simulator != null:
-		roster_player = session.simulator.create_character(class_key)
+	if roster_player.is_empty() and session != null:
+		roster_player = session.character.create_character(class_key)
 	return roster_player
 
 
@@ -739,7 +677,7 @@ func _warehouse_item_text(item: Dictionary) -> String:
 		return "%s\n%s" % [String(item.get("name", "")), "已解锁" if unlocked else "未解锁"]
 	if kind == "consumable":
 		return "%s\n%s" % [String(item.get("name", "")), "消耗品"]
-	return "%s\n%s" % [String(item.get("name", "")), _slot_label(String(item.get("slot", "")))]
+	return "%s\n%s" % [String(item.get("name", "")), UIHelpers.slot_label(DataCatalog.equipment_slot(item))]
 
 
 func _apply_card_style(button: Button, selected: bool, round_shape: bool) -> void:
@@ -872,8 +810,7 @@ func _skill_popup_items(roster: Dictionary, key: String, current_skill_id: Strin
 	var hidden_locked := false
 	for skill_id in DataCatalog.SKILLS.keys():
 		var skill: Dictionary = DataCatalog.SKILLS[skill_id]
-		var skill_class := String(skill.get("class", ""))
-		if skill_class != selected_class and skill_class != "common":
+		if not DataCatalog.skill_class_compatible(skill, selected_class):
 			continue
 		if int(skill.get("slot", 0)) != slot:
 			continue
@@ -925,12 +862,7 @@ func _hide_tooltip() -> void:
 
 
 func _slot_accepts_item(slot_key: String, item: Dictionary) -> bool:
-	var item_slot := String(item.get("slot", ""))
-	if slot_key == "ring2":
-		return item_slot == "ring"
-	if slot_key == "ring":
-		return item_slot == "ring"
-	return item_slot == slot_key
+	return DataCatalog.equipment_slot(slot_key) == DataCatalog.equipment_slot(item)
 
 
 func _equipped_item_ids(roster: Dictionary) -> Array[String]:

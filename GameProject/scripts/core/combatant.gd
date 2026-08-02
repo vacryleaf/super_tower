@@ -5,6 +5,7 @@ const TriggerEvents = preload("res://scripts/core/trigger_events.gd")
 const ARMOR_BASE := 30.0
 const DamageType = preload("res://scripts/core/damage_type.gd")
 const StatusService = preload("res://scripts/core/status_service.gd")
+const DEFAULT_ENEMY_AGILITY := 9
 
 
 static func from_player(player: Dictionary, current_block: int = 0, current_dodge: int = 0, status_service = null) -> Dictionary:
@@ -20,6 +21,12 @@ static func from_player(player: Dictionary, current_block: int = 0, current_dodg
 		"max_hp": int(player.get("max_hp", 1)),
 		"hp": int(player.get("hp", 1)),
 		"attack": int(player.get("attack", 1)),
+		"agility": int(player.get("agility", 0)),
+		"extra_hits": int(player.get("extra_hits", 0)),
+		"critical_weight": int(player.get("critical_weight", 0)),
+		"critical_damage_bonus": float(player.get("critical_damage_bonus", 0.0)),
+		"weapon_skill_1": String(player.get("weapon_skill_1", "")),
+		"weapon_skill_2": String(player.get("weapon_skill_2", "")),
 		"defense": armor,
 		"armor": armor,
 		"block_power": maxi(1, int(player.get("block_power", player.get("defense", 1)))),
@@ -48,18 +55,27 @@ static func from_enemy_unit(unit: Dictionary, encounter_type: String, tower_floo
 	if bool(unit.get("fixed_stats", false)):
 		return fixed_enemy(unit, tower_floor, rank, passive_skills, skills)
 	if unit.has("hp") and typeof(unit["hp"]) == TYPE_INT:
-		var fixed_defense := int(unit.get("defense", 0))
+		# 直接定义属性的群落单位仍要应用遭遇战压力（如第 4-9 场），
+		# 否则 formation_scale 只对浮点基础单位生效，导致后半段威胁曲线失真。
+		var formation_scale := maxf(0.0, float(unit.get("formation_scale", 1.0)))
+		var fixed_hp := maxi(1, int(round(float(unit.get("hp", 1)) * formation_scale)))
+		var fixed_attack := maxi(1, int(round(float(unit.get("attack", 1)) * formation_scale)))
+		var fixed_defense := maxi(0, int(round(float(unit.get("defense", 0)) * formation_scale)))
+		var fixed_block_power := maxi(0, int(round(float(unit.get("block_power", fixed_defense)) * formation_scale)))
+		var fixed_armor := maxi(0, int(round(float(_enemy_base_armor(unit, int(unit.get("defense", 0)), passive_skills)) * formation_scale)))
+		var fixed_agility := maxi(1, int(unit.get("agility", DEFAULT_ENEMY_AGILITY)))
 		return _enemy_dictionary(
 			String(unit.get("name", unit.get("id", "enemy"))),
 			rank,
-			int(unit.get("hp", 1)),
-			int(unit.get("attack", 1)),
+			fixed_hp,
+			fixed_attack,
 			fixed_defense,
-			_enemy_base_armor(unit, fixed_defense, passive_skills),
+			fixed_armor,
 			passive_skills,
 			skills,
-			int(unit.get("block_power", fixed_defense)),
-			unit.get("behavior_weights", {})
+			fixed_block_power,
+			unit.get("behavior_weights", {}),
+			fixed_agility
 		)
 	return scaled_enemy(unit, tower_floor, rank, float(unit.get("formation_scale", 1.0)))
 
@@ -91,6 +107,7 @@ static func scaled_enemy(unit: Dictionary, tower_floor: int, rank: String, forma
 	var defense := maxi(0, int(round(base_defense * growth * float(unit.get("defense", 1.0)) * rank_defense * formation_scale)))
 	var passive_skills := passive_skill_slots(unit.get("passive_skills", unit.get("traits", [])))
 	var skills: Array = unit.get("skills", [])
+	var agility := maxi(1, int(unit.get("agility", DEFAULT_ENEMY_AGILITY)))
 	return _enemy_dictionary(
 		String(unit.get("name", unit.get("id", "enemy"))),
 		rank,
@@ -101,7 +118,8 @@ static func scaled_enemy(unit: Dictionary, tower_floor: int, rank: String, forma
 		passive_skills,
 		skills,
 		int(unit.get("block_power", defense)),
-		unit.get("behavior_weights", {})
+		unit.get("behavior_weights", {}),
+		agility
 	)
 
 
@@ -112,6 +130,7 @@ static func fixed_enemy(unit: Dictionary, tower_floor: int, rank: String, passiv
 	var attack := maxi(1, int(ceil(float(unit.get("attack", 1)) * floor_multiplier * rank_multiplier)))
 	var defense := int(ceil(float(unit.get("defense", 0)) * floor_multiplier * rank_multiplier))
 	var block_power := maxi(0, int(ceil(float(unit.get("block_power", defense)) * floor_multiplier * rank_multiplier)))
+	var agility := maxi(1, int(unit.get("agility", DEFAULT_ENEMY_AGILITY)))
 	var enemy := _enemy_dictionary(
 		String(unit.get("name", unit.get("id", "enemy"))),
 		rank,
@@ -122,7 +141,8 @@ static func fixed_enemy(unit: Dictionary, tower_floor: int, rank: String, passiv
 		passive_skills,
 		skills,
 		block_power,
-		unit.get("behavior_weights", {})
+		unit.get("behavior_weights", {}),
+		agility
 	)
 	enemy["fixed_stats"] = true
 	return enemy
@@ -217,6 +237,8 @@ static func normalize_enemy(enemy: Dictionary) -> void:
 	var defense := int(enemy.get("defense", 0))
 	if not enemy.has("side"):
 		enemy["side"] = "enemy"
+	if not enemy.has("agility"):
+		enemy["agility"] = DEFAULT_ENEMY_AGILITY
 	if not enemy.has("block_power"):
 		enemy["block_power"] = maxi(1, defense)
 	if not enemy.has("block"):
@@ -428,7 +450,7 @@ static func _apply_trait_statuses(enemy: Dictionary) -> void:
 	enemy["statuses"] = statuses
 
 
-static func _enemy_dictionary(unit_name: String, rank: String, hp: int, attack: int, defense: int, armor: int, passive_skills: Array, skills: Array = [], block_power: int = -1, behavior_weights: Dictionary = {}) -> Dictionary:
+static func _enemy_dictionary(unit_name: String, rank: String, hp: int, attack: int, defense: int, armor: int, passive_skills: Array, skills: Array = [], block_power: int = -1, behavior_weights: Dictionary = {}, agility: int = DEFAULT_ENEMY_AGILITY) -> Dictionary:
 	var enemy := {
 		"name": unit_name,
 		"side": "enemy",
@@ -436,6 +458,7 @@ static func _enemy_dictionary(unit_name: String, rank: String, hp: int, attack: 
 		"max_hp": hp,
 		"hp": hp,
 		"attack": attack,
+		"agility": maxi(1, agility),
 		"defense": defense,
 		"armor": armor,
 		"block_power": maxi(0, defense if block_power < 0 else block_power),

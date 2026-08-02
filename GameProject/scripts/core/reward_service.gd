@@ -124,8 +124,6 @@ func permanent_equipment_reward(player: Dictionary, class_id: String, floor_inde
 		var item_class := String(item.get("class", "common"))
 		if item_class != "common" and item_class != class_id:
 			continue
-		if not item.has("set_id"):
-			continue
 		if player.get("equipment_ids", []).has(item_id):
 			continue
 		candidates.append(String(item_id))
