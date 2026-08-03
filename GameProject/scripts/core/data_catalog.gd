@@ -11,7 +11,31 @@ const ATTACK_ENERGY := 4
 const DEFEND_ENERGY := 2
 const DODGE_ENERGY := 2
 const MAX_TOWER_FLOOR := 7
+const MAX_TOWER_BONUS := 6
 const NORMAL_CONSUMABLE_SLOTS := 3
+const TOWER_COIN_MULTIPLIERS := {"normal": 1, "elite": 3, "boss": 10}
+const TOWER_EQUIPMENT_DROP_CHANCES := {"normal": 0.10, "elite": 0.50, "boss": 1.00}
+const TOWER_CONSUMABLE_DROP_CHANCE := 0.20
+const PERMANENT_EQUIPMENT_PRICE := 20
+const PERMANENT_SKILL_PRICE := 15
+
+const BLOOD_POTION := {
+	"id": "blood_potion",
+	"name": "血瓶",
+	"starting_uses": 3,
+	"heal_ratio": 0.30,
+	"level_heal_ratio": 0.05
+}
+
+const NPCS := {
+	"merchant": {"name": "商人", "unlock_boss_floor": 1, "upgrade_floor": 1, "upgrade_encounters": 9},
+	"blacksmith": {"name": "铁匠", "unlock_boss_floor": 3, "upgrade_floor": 3, "upgrade_encounters": 7},
+	"mage": {"name": "法师", "unlock_boss_floor": 5, "upgrade_floor": 5, "upgrade_encounters": 5}
+}
+
+const PASSIVE_SKILLS := {
+	"iron_will": {"name": "坚韧", "effects": [{"stat": "max_hp", "type": "flat", "value": 8}]}
+}
 
 const WEAPON_PROFILES := {
 	"unarmed": {"name": "空手", "agility": 15, "attack_damage": 2, "critical_weight": 20, "skill_1": "po_jun", "skill_2": "explosive_strike"},
@@ -167,7 +191,8 @@ const CONSUMABLES := {
 	"rage_draught": {"name": "狂怒药剂", "desc": "战前携带的进攻药剂。", "kind": "attack", "value": 3},
 	"focus_tea": {"name": "凝神茶", "desc": "战前携带的专注饮品。", "kind": "skill", "value": 1},
 	"emergency_kit": {"name": "应急包", "desc": "战前携带的保命工具。", "kind": "block", "value": 2},
-	"huangqi_juice": {"name": "黄芪汁", "desc": "每场战斗可使用 3 次，每次回复 30% 生命值。", "kind": "charge_heal_percent", "value": 0.30, "uses": 3}
+	"huangqi_juice": {"name": "黄芪汁", "desc": "每场战斗可使用 3 次，每次回复 30% 生命值。", "kind": "charge_heal_percent", "value": 0.30, "uses": 3},
+	"throwing_dart": {"name": "飞镖", "desc": "下一次攻击额外造成 5 点伤害。", "kind": "charge_bonus_damage", "value": 5}
 }
 
 const STARTER_CONSUMABLES := ["minor_heal", "iron_skin", "swift_step", "rage_draught", "focus_tea", "emergency_kit", "huangqi_juice"]
@@ -181,7 +206,8 @@ static func weapon_profile_for_item(item_id: String) -> Dictionary:
 
 static func weapon_profile_for_player(player: Dictionary) -> Dictionary:
 	var equipment: Dictionary = player.get("equipment", {})
-	var weapon_id := String(equipment.get("weapon", ""))
+	var tower_equipment: Dictionary = player.get("tower_equipment", {})
+	var weapon_id := String(tower_equipment.get("weapon", equipment.get("weapon", "")))
 	if weapon_id == "":
 		return (WEAPON_PROFILES["unarmed"] as Dictionary).duplicate(true)
 	var profile := weapon_profile_for_item(weapon_id)
@@ -225,14 +251,18 @@ static func equipment_slot(item_or_slot: Variant) -> String:
 
 const TUTORIAL_UNLOCKS := {
 	"unified": [
-		"po_jun", "warrior_old_chest", "warrior_wooden_shield"
+		"warrior_old_chest", "warrior_wooden_shield", "common_moon_ring"
 	]
 }
 
+const TUTORIAL_STARTING_EQUIPMENT := {
+	"unified": "warrior_training_sword"
+}
+
 const TUTORIAL_ENCOUNTERS := [
-	{"id": "tutorial_01", "type": "normal", "name": "攻击考官", "units": [{"name": "攻击考官", "rank": "normal", "hp": 26, "attack": 5, "defense": 0, "passive_skills": ["", "", "", ""], "skills": ["enemy_heavy_strike"]}]},
-	{"id": "tutorial_02", "type": "normal", "name": "防御考官", "units": [{"name": "防御考官", "rank": "normal", "hp": 38, "attack": 5, "defense": 1, "passive_skills": ["tutorial_ramp", "", "", ""], "skills": ["enemy_rend", "enemy_fortify"]}]},
-	{"id": "tutorial_03", "type": "normal", "name": "闪避考官", "units": [{"name": "闪避考官", "rank": "normal", "hp": 34, "attack": 6, "defense": 1, "passive_skills": ["tutorial_evade", "", "", ""], "skills": ["enemy_heavy_strike", "enemy_quick_evade"]}]}
+	{"id": "tutorial_01", "type": "normal", "name": "攻击考官", "player_hint": "提示：先点击攻击积攒能量，再使用下方技能。", "units": [{"name": "攻击考官", "rank": "normal", "hp": 26, "attack": 5, "defense": 0, "passive_skills": ["", "", "", ""], "skills": ["enemy_heavy_strike"]}]},
+	{"id": "tutorial_02", "type": "normal", "name": "防御考官", "player_hint": "提示：本场抽到防御加成，点击防御抵挡攻击。", "units": [{"name": "防御考官", "rank": "normal", "hp": 38, "attack": 5, "defense": 1, "passive_skills": ["tutorial_ramp", "", "", ""], "skills": ["enemy_rend", "enemy_fortify"]}]},
+	{"id": "tutorial_03", "type": "normal", "name": "闪避考官", "player_hint": "提示：本场抽到闪避加成，点击闪避避开攻击。", "units": [{"name": "闪避考官", "rank": "normal", "hp": 34, "attack": 6, "defense": 1, "passive_skills": ["tutorial_evade", "", "", ""], "skills": ["enemy_heavy_strike", "enemy_quick_evade"]}]}
 ]
 const NORMAL_UNITS := [
 	{"id": "normal_rat_01", "name": "腐鼠", "fixed_stats": true, "hp": 30, "attack": 10, "defense": 1, "block_power": 3, "passive_skills": ["swarm", "corruption", "", ""], "skills": [], "behavior_weights": {"innate_attack_1": 50, "innate_defend": 10, "innate_dodge": 10}},

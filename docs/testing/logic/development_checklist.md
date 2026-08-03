@@ -16,3 +16,8 @@
 - [ ] 为所有图鉴实体补齐本地化键、描述和解锁条件。
 
 每完成一项，运行 `run_tests.bat` 或 `run_tests.sh`，并在本文件记录日期、命令和结果。
+
+## 2026-08-03 验收记录
+
+- `sh run_tests.sh`：通过，输出 `ALL TESTS PASSED`。
+- 额外执行 UI smoke 时，场景因仓库缺失 `GameProject/img/unified.png` 资源无法完成；未读取或生成图片资源。

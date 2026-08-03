@@ -72,11 +72,13 @@ func render(
 	bottom_row.alignment = BoxContainer.ALIGNMENT_END
 	root.add_child(bottom_row)
 
-	if session.is_shop_unlocked():
+	for npc in [["商人", "merchant"], ["铁匠", "blacksmith"], ["法师", "mage"]]:
+		if not session.is_npc_unlocked(npc[1]):
+			continue
 		var shop_button := Button.new()
-		shop_button.text = "技能商人"
-		shop_button.custom_minimum_size = Vector2(160, 44)
-		shop_button.pressed.connect(shop_callback)
+		shop_button.text = npc[0]
+		shop_button.custom_minimum_size = Vector2(120, 44)
+		shop_button.pressed.connect(shop_callback.bind(npc[1]))
 		bottom_row.add_child(shop_button)
 
 	var pre_run_button := Button.new()
@@ -226,7 +228,10 @@ func _on_class_button_pressed(class_key: String) -> void:
 
 	var mgmt_row := HBoxContainer.new()
 	mgmt_row.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
-	for action in [["技能管理", "skill_manage"], ["装备管理", "equipment_manage"], ["物品查看", "item_collection"]]:
+	var actions: Array = [["技能管理", "skill_manage"], ["装备管理", "equipment_manage"], ["物品查看", "item_collection"]]
+	if int(roster_player.get("blood_potion_uses", 0)) > 0 and int(roster_player.get("hp", 0)) < int(roster_player.get("max_hp", 0)):
+		actions.append(["使用血瓶", "blood_potion"])
+	for action in actions:
 		var btn := Button.new()
 		btn.text = action[0]
 		btn.custom_minimum_size = Vector2(100, 40)
@@ -348,7 +353,5 @@ func _render_traits() -> void:
 	for trait_id in all_traits:
 		var label_text := "%s：%s" % [TraitCatalog.LABELS.get(trait_id, trait_id), TraitCatalog.DESCRIPTIONS.get(trait_id, "暂无说明。")]
 		_detail_container.add_child(_label_factory.call(label_text, 14))
-
-
 
 

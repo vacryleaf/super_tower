@@ -11,7 +11,7 @@
 1. **定义层**：原版 `DataCatalog`、`TraitCatalog`，外部 `catalog_v1.json`，未来 Mod 内容。
 2. **规范化层**：校验字段、补默认值、解析命名空间和引用。
 3. **状态转换层**：`Combatant` 将角色、装备、怪物和能力转换为运行时 status 字典。
-4. **行为层**：`ActionPipeline`、`StatusService`、`TriggerService` 解释动作和事件。
+4. **行为层**：`BattleService` 编排实时行动，`SkillActionService` 解释技能 `actions`，`ActionPipeline` 处理行动修正，`StatusService` 和 `TriggerService` 解释状态与事件。
 5. **展示层**：图鉴和 UI 只读取规范化数据，不复制效果逻辑。
 
 ## 可插拔要求

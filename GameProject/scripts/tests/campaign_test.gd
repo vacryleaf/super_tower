@@ -8,7 +8,11 @@ const CharacterService = preload("res://scripts/core/character_service.gd")
 
 func run() -> void:
 	test_tutorial_data()
+	test_first_tutorial_battle_loadout_and_guidance()
+	test_tutorial_defense_and_dodge_guidance_rewards()
 	test_tutorial_is_before_formal_floor_one()
+	test_first_unlocks_tower_completion_and_group_features()
+	test_tower_bonus_range_and_seed_progression()
 	test_encounter_generation()
 	test_late_battles_are_stronger_than_openers()
 	test_equipment_slots_without_sets()
@@ -22,6 +26,52 @@ func test_tutorial_data() -> void:
 	assert_equal(unlocks.size(), 3, "unified tutorial should define three unlock rewards")
 	for unlock_id in unlocks:
 		assert_true(DataCatalog.EQUIPMENT.has(unlock_id) or DataCatalog.SKILLS.has(unlock_id), "tutorial unlock should reference a known item or skill")
+
+
+func test_first_tutorial_battle_loadout_and_guidance() -> void:
+	var session_script = load("res://scripts/core/play_session.gd")
+	var session = session_script.new()
+	session.delete_save()
+
+
+func test_tutorial_defense_and_dodge_guidance_rewards() -> void:
+	var session_script = load("res://scripts/core/play_session.gd")
+	var session = session_script.new()
+	session.delete_save()
+	session.start_new_game("warrior")
+	TestHelpers.force_win(session)
+	session.choose_reward(0)
+	assert_equal(session.battle_index, 2, "second tutorial battle should follow the first reward")
+	assert_equal(session.pending_state_card, "perfect_guard", "second tutorial battle should draw the defense bonus card")
+	assert_true(String(session.message).contains("点击防御"), "second tutorial battle should guide defense")
+	TestHelpers.force_win(session)
+	assert_equal(String(session.reward_options[0].get("item_id", "")), "warrior_wooden_shield", "second tutorial reward should be the fixed wooden shield")
+	session.choose_reward(0)
+	assert_equal(session.battle_index, 3, "third tutorial battle should follow the second reward")
+	assert_equal(session.pending_state_card, "read", "third tutorial battle should draw the dodge bonus card")
+	assert_true(String(session.message).contains("点击闪避"), "third tutorial battle should guide dodge")
+	TestHelpers.force_win(session)
+	assert_equal(String(session.reward_options[0].get("item_id", "")), "common_moon_ring", "third tutorial reward should be the fixed ring")
+	session.choose_reward(0)
+	assert_equal(String(session.player.get("tower_equipment", {}).get("accessory", "")), "common_moon_ring", "third tutorial reward should equip the ring")
+	session.delete_save()
+	session.start_new_game("warrior")
+	assert_true(session.is_tutorial(), "first new game should enter tutorial")
+	assert_equal(String(session.player.get("tower_equipment", {}).get("weapon", "")), "warrior_training_sword", "first tutorial battle should provide the training sword")
+	assert_equal(session.character.skill_id_for_slot(session.player, 0), "tiao_zhan", "training sword should expose the first weapon skill")
+	assert_true(String(session.message).contains("使用下方技能"), "first tutorial battle should guide skill usage")
+	var unlocked_skills_before: Array = session.player.get("unlocked_skills", []).duplicate()
+	TestHelpers.force_win(session)
+	assert_equal(session.phase, "reward", "first tutorial victory should open the reward phase")
+	assert_true(not session.reward_options.is_empty(), "first tutorial victory should provide a reward")
+	if session.reward_options.is_empty():
+		session.delete_save()
+		return
+	assert_equal(String(session.reward_options[0].get("item_id", "")), "warrior_old_chest", "first tutorial reward should be the fixed chest")
+	session.choose_reward(0)
+	assert_equal(session.player.get("unlocked_skills", []), unlocked_skills_before, "first tutorial reward should not unlock a new skill")
+	assert_equal(String(session.player.get("tower_equipment", {}).get("armor", "")), "warrior_old_chest", "first tutorial reward should equip the chest")
+	session.delete_save()
 
 
 func test_tutorial_is_before_formal_floor_one() -> void:
@@ -46,6 +96,77 @@ func test_tutorial_is_before_formal_floor_one() -> void:
 	assert_equal(session.floor_index, 1, "completed tutorial should start formal floor 1")
 	assert_equal(session.battle_index, 1, "formal floor 1 should start at battle 1")
 	assert_true(not String(session.current_encounter.get("id", "")).begins_with("tutorial_"), "formal floor 1 should use normal tower encounters")
+	session.delete_save()
+
+
+func test_first_unlocks_tower_completion_and_group_features() -> void:
+	var session_script = load("res://scripts/core/play_session.gd")
+	var session = session_script.new()
+	session.delete_save()
+
+
+func test_tower_bonus_range_and_seed_progression() -> void:
+	var session_script = load("res://scripts/core/play_session.gd")
+	var session = session_script.new()
+	session.delete_save()
+	session.start_new_game("warrior")
+	assert_equal(DataCatalog.MAX_TOWER_BONUS, 6, "tower difficulty should support zero through plus six")
+	session.tower_bonus = 6
+	session.floor_index = 7
+	assert_equal(session.effective_tower_level(), 13, "plus six tower should add to the floor level")
+	session.cleared_tower_bonuses.clear()
+	session.tower_seeds = 0
+	session.max_tower_bonus = 0
+	session.player["blood_potion_uses"] = 3
+	session.player["passive_skill_slots"] = 0
+	for tower_bonus in range(0, 7):
+		session.tower_bonus = tower_bonus
+		session._record_tower_completion()
+	assert_equal(session.tower_seeds, 7, "each tower difficulty should provide one seed on first clear")
+	assert_equal(session.max_tower_bonus, 6, "all seven clears should unlock through plus six")
+	assert_equal(session.player["blood_potion_uses"], 10, "seven seeds should increase blood potion uses from three to ten")
+	session.delete_save()
+	session.start_new_game("warrior")
+	session.phase = "npc_shop"
+	session.tower_coins = 60
+	session._unlock_boss_npc(1)
+	assert_true(session.is_npc_unlocked("merchant"), "floor one boss should unlock the merchant")
+	assert_true(session.buy_tower_consumable("minor_heal"), "merchant should sell tower consumables")
+	assert_true(not session.tower_stash.is_empty(), "merchant purchase should enter the tower stash")
+	session._unlock_boss_npc(3)
+	assert_true(session.is_npc_unlocked("blacksmith"), "floor three boss should unlock the blacksmith")
+	assert_true(session.buy_permanent_equipment("warrior", "common_moon_ring"), "blacksmith should sell permanent equipment")
+	session._unlock_boss_npc(5)
+	assert_true(session.is_npc_unlocked("mage"), "floor five boss should unlock the mage")
+	assert_true(session.buy_common_skill("first_aid"), "mage should sell permanent skills")
+	session.floor_index = 1
+	session.floor_encounter_count = 9
+	session._record_group_encounter("group_a")
+	assert_true(session.is_npc_feature_unlocked("merchant_upgraded"), "nine first-floor encounters should unlock merchant upgrades")
+	session.floor_index = 3
+	session.floor_encounter_count = 7
+	session._record_group_encounter("group_b")
+	assert_true(session.is_npc_feature_unlocked("blacksmith_upgraded"), "seven third-floor encounters should unlock blacksmith upgrades")
+	session.floor_index = 5
+	session.floor_encounter_count = 5
+	session._record_group_encounter("group_c")
+	assert_true(session.is_npc_feature_unlocked("mage_upgraded"), "five fifth-floor encounters should unlock mage upgrades")
+	session.floor_index = 7
+	session.tower_bonus = 0
+	session.cleared_tower_bonuses.clear()
+	session.tower_seeds = 0
+	session.player["blood_potion_uses"] = 3
+	session.player["passive_skill_slots"] = 0
+	session._record_tower_completion()
+	assert_equal(session.tower_seeds, 1, "first difficulty clear should provide one seed")
+	assert_equal(session.max_tower_bonus, 1, "first difficulty clear should unlock the next tower bonus")
+	assert_equal(session.player["blood_potion_uses"], 4, "each seed should add one blood potion use")
+	assert_equal(session.player["passive_skill_slots"], 1, "first tower completion should unlock the first passive slot")
+	session._record_tower_completion()
+	assert_equal(session.tower_seeds, 1, "reclearing one difficulty should not provide another seed")
+	session.tower_bonus = 1
+	session._record_tower_completion()
+	assert_equal(session.tower_seeds, 2, "clearing a second difficulty should provide another seed")
 	session.delete_save()
 
 

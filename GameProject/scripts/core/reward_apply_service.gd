@@ -29,6 +29,14 @@ func choose_reward(session: Variant, index: int) -> void:
 			session.player["hp"] = mini(int(session.player["max_hp"]), int(session.player["hp"]) + int(reward["value"]))
 		"permanent_equipment":
 			apply_permanent_equipment(session, reward)
+		"tower_equipment":
+			apply_tower_equipment(session, reward)
+		"tower_consumable":
+			apply_tower_consumable(session, reward)
+		"tower_skill":
+			apply_tower_skill(session, reward)
+		"tower_passive_skill":
+			apply_tower_passive_skill(session, reward)
 	session.character.recalculate_player_stats(session.player, false)
 	session._advance_after_reward()
 
@@ -66,18 +74,33 @@ func build_reward_options(session: Variant) -> void:
 		session.player["elite_rewards"] += 1
 	else:
 		session.reward_options = session.rewards.random_options("boss", 3, session.floor_index)
-		session.reward_options.append(session.rewards.permanent_equipment_reward(session.player, session.class_id, session.floor_index))
-		session.reward_options = session.rewards.sample_rewards(session.reward_options, session.reward_options.size())
+		var boss_skill: Dictionary = session.rewards.tower_skill_reward(session.class_id)
+		if not boss_skill.is_empty():
+			session.reward_options.append(boss_skill)
+		if int(session.player.get("passive_skill_slots", 0)) > 0 and session.rewards.should_drop(0.50):
+			var passive_skill: Dictionary = session.rewards.tower_passive_skill_reward()
+			if not passive_skill.is_empty():
+				session.reward_options.append(passive_skill)
 		session.player["boss_rewards"] += 1
+	var equipment_chance := float(DataCatalog.TOWER_EQUIPMENT_DROP_CHANCES.get(encounter_type, 0.0))
+	if session.rewards.should_drop(equipment_chance):
+		var equipment_reward: Dictionary = session.rewards.tower_equipment_reward(session.player, session.class_id)
+		if not equipment_reward.is_empty():
+			session.reward_options.append(equipment_reward)
+	if session.rewards.should_drop(DataCatalog.TOWER_CONSUMABLE_DROP_CHANCE):
+		var consumable_reward: Dictionary = session.rewards.tower_consumable_reward()
+		if not consumable_reward.is_empty():
+				session.reward_options.append(consumable_reward)
 	session.message = "选择一个奖励。"
 
 
 func apply_tutorial_unlock(session: Variant) -> void:
 	var unlock_id: String = DataCatalog.TUTORIAL_UNLOCKS[session.class_id][session.battle_index - 1]
 	if DataCatalog.EQUIPMENT.has(unlock_id):
-		session.character.equip_item(session.player, unlock_id)
+		session.character.equip_tower_item(session.player, unlock_id)
 	else:
-		session.character.unlock_skill(session.player, unlock_id, true)
+		# 教学只训练技能使用，不把破军或其他武器技能写入永久解锁。
+		session.character.add_tower_skill(session.player, unlock_id)
 
 
 func unlock_next_skill(session: Variant) -> void:
@@ -92,10 +115,64 @@ func apply_permanent_equipment(session: Variant, reward: Dictionary) -> void:
 	session.message = "获得永久装备：%s。" % DataCatalog.EQUIPMENT[item_id]["name"]
 
 
+func apply_tower_equipment(session: Variant, reward: Dictionary) -> void:
+	var item_id := String(reward.get("item_id", ""))
+	if item_id == "" or not DataCatalog.EQUIPMENT.has(item_id):
+		return
+	session.character.equip_tower_item(session.player, item_id)
+	session.message = "获得塔内装备：%s。" % DataCatalog.EQUIPMENT[item_id]["name"]
+
+
+func apply_tower_consumable(session: Variant, reward: Dictionary) -> void:
+	var item_id := String(reward.get("item_id", ""))
+	if item_id == "" or not DataCatalog.CONSUMABLES.has(item_id):
+		return
+	session.character.add_tower_consumable(session.player, item_id)
+	session.message = "获得塔内物品：%s。" % DataCatalog.CONSUMABLES[item_id]["name"]
+
+
+func apply_tower_skill(session: Variant, reward: Dictionary) -> void:
+	var skill_id := String(reward.get("skill_id", ""))
+	if skill_id == "" or not DataCatalog.SKILLS.has(skill_id):
+		return
+	session.character.add_tower_skill(session.player, skill_id)
+	session.message = "获得塔内技能：%s。" % DataCatalog.SKILLS[skill_id]["name"]
+
+
+func apply_tower_passive_skill(session: Variant, reward: Dictionary) -> void:
+	var skill_id := String(reward.get("skill_id", ""))
+	if skill_id == "" or not DataCatalog.PASSIVE_SKILLS.has(skill_id):
+		return
+	session.character.add_tower_passive_skill(session.player, skill_id)
+	session.message = "获得塔内被动：%s。" % DataCatalog.PASSIVE_SKILLS[skill_id]["name"]
+
+
 func build_reward_targets(session: Variant) -> Array[Dictionary]:
 	var targets: Array[Dictionary] = []
+	var equipment_ids: Array[String] = []
 	for item_id in session.player.get("equipment_ids", []):
-		targets.append({"type": "equipment", "id": String(item_id)})
+		var permanent_item_id := String(item_id)
+		if permanent_item_id != "" and not equipment_ids.has(permanent_item_id):
+			equipment_ids.append(permanent_item_id)
+	for item_id in session.player.get("tower_equipment", {}).values():
+		var tower_item_id := String(item_id)
+		if tower_item_id != "" and not equipment_ids.has(tower_item_id):
+			equipment_ids.append(tower_item_id)
+	for item_id in equipment_ids:
+		targets.append({"type": "equipment", "id": item_id})
+	var skill_ids: Array[String] = []
+	for skill_id in [session.player.get("weapon_skill_1", ""), session.player.get("weapon_skill_2", "")]:
+		var weapon_skill_id := String(skill_id)
+		if weapon_skill_id != "" and not skill_ids.has(weapon_skill_id):
+			skill_ids.append(weapon_skill_id)
 	for skill_id in session.player.get("equipped_skills", []):
-		targets.append({"type": "skill", "id": String(skill_id)})
+		var permanent_skill_id := String(skill_id)
+		if permanent_skill_id != "" and not skill_ids.has(permanent_skill_id):
+			skill_ids.append(permanent_skill_id)
+	for skill_id in session.player.get("tower_equipped_skills", []):
+		var tower_skill_id := String(skill_id)
+		if tower_skill_id != "" and not skill_ids.has(tower_skill_id):
+			skill_ids.append(tower_skill_id)
+	for skill_id in skill_ids:
+		targets.append({"type": "skill", "id": skill_id})
 	return targets

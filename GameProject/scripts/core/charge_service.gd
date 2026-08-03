@@ -11,7 +11,8 @@ func available_charges(session: Variant) -> Array[Dictionary]:
 	var charges: Array[Dictionary] = []
 	collect_charges_from_group(session, charges, "equipment", session.player.get("equipment_attachments", {}))
 	collect_charges_from_group(session, charges, "skill", session.player.get("skill_attachments", {}))
-	collect_consumable_charges(session, charges, session.player.get("consumables", []))
+	collect_consumable_charges(session, charges, session.player.get("consumables", []), "consumable")
+	collect_consumable_charges(session, charges, session.player.get("tower_consumables", []), "tower_consumable")
 	return charges
 
 
@@ -66,19 +67,23 @@ func collect_charges_from_group(session: Variant, result: Array[Dictionary], tar
 			result.append(charge)
 
 
-func collect_consumable_charges(session: Variant, result: Array[Dictionary], consumables: Array) -> void:
+func collect_consumable_charges(session: Variant, result: Array[Dictionary], consumables: Array, source_prefix: String = "consumable") -> void:
 	for i in range(consumables.size()):
 		if result.size() >= MAX_CHARGES:
 			return
-		var item_id := String(consumables[i])
+		var raw_item: Variant = consumables[i]
+		var item_id := String(raw_item.get("id", "")) if typeof(raw_item) == TYPE_DICTIONARY else String(raw_item)
 		if item_id == "" or not DataCatalog.CONSUMABLES.has(item_id):
 			continue
-		var item: Dictionary = DataCatalog.CONSUMABLES[item_id]
+		var item: Dictionary = DataCatalog.CONSUMABLES[item_id].duplicate(true)
+		if typeof(raw_item) == TYPE_DICTIONARY and bool(raw_item.get("upgraded", false)):
+			item["value"] = int(round(float(item.get("value", 0)) * 1.5))
+			item["name"] = "强化" + String(item.get("name", "物品"))
 		var kind := String(item.get("kind", ""))
 		if not kind.begins_with("charge_"):
 			continue
 		var charge := item.duplicate(true)
-		charge["charge_id"] = "consumable:%d" % i
+		charge["charge_id"] = "%s:%d" % [source_prefix, i]
 		charge["target_type"] = "consumable"
 		charge["target_id"] = item_id
 		charge["source_label"] = session._target_label({"type": "consumable", "id": item_id})

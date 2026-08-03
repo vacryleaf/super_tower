@@ -28,6 +28,7 @@ var CombatLogView
 var EquipmentView
 var RunHudView
 var EndScreenView
+var NpcShopView
 var TraitCatalog
 var CombatFeedback
 
@@ -66,6 +67,7 @@ var combat_log_view
 var equipment_view
 var run_hud_view
 var end_screen_view
+var npc_shop_view
 var trait_catalog
 var selected_target := 0
 var selected_heal_target := -1
@@ -115,6 +117,7 @@ func _ready() -> void:
 	EquipmentView = load("res://scripts/ui/equipment_view.gd")
 	RunHudView = load("res://scripts/ui/run_hud_view.gd")
 	EndScreenView = load("res://scripts/ui/end_screen_view.gd")
+	NpcShopView = load("res://scripts/ui/npc_shop_view.gd")
 	TraitCatalog = load("res://scripts/core/trait_catalog.gd")
 	CombatFeedback = load("res://scripts/ui/combat_feedback.gd")
 	_install_default_theme()
@@ -150,6 +153,7 @@ func _ready() -> void:
 	equipment_view = EquipmentView.new()
 	run_hud_view = RunHudView.new()
 	end_screen_view = EndScreenView.new()
+	npc_shop_view = NpcShopView.new()
 	trait_catalog = TraitCatalog.new()
 	combat_feedback = CombatFeedback.new(self)
 	_debug_log("views initialized")
@@ -273,6 +277,8 @@ func _render_game() -> void:
 			_render_reward_target()
 		"skill_shop":
 			_render_skill_shop()
+		"npc_shop":
+			_render_npc_shop()
 		"victory":
 			_render_end_screen("已通关第 10 层", "你已经完成当前可玩版本的目标。")
 		"game_over":
@@ -392,6 +398,7 @@ func _render_actions(parent: Control) -> void:
 		Callable(self, "_on_defend_pressed"),
 		Callable(self, "_on_dodge_pressed"),
 		Callable(self, "_on_end_turn_pressed"),
+		Callable(self, "_on_blood_potion_pressed"),
 		Callable(self, "_on_skill_pressed"),
 		Callable(self, "_on_charge_pressed")
 	)
@@ -647,6 +654,11 @@ func _on_dodge_pressed() -> void:
 	_run_action(Callable(session, "player_dodge"))
 
 
+func _on_blood_potion_pressed() -> void:
+	_debug_log("ui_blood_potion")
+	_run_action(Callable(session, "use_blood_potion_in_battle"))
+
+
 func _on_end_turn_pressed() -> void:
 	_debug_log("ui_end_turn")
 	_run_action(Callable(session, "end_turn"))
@@ -654,7 +666,7 @@ func _on_end_turn_pressed() -> void:
 
 func _on_skill_pressed(index: int) -> void:
 	_debug_log("ui_skill slot=%d" % index)
-	var skill_id: String = session.player["equipped_skills"][index]
+	var skill_id: String = session.character.skill_id_for_slot(session.player, index)
 	var skill: Dictionary = DataCatalog.SKILLS.get(skill_id, {})
 	if String(skill.get("type", "")) == "heal":
 		if selected_heal_target < 0:
@@ -865,9 +877,10 @@ func _debug_log(message: String) -> void:
 		debug_logger.log(message)
 
 
-func _on_shop_pressed() -> void:
-	session.phase = "skill_shop"
-	_request_game_render()
+func _on_shop_pressed(mode: String = "merchant") -> void:
+	camp_screen = "npc_shop:" + mode
+	session.phase = "npc_shop"
+	_request_menu_render()
 
 
 func _render_skill_shop() -> void:
@@ -881,6 +894,23 @@ func _on_buy_skill(skill_id: String) -> void:
 
 
 func _on_skill_shop_back() -> void:
+	_request_menu_render()
+
+
+func _render_npc_shop() -> void:
+	var parts := camp_screen.split(":")
+	var mode := parts[1] if parts.size() > 1 else "merchant"
+	npc_shop_view.render(root, session, mode, Callable(self, "_label"), Callable(self, "_on_npc_shop_buy").bind(mode), Callable(self, "_on_manage_close"))
+
+
+func _on_npc_shop_buy(item_id: String, mode: String) -> void:
+	if mode == "merchant":
+		var parts := item_id.split("|")
+		session.buy_tower_consumable(String(parts[0]), parts.size() > 1 and parts[1] == "upgraded")
+	elif mode == "blacksmith":
+		session.buy_permanent_equipment(session.class_id, item_id)
+	else:
+		session.buy_common_skill(item_id)
 	_request_menu_render()
 
 
@@ -904,9 +934,16 @@ func _render_camp_screen() -> void:
 			bestiary_view.render(root, Callable(self, "_label"), Callable(self, "_on_bestiary_back"), session.get_bestiary())
 		"pre_run":
 			pre_run_view.render(root, session, Callable(self, "_label"), Callable(self, "_on_pre_run_action"), Callable(self, "_on_manage_close"))
+		"npc_shop":
+			_render_npc_shop()
 
 
 func _on_manage_action(action: String, class_key: String) -> void:
+	if action == "blood_potion":
+		session.use_blood_potion(class_key)
+		camp_screen = "class_detail:" + class_key
+		_request_menu_render()
+		return
 	camp_screen = action + ":" + class_key
 	selected_class_key = class_key
 	equipment_manage_view.selected_slot = ""
@@ -927,30 +964,30 @@ func _on_pre_run_action(action: String, arg: String) -> void:
 		pre_run_view.selected_equipment_slot = "head"
 		pre_run_view.selected_skill_filter = "skill_1"
 		pre_run_view.selected_consumable_slot = 1
-		pre_run_view.floor_menu_open = false
+		pre_run_view.tower_menu_open = false
 		pre_run_view.hover_kind = ""
 		pre_run_view.hover_id = ""
 		pre_run_view.hover_slot = ""
 		var roster: Dictionary = session.get_roster_player(arg)
 		if roster.is_empty() and session != null:
 			roster = session.character.create_character(arg)
-		pre_run_view.start_floor = maxi(1, int(roster.get("highest_floor", 0)) - 3)
+		pre_run_view.selected_tower_bonus = session.get_max_tower_bonus()
 	elif action == "focus_equipment_slot":
 		pre_run_view.browse_mode = "equipment"
 		pre_run_view.selected_equipment_slot = arg
 		pre_run_view.selected_equipment_tab = "ring" if arg.begins_with("ring") else arg
-		pre_run_view.floor_menu_open = false
+		pre_run_view.tower_menu_open = false
 		pre_run_view.hover_kind = ""
 	elif action == "focus_skill_filter":
 		pre_run_view.browse_mode = "skills"
 		pre_run_view.selected_skill_filter = arg
-		pre_run_view.floor_menu_open = false
+		pre_run_view.tower_menu_open = false
 		pre_run_view.hover_kind = ""
 	elif action == "focus_consumable_slot":
 		pre_run_view.browse_mode = "consumable"
 		pre_run_view.selected_equipment_tab = "consumable"
 		pre_run_view.selected_consumable_slot = maxi(1, int(arg))
-		pre_run_view.floor_menu_open = false
+		pre_run_view.tower_menu_open = false
 		pre_run_view.hover_kind = ""
 	elif action == "hover_equipment":
 		var parts := arg.split("|")
@@ -979,16 +1016,16 @@ func _on_pre_run_action(action: String, arg: String) -> void:
 	elif action == "equip_consumable":
 		if pre_run_view.selected_class != "" and arg != "":
 			session.set_consumable_slot(pre_run_view.selected_class, pre_run_view.selected_consumable_slot, arg)
-	elif action == "select_floor":
-		pre_run_view.start_floor = maxi(1, int(arg))
-		pre_run_view.floor_menu_open = false
-	elif action == "toggle_floor_menu":
+	elif action == "select_tower_bonus":
+		pre_run_view.selected_tower_bonus = clampi(int(arg), 0, session.get_max_tower_bonus())
+		pre_run_view.tower_menu_open = false
+	elif action == "toggle_tower_menu":
 		pass
 	elif action == "start_game":
 		if pre_run_view.selected_class == "":
 			_request_menu_render()
 			return
-		session.start_new_game(pre_run_view.selected_class, pre_run_view.start_floor)
+		session.start_new_game(pre_run_view.selected_class, pre_run_view.selected_tower_bonus)
 		pre_run_view.reset()
 		camp_screen = ""
 		selected_target = 0
@@ -1014,6 +1051,8 @@ func _on_bestiary_back() -> void:
 
 func _on_manage_close() -> void:
 	camp_screen = ""
+	if session.phase == "npc_shop":
+		session.phase = "menu"
 	equipment_manage_view.selected_slot = ""
 	pre_run_view.reset()
 	_request_menu_render()

@@ -46,6 +46,13 @@ var battle_state := BattleState.new()
 var scene_skill_sources: Array[Dictionary] = []
 
 var tower_coins := 0
+var npc_unlocks: Array[String] = []
+var npc_features: Array[String] = []
+var encountered_groups: Array[String] = []
+var max_tower_bonus := 0
+var cleared_tower_bonuses: Array[int] = []
+var tower_seeds := 0
+var tower_stash: Array = []
 var profile_loaded := false
 var pending_tutorial_epilogue := false
 
@@ -69,6 +76,16 @@ var battle_index: int:
 		return battle_state.battle_index
 	set(value):
 		battle_state.battle_index = value
+var tower_bonus: int:
+	get:
+		return battle_state.tower_bonus
+	set(value):
+		battle_state.tower_bonus = value
+var floor_encounter_count: int:
+	get:
+		return battle_state.floor_encounter_count
+	set(value):
+		battle_state.floor_encounter_count = value
 var floor_group_id: String:
 	get:
 		return battle_state.floor_group_id
@@ -245,28 +262,36 @@ var perfect_deflect: bool:
 func _load_account() -> void:
 	var profile := save_profile.read_profile(Callable(self, "_persistent_player_snapshot"))
 	tower_coins = int(profile.get("tower_coins", 0))
+	npc_unlocks = _string_array(profile.get("npc_unlocks", []))
+	npc_features = _string_array(profile.get("npc_features", []))
+	encountered_groups = _string_array(profile.get("encountered_groups", []))
+	max_tower_bonus = clampi(int(profile.get("max_tower_bonus", 0)), 0, DataCatalog.MAX_TOWER_BONUS)
+	cleared_tower_bonuses = _int_array(profile.get("cleared_tower_bonuses", []))
+	tower_seeds = int(profile.get("tower_seeds", 0))
+	tower_stash = (profile.get("tower_stash", []) as Array).duplicate(true)
+	var profile_changed := _refresh_npc_unlocks(profile)
+	if profile_changed:
+		save_profile.write_profile(profile)
 	profile_loaded = true
 
 
-func start_new_game(selected_class: String, start_floor: int = 0) -> void:
+func start_new_game(selected_class: String, selected_tower_bonus: int = 0) -> void:
 	selected_class = DataCatalog.normalize_class_id(selected_class)
 	class_id = selected_class
 	save_profile.set_slot(save_profile.current_slot())
 	_load_account()
 	rng.randomize()
 	player = _roster_player_or_new(selected_class)
-	character.recalculate_player_stats(player, false)
+	player["tower_consumables"] = tower_stash.duplicate(true)
+	tower_stash.clear()
 	pending_tutorial_epilogue = false
 	floor_group_id = ""
-	if start_floor >= 1:
-		# Explicit floor selection is an intentional skip of the opening tutorial.
-		player["tutorial_completed"] = true
-		tutorial_active = false
-		floor_index = start_floor
-	else:
-		# The tutorial is a three-battle prologue; formal tower floor 1 starts afterwards.
-		floor_index = 1
-		tutorial_active = not bool(player.get("tutorial_completed", false))
+	tower_bonus = clampi(selected_tower_bonus, 0, max_tower_bonus)
+	floor_index = 1
+	floor_encounter_count = 0
+	tutorial_active = not bool(player.get("tutorial_completed", false))
+	_ensure_tutorial_starting_equipment()
+	character.recalculate_player_stats(player, false)
 	battle_index = 1
 	phase = "battle"
 	message = "开始新手引导。" if tutorial_active else "派遣%s进入高塔。" % DataCatalog.CLASSES[selected_class]["name"]
@@ -319,6 +344,7 @@ func save_game() -> bool:
 	profile["version"] = 2
 	profile["roster"] = roster
 	profile["tower_coins"] = tower_coins
+	_sync_profile_progress(profile)
 	if phase == "game_over" or phase == "victory":
 		var current_highest := int(player.get("highest_floor", 0))
 		if floor_index > current_highest:
@@ -345,6 +371,7 @@ func end_run_to_camp() -> bool:
 	profile["version"] = 2
 	profile["roster"] = roster
 	profile["tower_coins"] = tower_coins
+	_sync_profile_progress(profile)
 	profile["active_run"] = {}
 	if not save_profile.write_profile(profile):
 		return false
@@ -364,6 +391,13 @@ func load_game(slot_index: int = -1) -> bool:
 	var profile := save_profile.read_profile(Callable(self, "_persistent_player_snapshot"))
 	var active_run := _dictionary(profile.get("active_run", {}))
 	profile_loaded = not profile.is_empty()
+	npc_unlocks = _string_array(profile.get("npc_unlocks", []))
+	npc_features = _string_array(profile.get("npc_features", []))
+	encountered_groups = _string_array(profile.get("encountered_groups", []))
+	max_tower_bonus = clampi(int(profile.get("max_tower_bonus", 0)), 0, DataCatalog.MAX_TOWER_BONUS)
+	cleared_tower_bonuses = _int_array(profile.get("cleared_tower_bonuses", []))
+	tower_seeds = int(profile.get("tower_seeds", 0))
+	tower_stash = (profile.get("tower_stash", []) as Array).duplicate(true)
 	pending_tutorial_epilogue = false
 	if active_run.is_empty():
 		battle_state.reset()
@@ -377,6 +411,13 @@ func load_game(slot_index: int = -1) -> bool:
 
 func delete_save() -> void:
 	save_profile.delete_save()
+	npc_unlocks.clear()
+	npc_features.clear()
+	encountered_groups.clear()
+	cleared_tower_bonuses.clear()
+	max_tower_bonus = 0
+	tower_seeds = 0
+	tower_stash.clear()
 	profile_loaded = false
 	pending_tutorial_epilogue = false
 
@@ -393,6 +434,9 @@ func _start_current_battle() -> void:
 	last_events.clear()
 	_ensure_floor_group_id()
 	current_encounter = _get_current_encounter()
+	if not is_tutorial():
+		floor_encounter_count += 1
+		_record_group_encounter(String(current_encounter.get("group_id", floor_group_id)))
 	enemies = _build_enemies(current_encounter)
 	allies = []
 	scene_skill_sources = CombatRules.collect_scene_skill_sources(enemies + allies)
@@ -443,7 +487,11 @@ func _ensure_floor_group_id() -> void:
 
 
 func _build_enemies(encounter: Dictionary) -> Array[Dictionary]:
-	return CombatRules.build_enemies(encounter, floor_index)
+	return CombatRules.build_enemies(encounter, floor_index, true, tower_bonus)
+
+
+func effective_tower_level() -> int:
+	return floor_index + tower_bonus
 
 func _begin_player_turn() -> void:
 	round_index += 1
@@ -492,10 +540,16 @@ func _begin_player_turn() -> void:
 	message = "你的回合。状态 Buff：%s" % _state_name(pending_state_card)
 	if charged_label != "":
 		message += " 随机充能：%s。" % charged_label
+	var player_hint := String(current_encounter.get("player_hint", ""))
+	if player_hint != "":
+		message += " " + player_hint
 	_debug_log("turn_start round=%d energy=%d hp=%d/%d block=%d action_order=%s" % [round_index, energy, int(player.get("hp", 0)), int(player.get("max_hp", player.get("base_max_hp", 0))), player_block, _action_order_debug_text(action_order)])
 
 
 func _draw_state_buff() -> String:
+	if is_tutorial():
+		var tutorial_cards := ["critical", "perfect_guard", "read"]
+		return String(tutorial_cards[clampi(battle_index - 1, 0, tutorial_cards.size() - 1)])
 	return state_buffs.draw_state_buff(self)
 
 
@@ -532,6 +586,11 @@ func player_defend() -> void:
 func player_dodge() -> void:
 	_debug_log("player_dodge energy=%d" % energy)
 	battle_service.player_dodge(self)
+
+
+func use_blood_potion_in_battle() -> void:
+	_debug_log("use_blood_potion hp=%d/%d" % [int(player.get("hp", 0)), int(player.get("max_hp", 0))])
+	battle_service.use_blood_potion(self)
 
 
 func use_skill(slot_index: int, target_index: int) -> void:
@@ -781,26 +840,182 @@ func _unlock_enemies_in_bestiary() -> void:
 	save_profile.write_profile(profile)
 
 
+func _tower_coin_reward() -> int:
+	var rank := String(current_encounter.get("type", "normal"))
+	var multiplier := int(DataCatalog.TOWER_COIN_MULTIPLIERS.get(rank, 0))
+	var defeated_units := maxi(1, current_encounter.get("units", []).size())
+	return multiplier * effective_tower_level() * defeated_units
+
+
+func _unlock_boss_npc(boss_floor: int) -> void:
+	for npc_id in DataCatalog.NPCS.keys():
+		var npc: Dictionary = DataCatalog.NPCS[npc_id]
+		if int(npc.get("unlock_boss_floor", 0)) != boss_floor or npc_unlocks.has(String(npc_id)):
+			continue
+		npc_unlocks.append(String(npc_id))
+		_sync_profile_now()
+
+
+func _record_tower_completion() -> void:
+	if cleared_tower_bonuses.has(tower_bonus):
+		return
+	cleared_tower_bonuses.append(tower_bonus)
+	tower_seeds += 1
+	max_tower_bonus = maxi(max_tower_bonus, mini(DataCatalog.MAX_TOWER_BONUS, tower_bonus + 1))
+	player["blood_potion_seed"] = int(player.get("blood_potion_seed", 0)) + 1
+	player["blood_potion_uses"] = int(player.get("blood_potion_uses", 0)) + 1
+	if int(player.get("passive_skill_slots", 0)) <= 0:
+		player["passive_skill_slots"] = 1
+		character.unlock_passive_skill(player, "iron_will", true)
+	_sync_profile_now()
+
+
+func _record_group_encounter(group_id: String) -> void:
+	if group_id != "" and not encountered_groups.has(group_id):
+		encountered_groups.append(group_id)
+	if floor_index == 1 and floor_encounter_count >= 9:
+		_unlock_npc_feature("merchant_upgraded")
+	if floor_index == 3 and floor_encounter_count >= 7:
+		_unlock_npc_feature("blacksmith_upgraded")
+	if floor_index == 5 and floor_encounter_count >= 5:
+		_unlock_npc_feature("mage_upgraded")
+	_sync_profile_now()
+
+
 func get_bestiary() -> Dictionary:
 	var profile := save_profile.read_profile(Callable(self, "_persistent_player_snapshot"))
 	return profile.get("bestiary", {})
 
 
+func get_npc_unlocks() -> Array[String]:
+	return npc_unlocks.duplicate()
+
+
+func get_max_tower_bonus() -> int:
+	return max_tower_bonus
+
+
+func is_npc_unlocked(npc_id: String) -> bool:
+	if not DataCatalog.NPCS.has(npc_id):
+		return false
+	return npc_unlocks.has(npc_id)
+
+
+func is_npc_feature_unlocked(feature_id: String) -> bool:
+	return npc_features.has(feature_id)
+
+
+func use_blood_potion(class_key: String = "") -> bool:
+	if phase == "battle":
+		return battle_service.use_blood_potion(self)
+	if phase != "menu":
+		return false
+	var target_class := DataCatalog.normalize_class_id(class_key)
+	var profile := save_profile.read_profile(Callable(self, "_persistent_player_snapshot"))
+	var roster: Dictionary = profile.get("roster", {})
+	var roster_player: Dictionary = _dictionary(roster.get(target_class, {}))
+	if roster_player.is_empty():
+		return false
+	var result := character.use_blood_potion(roster_player)
+	if not bool(result.get("used", false)):
+		message = "血瓶无法使用。"
+		return false
+	roster[target_class] = _persistent_player_snapshot(roster_player)
+	profile["roster"] = roster
+	if not save_profile.write_profile(profile):
+		return false
+	message = "血瓶恢复 %d 点生命，剩余 %d 次。" % [int(result["amount"]), int(result["uses_left"])]
+	return true
+
+
 func buy_common_skill(skill_id: String) -> bool:
-	if tower_coins < 15:
+	if not is_npc_unlocked("mage"):
+		return false
+	if tower_coins < DataCatalog.PERMANENT_SKILL_PRICE:
 		return false
 	var profile := save_profile.read_profile(Callable(self, "_persistent_player_snapshot"))
 	var roster: Dictionary = profile.get("roster", {})
 	for class_key in roster.keys():
 		if roster[class_key].get("unlocked_skills", []).has(skill_id):
 			return false
-	tower_coins -= 15
+	tower_coins -= DataCatalog.PERMANENT_SKILL_PRICE
 	for class_key in roster.keys():
 		var class_player: Dictionary = roster[class_key]
 		character.unlock_skill(class_player, skill_id, _roster_has_empty_skill_slot(class_player))
 	profile["roster"] = roster
 	profile["tower_coins"] = tower_coins
 	save_profile.write_profile(profile)
+	return true
+
+
+func buy_permanent_equipment(class_key: String, item_id: String) -> bool:
+	if not is_npc_unlocked("blacksmith") or tower_coins < DataCatalog.PERMANENT_EQUIPMENT_PRICE:
+		return false
+	if not DataCatalog.EQUIPMENT.has(item_id):
+		return false
+	var profile := save_profile.read_profile(Callable(self, "_persistent_player_snapshot"))
+	var roster: Dictionary = profile.get("roster", {})
+	var normalized_class := DataCatalog.normalize_class_id(class_key)
+	var class_player: Dictionary = _dictionary(roster.get(normalized_class, {}))
+	if class_player.is_empty() or class_player.get("equipment_ids", []).has(item_id):
+		return false
+	tower_coins -= DataCatalog.PERMANENT_EQUIPMENT_PRICE
+	class_player["equipment_ids"].append(item_id)
+	roster[normalized_class] = class_player
+	profile["roster"] = roster
+	profile["tower_coins"] = tower_coins
+	save_profile.write_profile(profile)
+	return true
+
+
+func upgrade_equipment(class_key: String, item_id: String, kind: String = "attack", value: float = 1.0) -> bool:
+	if not is_npc_feature_unlocked("blacksmith_upgraded") or tower_coins < DataCatalog.PERMANENT_EQUIPMENT_PRICE:
+		return false
+	var profile := save_profile.read_profile(Callable(self, "_persistent_player_snapshot"))
+	var roster: Dictionary = profile.get("roster", {})
+	var normalized_class := DataCatalog.normalize_class_id(class_key)
+	var class_player: Dictionary = _dictionary(roster.get(normalized_class, {}))
+	if class_player.is_empty() or not class_player.get("equipment_ids", []).has(item_id):
+		return false
+	tower_coins -= DataCatalog.PERMANENT_EQUIPMENT_PRICE
+	character.apply_permanent_upgrade(class_player, "equipment", item_id, kind, value)
+	roster[normalized_class] = _persistent_player_snapshot(class_player)
+	profile["roster"] = roster
+	profile["tower_coins"] = tower_coins
+	save_profile.write_profile(profile)
+	return true
+
+
+func upgrade_skill(class_key: String, skill_id: String, kind: String = "skill_power", value: float = 0.05) -> bool:
+	if not is_npc_feature_unlocked("mage_upgraded") or tower_coins < DataCatalog.PERMANENT_SKILL_PRICE:
+		return false
+	var profile := save_profile.read_profile(Callable(self, "_persistent_player_snapshot"))
+	var roster: Dictionary = profile.get("roster", {})
+	var normalized_class := DataCatalog.normalize_class_id(class_key)
+	var class_player: Dictionary = _dictionary(roster.get(normalized_class, {}))
+	if class_player.is_empty() or not class_player.get("unlocked_skills", []).has(skill_id):
+		return false
+	tower_coins -= DataCatalog.PERMANENT_SKILL_PRICE
+	character.apply_permanent_upgrade(class_player, "skill", skill_id, kind, value)
+	roster[normalized_class] = _persistent_player_snapshot(class_player)
+	profile["roster"] = roster
+	profile["tower_coins"] = tower_coins
+	save_profile.write_profile(profile)
+	return true
+
+
+func buy_tower_consumable(item_id: String, upgraded: bool = false) -> bool:
+	var price := 8 if upgraded else 5
+	if not is_npc_unlocked("merchant") or phase not in ["battle", "reward", "npc_shop"] or tower_coins < price:
+		return false
+	if not DataCatalog.CONSUMABLES.has(item_id):
+		return false
+	tower_coins -= price
+	if phase == "npc_shop":
+		tower_stash.append({"id": item_id, "upgraded": upgraded})
+	else:
+		character.add_tower_consumable(player, item_id, upgraded)
+	_sync_profile_now()
 	return true
 
 func _roster_has_empty_skill_slot(class_player: Dictionary) -> bool:
@@ -1151,16 +1366,36 @@ func _roster_player_or_new(selected_class: String) -> Dictionary:
 	var saved_player := get_roster_player(selected_class)
 	if saved_player.is_empty():
 		return character.create_character(selected_class)
+	if saved_player.get("equipment", {}).get("weapon", "") == "" and not bool(saved_player.get("tutorial_completed", false)):
+		character.equip_tower_item(saved_player, "warrior_training_sword")
+	if not saved_player.has("tower_equipment") and not bool(saved_player.get("tutorial_completed", false)):
+		saved_player["tower_equipment"] = {}
 	if not saved_player.has("side"):
 		saved_player["side"] = "player"
 		character.recalculate_player_stats(saved_player, true)
 	return saved_player
 
 
+func _ensure_tutorial_starting_equipment() -> void:
+	if not is_tutorial():
+		return
+	var item_id := String(DataCatalog.TUTORIAL_STARTING_EQUIPMENT.get(class_id, ""))
+	if item_id == "" or not DataCatalog.EQUIPMENT.has(item_id):
+		return
+	var tower_equipment: Dictionary = player.get("tower_equipment", {})
+	if String(tower_equipment.get("weapon", "")) == "":
+		character.equip_tower_item(player, item_id)
+
+
 func _persistent_player_snapshot(source_player: Dictionary) -> Dictionary:
 	var snapshot := source_player.duplicate(true)
 	snapshot["equipment_attachments"] = {}
 	snapshot["skill_attachments"] = {}
+	snapshot["tower_equipment"] = {}
+	snapshot["tower_equipment_ids"] = []
+	snapshot["tower_consumables"] = []
+	snapshot["tower_equipped_skills"] = ["", "", "", ""]
+	snapshot["tower_passive_skills"] = []
 	snapshot["state_attack_bonus"] = 0
 	snapshot["state_defense_bonus"] = 0
 	snapshot["statuses"] = []
@@ -1188,7 +1423,7 @@ func _dictionary(value: Variant) -> Dictionary:
 func _battle_title() -> String:
 	if is_tutorial():
 		return "新手引导 第 %d 场：%s" % [battle_index, current_encounter.get("name", current_encounter.get("id", "战斗"))]
-	return "高塔 第 %d 层 第 %d 场：%s" % [floor_index, battle_index, current_encounter.get("name", current_encounter.get("id", "战斗"))]
+	return "+%d塔 高塔 第 %d 层 第 %d 场：%s" % [tower_bonus, floor_index, battle_index, current_encounter.get("name", current_encounter.get("id", "战斗"))]
 
 
 func is_boss_battle() -> bool:
@@ -1282,12 +1517,7 @@ func swap_equipment(class_key: String, slot: String, item_id: String) -> void:
 
 
 func is_shop_unlocked() -> bool:
-	var profile = save_profile.read_profile(Callable(self, "_persistent_player_snapshot"))
-	var roster: Dictionary = profile.get("roster", {})
-	for class_key in roster.keys():
-		if int(roster[class_key].get("highest_floor", 0)) >= DataCatalog.MAX_TOWER_FLOOR:
-			return true
-	return false
+	return is_npc_unlocked("merchant")
 
 
 func is_skill_owned(skill_id: String) -> bool:
@@ -1297,3 +1527,64 @@ func is_skill_owned(skill_id: String) -> bool:
 		if roster[class_key].get("unlocked_skills", []).has(skill_id):
 			return true
 	return false
+
+
+func _refresh_npc_unlocks(profile: Dictionary) -> bool:
+	var changed := false
+	var stored_unlocks: Array = profile.get("npc_unlocks", []).duplicate()
+	for npc_id in stored_unlocks:
+		if not npc_unlocks.has(String(npc_id)):
+			npc_unlocks.append(String(npc_id))
+			changed = true
+	var stored_features: Array = profile.get("npc_features", []).duplicate()
+	for feature_id in stored_features:
+		if not npc_features.has(String(feature_id)):
+			npc_features.append(String(feature_id))
+			changed = true
+	return changed
+
+
+func _unlock_npc_feature(feature_id: String) -> void:
+	if not npc_features.has(feature_id):
+		npc_features.append(feature_id)
+
+
+func _sync_profile_progress(profile: Dictionary) -> void:
+	profile["tower_coins"] = tower_coins
+	profile["npc_unlocks"] = npc_unlocks.duplicate()
+	profile["npc_features"] = npc_features.duplicate()
+	profile["encountered_groups"] = encountered_groups.duplicate()
+	profile["max_tower_bonus"] = max_tower_bonus
+	profile["cleared_tower_bonuses"] = cleared_tower_bonuses.duplicate()
+	profile["tower_seeds"] = tower_seeds
+	profile["tower_stash"] = tower_stash.duplicate(true)
+	if class_id != "" and not player.is_empty():
+		var roster: Dictionary = profile.get("roster", {})
+		roster[class_id] = _persistent_player_snapshot(player)
+		profile["roster"] = roster
+
+
+func _sync_profile_now() -> void:
+	var profile := save_profile.read_profile(Callable(self, "_persistent_player_snapshot"))
+	_sync_profile_progress(profile)
+	save_profile.write_profile(profile)
+
+
+func _string_array(value: Variant) -> Array[String]:
+	var result: Array[String] = []
+	if typeof(value) != TYPE_ARRAY:
+		return result
+	for item in value:
+		var item_id := String(item)
+		if item_id != "":
+			result.append(item_id)
+	return result
+
+
+func _int_array(value: Variant) -> Array[int]:
+	var result: Array[int] = []
+	if typeof(value) != TYPE_ARRAY:
+		return result
+	for item in value:
+		result.append(int(item))
+	return result

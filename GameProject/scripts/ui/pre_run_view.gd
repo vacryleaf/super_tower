@@ -12,8 +12,8 @@ const WAREHOUSE_CELL_SIZE := Vector2(86, 118)
 const DESIGN_VIEWPORT_SIZE := Vector2(1280, 720)
 
 var selected_class := ""
-var start_floor := 1
-var floor_menu_open := false
+var selected_tower_bonus := 0
+var tower_menu_open := false
 var browse_mode := "equipment"
 var selected_equipment_tab := "weapon"
 var selected_equipment_slot := "weapon"
@@ -29,8 +29,8 @@ var layout_scale := 1.0
 
 func reset() -> void:
 	selected_class = ""
-	start_floor = 1
-	floor_menu_open = false
+	selected_tower_bonus = 0
+	tower_menu_open = false
 	browse_mode = "equipment"
 	selected_equipment_tab = "weapon"
 	selected_equipment_slot = "weapon"
@@ -287,28 +287,25 @@ func _build_warehouse_column(session: Variant, label_factory: Callable, action_c
 	var spacer := Control.new()
 	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	column.add_child(spacer)
-	column.add_child(_build_floor_and_start_row(session, label_factory, action_callback))
+	column.add_child(_build_tower_and_start_row(session, label_factory, action_callback))
 	return column
 
 
-func _build_floor_and_start_row(session: Variant, label_factory: Callable, action_callback: Callable) -> Control:
+func _build_tower_and_start_row(session: Variant, label_factory: Callable, action_callback: Callable) -> Control:
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 4)
 
-	var roster := _player_snapshot(session, selected_class)
-	var max_floor := _floor_limit(roster)
-	if start_floor < 1 or start_floor > max_floor:
-		start_floor = max_floor
-
-	var floor_button := Button.new()
-	floor_button.text = "层数：%s" % _floor_label(start_floor, max_floor)
-	floor_button.custom_minimum_size = _scaled_size(Vector2(180, 38))
-	floor_button.pressed.connect(func():
-		floor_menu_open = not floor_menu_open
-		action_callback.call("toggle_floor_menu", "")
+	var max_bonus: int = session.get_max_tower_bonus()
+	selected_tower_bonus = clampi(selected_tower_bonus, 0, max_bonus)
+	var tower_button := Button.new()
+	tower_button.text = "难度：+%d塔" % selected_tower_bonus
+	tower_button.custom_minimum_size = _scaled_size(Vector2(180, 38))
+	tower_button.pressed.connect(func():
+		tower_menu_open = not tower_menu_open
+		action_callback.call("toggle_tower_menu", "")
 	)
-	box.add_child(_build_floor_menu(session, label_factory, action_callback, max_floor))
-	box.add_child(floor_button)
+	box.add_child(_build_tower_menu(session, label_factory, action_callback, max_bonus))
+	box.add_child(tower_button)
 
 	var start_button := Button.new()
 	start_button.text = "出发"
@@ -318,11 +315,11 @@ func _build_floor_and_start_row(session: Variant, label_factory: Callable, actio
 	return box
 
 
-func _build_floor_menu(session: Variant, label_factory: Callable, action_callback: Callable, max_floor: int) -> Control:
+func _build_tower_menu(session: Variant, label_factory: Callable, action_callback: Callable, max_bonus: int) -> Control:
 	var container := VBoxContainer.new()
-	container.visible = floor_menu_open
+	container.visible = tower_menu_open
 	container.add_theme_constant_override("separation", 4)
-	if not floor_menu_open:
+	if not tower_menu_open:
 		return container
 
 	var options := VBoxContainer.new()
@@ -330,27 +327,17 @@ func _build_floor_menu(session: Variant, label_factory: Callable, action_callbac
 	options.add_theme_constant_override("separation", 4)
 	container.add_child(options)
 
-	var max_button := Button.new()
-	max_button.text = "MAX"
-	max_button.custom_minimum_size = _scaled_size(Vector2(180, 32))
-	max_button.pressed.connect(func():
-		start_floor = max_floor
-		floor_menu_open = false
-		action_callback.call("select_floor", str(max_floor))
-	)
-	options.add_child(max_button)
-
-	for floor in range(1, max_floor + 1):
-		var captured_floor := floor
-		var floor_button := Button.new()
-		floor_button.text = "第 %d 层" % captured_floor
-		floor_button.custom_minimum_size = _scaled_size(Vector2(180, 32))
-		floor_button.pressed.connect(func():
-			start_floor = captured_floor
-			floor_menu_open = false
-			action_callback.call("select_floor", str(captured_floor))
+	for bonus in range(max_bonus + 1):
+		var captured_bonus := bonus
+		var bonus_button := Button.new()
+		bonus_button.text = "+%d塔" % captured_bonus
+		bonus_button.custom_minimum_size = _scaled_size(Vector2(180, 32))
+		bonus_button.pressed.connect(func():
+			selected_tower_bonus = captured_bonus
+			tower_menu_open = false
+			action_callback.call("select_tower_bonus", str(captured_bonus))
 		)
-		options.add_child(floor_button)
+		options.add_child(bonus_button)
 
 	return container
 
@@ -370,7 +357,7 @@ func _build_slot_button(session: Variant, roster: Dictionary, slot_key: String, 
 		selected_equipment_tab = slot_key
 		browse_mode = "equipment"
 		selected_consumable_slot = 1
-		floor_menu_open = false
+		tower_menu_open = false
 		action_callback.call("focus_equipment_slot", slot_key)
 	)
 	if selected_equipment_slot == slot_key:
@@ -388,7 +375,7 @@ func _build_skill_circle(session: Variant, roster: Dictionary, key: String, labe
 	button.tooltip_text = skill_name
 	button.pressed.connect(func():
 		selected_skill_filter = key
-		floor_menu_open = false
+		tower_menu_open = false
 		_show_skill_popup(button, roster, key, skill_id, action_callback)
 	)
 	if selected_skill_filter == key:
@@ -409,7 +396,7 @@ func _build_consumable_slot(session: Variant, roster: Dictionary, slot_index: in
 		selected_consumable_slot = slot_index
 		selected_equipment_tab = "consumable"
 		browse_mode = "consumable"
-		floor_menu_open = false
+		tower_menu_open = false
 		action_callback.call("focus_consumable_slot", str(slot_index))
 	)
 	if selected_consumable_slot == slot_index:
@@ -646,17 +633,6 @@ func _skill_name(skill_id: String) -> String:
 	if DataCatalog.INNATE_SKILLS.has(skill_id):
 		return String(DataCatalog.INNATE_SKILLS[skill_id]["name"])
 	return "空"
-
-
-func _floor_limit(roster: Dictionary) -> int:
-	var highest := int(roster.get("highest_floor", 0))
-	return maxi(1, highest - 3)
-
-
-func _floor_label(floor: int, max_floor: int) -> String:
-	if floor >= max_floor:
-		return "MAX"
-	return "第 %d 层" % floor
 
 
 func _player_snapshot(session: Variant, class_key: String) -> Dictionary:

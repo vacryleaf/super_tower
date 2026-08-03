@@ -33,7 +33,7 @@ static func from_player(player: Dictionary, current_block: int = 0, current_dodg
 		"block": maxi(0, current_block),
 		"dodge_layers": maxi(0, current_dodge),
 		"taunt": 0,
-		"passive_skills": passive_skill_slots(player.get("passive_skills", [])),
+		"passive_skills": passive_skill_slots(player.get("passive_skills", []) + player.get("tower_passive_skills", [])),
 		"energy": int(player.get("energy", 0)),
 		"skill_cooldowns": player.get("skill_cooldowns", {}).duplicate(),
 		"controlled_by": "player"

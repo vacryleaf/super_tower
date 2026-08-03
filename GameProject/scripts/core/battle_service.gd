@@ -57,6 +57,23 @@ func player_dodge(session: RefCounted) -> void:
 	session._after_player_action()
 
 
+func use_blood_potion(session: RefCounted) -> bool:
+	session.last_events.clear()
+	if not session._can_act():
+		return false
+	var result: Dictionary = session.character.use_blood_potion(session.player)
+	if not bool(result.get("used", false)):
+		session.message = "血瓶无法使用。"
+		return false
+	session.has_acted = true
+	session._consume_state_after_action("item")
+	session.battle_log.append("血瓶：恢复 %d 点生命，剩余 %d 次。" % [int(result["amount"]), int(result["uses_left"])])
+	session.last_events.append({"kind": "heal", "target": "player", "amount": int(result["amount"])})
+	session.message = "血瓶恢复 %d 点生命。" % int(result["amount"])
+	session._after_player_action()
+	return true
+
+
 func use_skill(session: RefCounted, slot_index: int, target_index: int) -> void:
 	session.last_events.clear()
 	if session.phase != "battle":

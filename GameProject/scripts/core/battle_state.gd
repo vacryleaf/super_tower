@@ -5,6 +5,8 @@ var player: Dictionary = {}
 var class_id := ""
 var floor_index := 1
 var battle_index := 1
+var tower_bonus := 0
+var floor_encounter_count := 0
 var floor_group_id := ""
 var tutorial_active := false
 var phase := "menu"
@@ -46,6 +48,8 @@ func reset() -> void:
 	class_id = ""
 	floor_index = 1
 	battle_index = 1
+	tower_bonus = 0
+	floor_encounter_count = 0
 	floor_group_id = ""
 	tutorial_active = false
 	phase = "menu"

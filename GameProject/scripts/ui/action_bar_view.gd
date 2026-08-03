@@ -13,6 +13,7 @@ func render(
 	defend_callback: Callable,
 	dodge_callback: Callable,
 	end_turn_callback: Callable,
+	blood_potion_callback: Callable,
 	skill_callback: Callable,
 	charge_callback: Callable
 ) -> Dictionary:
@@ -30,6 +31,7 @@ func render(
 	basic_row.add_child(_action_button("防御", defend_callback, input_locked, "res://img/defend.png"))
 	basic_row.add_child(_action_button("闪避", dodge_callback, input_locked, "res://img/dodge.png"))
 	basic_row.add_child(_action_button("结束回合", end_turn_callback, input_locked))
+	basic_row.add_child(_action_button(_blood_potion_label(session), blood_potion_callback, input_locked))
 	for child in basic_row.get_children():
 		action_buttons.append(child as Button)
 
@@ -40,8 +42,7 @@ func render(
 		var button := Button.new()
 		button.custom_minimum_size = Vector2(118, 44)
 		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		var equipped: Array = session.player.get("equipped_skills", [])
-		var skill_id: String = equipped[i] if i < equipped.size() else ""
+		var skill_id: String = session.character.skill_id_for_slot(session.player, i)
 		button.disabled = input_locked or skill_id == ""
 		if skill_id != "":
 			var skill: Dictionary = DataCatalog.SKILLS[skill_id]
@@ -98,14 +99,19 @@ func refresh(
 			continue
 		if i < 3:
 			button.disabled = input_locked or session.has_acted
-		else:
+		elif i == 3:
 			button.disabled = input_locked
+		else:
+			var uses_left := int(session.player.get("blood_potion_uses", 0))
+			var current_hp := int(session.player.get("hp", 0))
+			var max_hp := int(session.player.get("max_hp", 0))
+			button.text = _blood_potion_label(session)
+			button.disabled = input_locked or session.has_acted or uses_left <= 0 or current_hp >= max_hp
 	for i in range(skill_buttons.size()):
 		var button := skill_buttons[i]
 		if button == null or not is_instance_valid(button):
 			continue
-		var equipped: Array = session.player.get("equipped_skills", [])
-		var skill_id: String = equipped[i] if i < equipped.size() else ""
+		var skill_id: String = session.character.skill_id_for_slot(session.player, i)
 		if skill_id == "":
 			button.disabled = true
 			button.text = "空槽位"
@@ -151,3 +157,8 @@ func _charge_button_label(charge: Dictionary) -> String:
 	if uses > 1:
 		state = "%s %d/%d" % [state, uses_left, uses]
 	return "%s\n%s" % [label, state]
+
+
+func _blood_potion_label(session: Variant) -> String:
+	var uses_left := int(session.player.get("blood_potion_uses", 0))
+	return "血瓶（%d）" % uses_left

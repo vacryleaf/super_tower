@@ -96,7 +96,14 @@ func empty_profile(slot_index: int = 1) -> Dictionary:
 		"roster": {},
 		"active_run": {},
 		"tower_coins": 0,
-		"bestiary": {}
+		"bestiary": {},
+		"npc_unlocks": [],
+		"npc_features": [],
+		"encountered_groups": [],
+		"max_tower_bonus": 0,
+		"cleared_tower_bonuses": [],
+		"tower_seeds": 0,
+		"tower_stash": []
 	}
 
 
@@ -147,6 +154,20 @@ func _normalize_slot_profile(profile: Dictionary, persistent_snapshot: Callable)
 		normalized["tower_coins"] = 0
 	if not normalized.has("bestiary"):
 		normalized["bestiary"] = {}
+	if not normalized.has("npc_unlocks") or typeof(normalized["npc_unlocks"]) != TYPE_ARRAY:
+		normalized["npc_unlocks"] = []
+	if not normalized.has("npc_features") or typeof(normalized["npc_features"]) != TYPE_ARRAY:
+		normalized["npc_features"] = []
+	if not normalized.has("encountered_groups") or typeof(normalized["encountered_groups"]) != TYPE_ARRAY:
+		normalized["encountered_groups"] = []
+	if not normalized.has("max_tower_bonus"):
+		normalized["max_tower_bonus"] = 0
+	if not normalized.has("cleared_tower_bonuses") or typeof(normalized["cleared_tower_bonuses"]) != TYPE_ARRAY:
+		normalized["cleared_tower_bonuses"] = []
+	if not normalized.has("tower_seeds"):
+		normalized["tower_seeds"] = 0
+	if not normalized.has("tower_stash") or typeof(normalized["tower_stash"]) != TYPE_ARRAY:
+		normalized["tower_stash"] = []
 	if normalized.has("active_run") and typeof(normalized["active_run"]) == TYPE_DICTIONARY:
 		var active_run: Dictionary = normalized["active_run"]
 		if not active_run.is_empty() and not active_run.has("player") and persistent_snapshot.is_valid():

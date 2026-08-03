@@ -6,8 +6,8 @@
 2. `DataRepository` 从 `res://data/catalog_v1.json` 惰性读取外部表。
 3. 领域服务按 ID 取得定义并补齐运行时默认值。
 4. `Combatant` 将玩家、装备、怪物和能力转换为运行时字典。
-5. `BattleService` 接收规范化行动，交给 `ActionPipeline`。
-6. `StatusService` 解析状态、持续时间和条件效果；`TriggerService` 按事件触发动作。
+5. `BattleService` 编排行动，并由 `SkillActionService` 按技能 `actions` 字段分发动作。
+6. `ActionPipeline` 处理行动上下文中的通用修正；`StatusService` 解析状态、持续时间和条件效果；`TriggerService` 按事件触发动作。
 7. UI/图鉴从同一数据源读取可展示字段。
 
 禁止 UI 直接读 Mod 原始文件；禁止战斗服务根据文件名猜测内容类型。

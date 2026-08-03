@@ -102,10 +102,10 @@ static func tick_enemy_cooldowns(enemy: Dictionary) -> void:
 		cooldowns.erase(skill_id)
 
 
-static func build_enemies(encounter: Dictionary, tower_floor: int, include_statuses: bool = true) -> Array[Dictionary]:
+static func build_enemies(encounter: Dictionary, tower_floor: int, include_statuses: bool = true, tower_bonus: int = 0) -> Array[Dictionary]:
 	var enemies: Array[Dictionary] = []
 	for unit in encounter.get("units", []):
-		var enemy := Combatant.from_enemy_unit(unit, String(encounter.get("type", "normal")), tower_floor)
+		var enemy := Combatant.from_enemy_unit(unit, String(encounter.get("type", "normal")), tower_floor + tower_bonus)
 		if include_statuses and not enemy.has("statuses"):
 			enemy["statuses"] = []
 		enemies.append(enemy)

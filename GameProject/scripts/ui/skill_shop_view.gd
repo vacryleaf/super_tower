@@ -12,7 +12,7 @@ func render(
 	buy_callback: Callable,
 	back_callback: Callable
 ) -> void:
-	root.add_child(label_factory.call("技能商人", 30))
+	root.add_child(label_factory.call("法师", 30))
 	root.add_child(label_factory.call("塔币：%d" % session.tower_coins, 18))
 
 	var common_skills := _common_skills()
@@ -54,7 +54,8 @@ func render(
 func _common_skills() -> Array[String]:
 	var result: Array[String] = []
 	for skill_id in DataCatalog.SKILLS.keys():
-		if String(DataCatalog.SKILLS[skill_id].get("class", "")) == "common":
+		var skill: Dictionary = DataCatalog.SKILLS[skill_id]
+		var slot := int(skill.get("slot", 0))
+		if String(skill.get("class", "")) == "common" or slot in [3, 4]:
 			result.append(String(skill_id))
 	return result
-

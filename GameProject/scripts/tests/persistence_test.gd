@@ -9,6 +9,8 @@ func run() -> void:
 	test_end_run_to_camp_clears_active_run()
 	test_profile_migrates_legacy_class_ids_to_unified()
 	test_tower_coins_persist()
+	test_npc_unlock_persists()
+	test_blood_potion_persists_and_can_be_used_in_battle()
 
 
 func test_save_round_trip() -> void:
@@ -41,12 +43,15 @@ func test_end_run_to_camp_clears_active_run() -> void:
 			TestHelpers.force_win(session)
 		elif session.phase == "reward":
 			session.choose_reward(0)
-	var target := {"type": "equipment", "id": String(session.player["equipment_ids"][0])}
+	var target := {"type": "equipment", "id": String(session.player["tower_equipment_ids"][0])}
 	session.character.attach_reward(session.player, target, {
 		"kind": "attack",
 		"label": "塔内测试攻击 +99",
 		"value": 99
 	})
+	session.player["tower_consumables"] = ["minor_heal"]
+	session.player["tower_equipped_skills"] = ["", "", "quick_shot", ""]
+	session.player["tower_passive_skills"] = ["iron_will"]
 	session.phase = "battle"
 	session.current_encounter = {"type": "normal", "name": "存档验证"}
 	var active_enemies: Array[Dictionary] = [TestHelpers.test_enemy("存档验证敌人", 12, 3, [])]
@@ -62,6 +67,10 @@ func test_end_run_to_camp_clears_active_run() -> void:
 	var roster_player: Dictionary = session.get_roster_player("warrior")
 	assert_true(not roster_player.is_empty(), "roster player should remain after ending run")
 	assert_true(TestHelpers.dictionary_total(roster_player.get("equipment_attachments", {})) == 0, "tower equipment attachments should not persist")
+	assert_true(roster_player.get("tower_equipment", {}).is_empty(), "tower equipment should not persist")
+	assert_true(roster_player.get("tower_consumables", []).is_empty(), "tower consumables should not persist")
+	assert_true(roster_player.get("tower_equipped_skills", []).all(func(skill_id): return String(skill_id) == ""), "tower skills should not persist")
+	assert_true(roster_player.get("tower_passive_skills", []).is_empty(), "tower passives should not persist")
 	session.delete_save()
 
 
@@ -98,4 +107,39 @@ func test_tower_coins_persist() -> void:
 	var loaded = session_script.new()
 	loaded._load_account()
 	assert_equal(loaded.tower_coins, 42, "tower_coins should persist across sessions")
+	session.delete_save()
+
+
+func test_npc_unlock_persists() -> void:
+	var session_script = load("res://scripts/core/play_session.gd")
+	var session = session_script.new()
+	session.delete_save()
+	session.start_new_game("warrior")
+	assert_true(not session.is_npc_unlocked("mage"), "mage should remain locked before floor five boss")
+	session.floor_index = 5
+	session.current_encounter = {"type": "boss", "units": [{"id": "test_boss"}]}
+	session._unlock_boss_npc(5)
+	assert_true(session.end_run_to_camp(), "ending run should persist NPC progress")
+	var loaded = session_script.new()
+	loaded._load_account()
+	assert_true(loaded.is_npc_unlocked("mage"), "mage unlock should persist")
+	session.delete_save()
+
+
+func test_blood_potion_persists_and_can_be_used_in_battle() -> void:
+	var session_script = load("res://scripts/core/play_session.gd")
+	var session = session_script.new()
+	session.delete_save()
+	session.start_new_game("warrior")
+	var max_hp := int(session.player["max_hp"])
+	session.player["hp"] = max_hp - 20
+	var uses_before := int(session.player["blood_potion_uses"])
+	session.use_blood_potion_in_battle()
+	assert_equal(int(session.player["blood_potion_uses"]), uses_before - 1, "battle potion use should consume one use")
+	assert_true(int(session.player["hp"]) > max_hp - 20, "battle potion should restore health")
+	assert_true(session.has_acted, "battle potion should consume the player action")
+	assert_true(session.save_game(), "potion state should save")
+	var loaded = session_script.new()
+	assert_true(loaded.load_game(), "saved run should load")
+	assert_equal(int(loaded.player["blood_potion_uses"]), uses_before - 1, "potion uses should persist in active run")
 	session.delete_save()

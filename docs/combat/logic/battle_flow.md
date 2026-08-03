@@ -3,16 +3,14 @@
 状态：已实现。
 
 ```text
-PlaySession 创建遭遇
-  -> BattleState 初始化
-  -> BattleService.start_battle()
-  -> 战斗开始事件与首击
-  -> 玩家行动（普通/防御/躲避/技能）
-  -> ActionPipeline 执行动作
-  -> StatusService / TriggerService 结算
-  -> 敌方行为规则选择行动
+PlaySession._start_current_battle() 创建遭遇并初始化 BattleState
+  -> 战斗开始事件与先手行动
+  -> 按敏捷生成本回合行动顺序
+  -> 当前行动者执行普通行动或数据技能
+  -> SkillActionService / ActionPipeline / StatusService / TriggerService 结算
+  -> 继续处理行动顺序中的下一名角色
   -> 回合结束、胜负与奖励
   -> PlaySession 保存并切换下一场
 ```
 
-调用关系：`CombatRules` 放共享数值规则；`BattleService` 编排实时流程；`EnemyActionRules` 决策敌人；`StatusService` 和 `TriggerService` 处理通用状态。
+调用关系：`PlaySession` 管理战斗生命周期；`BattleService` 编排实时行动；`CombatRules` 提供共享规则；`EnemyActionRules` 决策敌人；`SkillActionService` 读取技能动作；`ActionPipeline` 处理行动修正；`StatusService` 和 `TriggerService` 处理状态与事件。

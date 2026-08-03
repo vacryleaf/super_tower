@@ -10,10 +10,66 @@ func tutorial_reward(class_id: String, battle_index: int) -> Dictionary:
 	var unlock_id: String = DataCatalog.TUTORIAL_UNLOCKS[class_id][battle_index - 1]
 	var label := ""
 	if DataCatalog.EQUIPMENT.has(unlock_id):
-		label = "解锁装备：%s" % DataCatalog.EQUIPMENT[unlock_id]["name"]
+		label = "获得装备：%s" % DataCatalog.EQUIPMENT[unlock_id]["name"]
 	else:
-		label = "解锁第一个技能：%s" % DataCatalog.SKILLS[unlock_id]["name"]
-	return {"kind": "tutorial_unlock", "label": label, "value": 0}
+		label = "获得技能：%s" % DataCatalog.SKILLS[unlock_id]["name"]
+	return {"kind": "tutorial_unlock", "label": label, "value": 0, "item_id": unlock_id}
+
+
+func tower_equipment_reward(player: Dictionary, class_id: String) -> Dictionary:
+	var candidates: Array[String] = []
+	var tower_equipment: Dictionary = player.get("tower_equipment", {})
+	for item_id in DataCatalog.EQUIPMENT.keys():
+		var item: Dictionary = DataCatalog.EQUIPMENT[item_id]
+		var item_class := String(item.get("class", "common"))
+		if item_class != "common" and item_class != class_id and not (class_id == "unified" and item_class in ["warrior", "archer"]):
+			continue
+		if player.get("equipment_ids", []).has(item_id) or tower_equipment.values().has(item_id):
+			continue
+		candidates.append(String(item_id))
+	if candidates.is_empty():
+		return {}
+	var selected_id := String(candidates[rng.randi_range(0, candidates.size() - 1)])
+	return {"kind": "tower_equipment", "label": "塔内装备：%s" % DataCatalog.EQUIPMENT[selected_id]["name"], "item_id": selected_id, "value": 0}
+
+
+func tower_consumable_reward() -> Dictionary:
+	var item_ids: Array[String] = []
+	for item_id in DataCatalog.CONSUMABLES.keys():
+		item_ids.append(String(item_id))
+	if item_ids.is_empty():
+		return {}
+	var selected_id := String(item_ids[rng.randi_range(0, item_ids.size() - 1)])
+	return {"kind": "tower_consumable", "label": "塔内物品：%s" % DataCatalog.CONSUMABLES[selected_id]["name"], "item_id": selected_id, "value": 0}
+
+
+func tower_skill_reward(class_id: String) -> Dictionary:
+	var candidates: Array[String] = []
+	for skill_id in DataCatalog.SKILLS.keys():
+		var skill: Dictionary = DataCatalog.SKILLS[skill_id]
+		var slot := int(skill.get("slot", 0))
+		if slot < 3 or slot > 4 or not DataCatalog.skill_class_compatible(skill, class_id):
+			continue
+		candidates.append(String(skill_id))
+	if candidates.is_empty():
+		return {}
+	var selected_id := String(candidates[rng.randi_range(0, candidates.size() - 1)])
+	return {"kind": "tower_skill", "label": "塔内技能：%s" % DataCatalog.SKILLS[selected_id]["name"], "skill_id": selected_id, "value": 0}
+
+
+func tower_passive_skill_reward() -> Dictionary:
+	var skill_ids: Array[String] = []
+	for skill_id in DataCatalog.PASSIVE_SKILLS.keys():
+		skill_ids.append(String(skill_id))
+	if skill_ids.is_empty():
+		return {}
+	var selected_id := String(skill_ids[rng.randi_range(0, skill_ids.size() - 1)])
+	return {"kind": "tower_passive_skill", "label": "塔内被动：%s" % DataCatalog.PASSIVE_SKILLS[selected_id]["name"], "skill_id": selected_id, "value": 0}
+
+
+func should_drop(chance: float) -> bool:
+	rng.randomize()
+	return chance >= 1.0 or rng.randf() < chance
 
 
 func random_options(reward_rank: String, count: int, floor_index: int) -> Array[Dictionary]:

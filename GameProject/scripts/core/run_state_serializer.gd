@@ -11,6 +11,8 @@ func save_data(session: RefCounted) -> Dictionary:
 		"class_id": session.class_id,
 		"floor_index": session.floor_index,
 		"battle_index": session.battle_index,
+		"tower_bonus": session.tower_bonus,
+		"floor_encounter_count": session.floor_encounter_count,
 		"floor_group_id": session.floor_group_id,
 		"tutorial_active": session.tutorial_active,
 		"phase": session.phase,
@@ -53,6 +55,8 @@ func load_save_data(session: RefCounted, data: Dictionary) -> bool:
 	session.player["class_id"] = session.class_id
 	session.floor_index = int(data.get("floor_index", 1))
 	session.battle_index = int(data.get("battle_index", 1))
+	session.tower_bonus = int(data.get("tower_bonus", 0))
+	session.floor_encounter_count = int(data.get("floor_encounter_count", 0))
 	session.floor_group_id = String(data.get("floor_group_id", ""))
 	# Legacy active runs used floor 1 plus tutorial_completed=false to represent the tutorial.
 	session.tutorial_active = bool(data.get("tutorial_active", session.floor_index == 1 and not bool(saved_player.get("tutorial_completed", false))))

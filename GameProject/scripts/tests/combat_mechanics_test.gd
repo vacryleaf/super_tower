@@ -56,7 +56,10 @@ func test_basic_attack_agility_segments() -> void:
 
 	var session_script = load("res://scripts/core/play_session.gd")
 	var realtime = session_script.new()
+	realtime.delete_save()
 	realtime.start_new_game("unified")
+	realtime.tutorial_active = false
+	realtime.pending_state_card = ""
 	realtime.player["attack"] = 10
 	realtime.player["agility"] = 12
 	realtime.player["statuses"] = []
@@ -359,7 +362,12 @@ func test_counter_stance_and_multihit_dodge() -> void:
 	assert_equal(int(warrior.counter_stance_charges), 0, "counter stance should consume one counter charge")
 
 	var archer = session_script.new()
+	archer.delete_save()
 	archer.start_new_game("archer")
+	archer.tutorial_active = false
+	archer.pending_state_card = ""
+	archer.player["extra_hits"] = 0
+	archer.player["skill_attachments"] = {}
 	archer.player["weapon_skill_2"] = "quick_shot"
 	archer.player["attack"] = 10
 	var dodging_enemies: Array[Dictionary] = [TestHelpers.test_enemy("闪避测试敌人", 100, 0, [])]

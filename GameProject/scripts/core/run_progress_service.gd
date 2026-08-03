@@ -9,8 +9,12 @@ func on_victory(session: Variant) -> void:
 	session._unlock_enemies_in_bestiary()
 	var encounter_type := String(session.current_encounter.get("type", ""))
 	if encounter_type == "boss" and not session.is_tutorial():
-		session.tower_coins += session.floor_index
-		session._unlock_next_class_skill()
+		session.tower_coins += session._tower_coin_reward()
+		session._unlock_boss_npc(session.floor_index)
+		if session.floor_index >= DataCatalog.MAX_TOWER_FLOOR:
+			session._record_tower_completion()
+	elif not session.is_tutorial() and encounter_type in ["normal", "elite"]:
+		session.tower_coins += session._tower_coin_reward()
 	session.phase = "reward"
 	session._build_reward_options()
 
@@ -34,6 +38,7 @@ func advance_after_reward(session: Variant) -> void:
 		session.tutorial_active = false
 		session.floor_index = 1
 		session.battle_index = 1
+		session.floor_encounter_count = 0
 		session.floor_group_id = ""
 		session.pending_tutorial_epilogue = true
 		session.phase = "tutorial_epilogue"
@@ -46,6 +51,7 @@ func advance_after_reward(session: Variant) -> void:
 			return
 		session.floor_index += 1
 		session.battle_index = 1
+		session.floor_encounter_count = 0
 		session.floor_group_id = ""
 	else:
 		session.battle_index += 1

@@ -31,21 +31,30 @@ func create_character(class_id: String) -> Dictionary:
 		"critical_weight": 20,
 		"critical_damage_bonus": 0.0,
 		"attack_energy_gain": DataCatalog.ATTACK_ENERGY,
-		"weapon_profile_id": "unarmed",
+		"weapon_profile_id": "warrior_training_sword",
 		"weapon_skill_1": "po_jun",
 		"weapon_skill_2": "explosive_strike",
 		"equipment_attachments": {},
 		"skill_attachments": {},
 		"equipment": {},
 		"equipment_ids": [],
+		"tower_equipment": {"weapon": "warrior_training_sword"},
+		"tower_equipment_ids": ["warrior_training_sword"],
 		"consumables": [],
 		"consumable_ids": [],
+		"tower_consumables": [],
 		"blood_potion_level": 0,
-		"blood_potion_uses": 0,
+		"blood_potion_uses": int(DataCatalog.BLOOD_POTION.get("starting_uses", 0)),
 		"blood_potion_seed": 0,
 		"unlocked_skills": [],
 		"equipped_skills": [],
+		"tower_equipped_skills": ["", "", "", ""],
 		"passive_skills": ["", "", "", ""],
+		"tower_passive_skills": [],
+		"passive_skill_slots": 0,
+		"unlocked_passive_skills": [],
+		"permanent_equipment_upgrades": {},
+		"permanent_skill_upgrades": {},
 		"innate_skills": {
 			"attack_1": "innate_attack_1",
 			"defend": "innate_defend",
@@ -71,12 +80,109 @@ func equip_item(player: Dictionary, item_id: String) -> void:
 	recalculate_player_stats(player, false)
 
 
+func equip_tower_item(player: Dictionary, item_id: String) -> void:
+	if not DataCatalog.EQUIPMENT.has(item_id):
+		return
+	var item: Dictionary = DataCatalog.EQUIPMENT[item_id]
+	var slot := DataCatalog.equipment_slot(item)
+	if slot == "":
+		return
+	var tower_equipment: Dictionary = player.get("tower_equipment", {})
+	tower_equipment[slot] = item_id
+	player["tower_equipment"] = tower_equipment
+	var ids: Array = player.get("tower_equipment_ids", [])
+	if not ids.has(item_id):
+		ids.append(item_id)
+	player["tower_equipment_ids"] = ids
+	recalculate_player_stats(player, false)
+
+
+func add_tower_consumable(player: Dictionary, item_id: String, upgraded: bool = false) -> void:
+	if not DataCatalog.CONSUMABLES.has(item_id):
+		return
+	var tower_consumables: Array = player.get("tower_consumables", [])
+	tower_consumables.append({"id": item_id, "upgraded": true} if upgraded else item_id)
+	player["tower_consumables"] = tower_consumables
+
+
+func add_tower_skill(player: Dictionary, skill_id: String) -> void:
+	if not DataCatalog.SKILLS.has(skill_id):
+		return
+	var skill: Dictionary = DataCatalog.SKILLS[skill_id]
+	var slot := int(skill.get("slot", 0))
+	if slot < 3 or slot > 4:
+		return
+	var tower_skills: Array = player.get("tower_equipped_skills", ["", "", "", ""])
+	while tower_skills.size() < 4:
+		tower_skills.append("")
+	tower_skills[slot - 1] = skill_id
+	player["tower_equipped_skills"] = tower_skills
+
+
+func unlock_passive_skill(player: Dictionary, skill_id: String, equip_now: bool = true) -> void:
+	if not DataCatalog.PASSIVE_SKILLS.has(skill_id):
+		return
+	var unlocked: Array = player.get("unlocked_passive_skills", [])
+	if not unlocked.has(skill_id):
+		unlocked.append(skill_id)
+	player["unlocked_passive_skills"] = unlocked
+	if equip_now:
+		var passives: Array = player.get("passive_skills", ["", "", "", ""])
+		while passives.size() < 4:
+			passives.append("")
+		for index in range(mini(4, int(player.get("passive_skill_slots", 0)))):
+			if String(passives[index]) == "":
+				passives[index] = skill_id
+				break
+		player["passive_skills"] = passives
+
+
+func add_tower_passive_skill(player: Dictionary, skill_id: String) -> void:
+	if not DataCatalog.PASSIVE_SKILLS.has(skill_id):
+		return
+	var passives: Array = player.get("tower_passive_skills", [])
+	if passives.size() < int(player.get("passive_skill_slots", 0)):
+		passives.append(skill_id)
+	player["tower_passive_skills"] = passives
+
+
+func apply_permanent_upgrade(player: Dictionary, target_type: String, target_id: String, kind: String, value: float) -> void:
+	var key := "permanent_equipment_upgrades" if target_type == "equipment" else "permanent_skill_upgrades"
+	var upgrades: Dictionary = player.get(key, {})
+	var entries: Array = upgrades.get(target_id, [])
+	entries.append({"kind": kind, "value": value})
+	upgrades[target_id] = entries
+	player[key] = upgrades
+	recalculate_player_stats(player, false)
+
+
+func use_blood_potion(player: Dictionary) -> Dictionary:
+	var uses_left := int(player.get("blood_potion_uses", 0))
+	var max_hp := int(player.get("max_hp", player.get("base_max_hp", 1)))
+	var current_hp := int(player.get("hp", max_hp))
+	if uses_left <= 0:
+		return {"used": false, "reason": "empty"}
+	if current_hp >= max_hp:
+		return {"used": false, "reason": "full"}
+	var level := maxi(0, int(player.get("blood_potion_level", 0)))
+	var base_ratio := float(DataCatalog.BLOOD_POTION.get("heal_ratio", 0.0))
+	var level_ratio := float(DataCatalog.BLOOD_POTION.get("level_heal_ratio", 0.0))
+	var heal_amount := maxi(1, int(round(float(max_hp) * (base_ratio + level_ratio * level))))
+	heal_amount = mini(heal_amount, max_hp - current_hp)
+	player["hp"] = current_hp + heal_amount
+	player["blood_potion_uses"] = uses_left - 1
+	return {"used": true, "amount": heal_amount, "uses_left": uses_left - 1}
+
+
 
 func skill_id_for_slot(player: Dictionary, slot_index: int) -> String:
 	if slot_index == 0:
 		return String(player.get("weapon_skill_1", ""))
 	if slot_index == 1:
 		return String(player.get("weapon_skill_2", ""))
+	var tower_skills: Array = player.get("tower_equipped_skills", [])
+	if slot_index >= 0 and slot_index < tower_skills.size() and String(tower_skills[slot_index]) != "":
+		return String(tower_skills[slot_index])
 	var equipped: Array = player.get("equipped_skills", [])
 	if slot_index >= 0 and slot_index < equipped.size():
 		return String(equipped[slot_index])
@@ -91,7 +197,15 @@ func unlock_next_skill(player: Dictionary) -> void:
 
 
 func equipment_target_by_slot(player: Dictionary, slot: String) -> Dictionary:
-	return equipment.equipment_target_by_slot(player, slot)
+	var target := equipment.equipment_target_by_slot(player, slot)
+	if not target.is_empty():
+		return target
+	var tower_equipment: Dictionary = player.get("tower_equipment", {})
+	var normalized_slot := DataCatalog.equipment_slot(slot)
+	var tower_item_id := String(tower_equipment.get(normalized_slot, ""))
+	if tower_item_id == "":
+		return {}
+	return {"type": "equipment", "id": tower_item_id}
 
 
 func attach_reward(player: Dictionary, target: Dictionary, reward: Dictionary) -> void:
@@ -148,7 +262,9 @@ func preferred_attachment_target(player: Dictionary, reward_kind: String) -> Dic
 
 func skill_attachment_bonus(player: Dictionary, skill_id: String, kind: String) -> int:
 	var total := 0
-	var attachments: Dictionary = player.get("skill_attachments", {})
+	var attachments: Dictionary = player.get("skill_attachments", {}).duplicate(true)
+	var permanent: Dictionary = player.get("permanent_skill_upgrades", {})
+	attachments[skill_id] = attachments.get(skill_id, []) + permanent.get(skill_id, [])
 	for attachment in attachments.get(skill_id, []):
 		if ChargeService.attachment_stat_kind(String(attachment.get("kind", ""))) == kind:
 			total += int(attachment.get("value", 0))
@@ -157,12 +273,17 @@ func skill_attachment_bonus(player: Dictionary, skill_id: String, kind: String) 
 
 func skill_multiplier_bonus(player: Dictionary, skill_id: String, kind: String = "") -> float:
 	var total := 0.0
-	var attachments: Dictionary = player.get("skill_attachments", {})
+	var attachments: Dictionary = player.get("skill_attachments", {}).duplicate(true)
+	var permanent: Dictionary = player.get("permanent_skill_upgrades", {})
+	attachments[skill_id] = attachments.get(skill_id, []) + permanent.get(skill_id, [])
 	for attachment in attachments.get(skill_id, []):
 		var attachment_kind := ChargeService.attachment_stat_kind(String(attachment.get("kind", "")))
 		if attachment_kind == "skill_power" or attachment_kind == kind:
 			total += ChargeService.attachment_multiplier_value(float(attachment.get("value", 0.0)))
-	var equipment_attachments: Dictionary = player.get("equipment_attachments", {})
+	var equipment_attachments: Dictionary = player.get("equipment_attachments", {}).duplicate(true)
+	var permanent_equipment: Dictionary = player.get("permanent_equipment_upgrades", {})
+	for item_id in permanent_equipment.keys():
+		equipment_attachments[item_id] = equipment_attachments.get(item_id, []) + permanent_equipment[item_id]
 	for equipment_attachment_list in equipment_attachments.values():
 		for attachment in equipment_attachment_list:
 			if ChargeService.attachment_stat_kind(String(attachment.get("kind", ""))) == "skill_power":
@@ -211,10 +332,13 @@ func recalculate_player_stats(player: Dictionary, reset_hp: bool) -> void:
 	player["attack_energy_gain"] = int(weapon_profile.get("attack_energy_gain", DataCatalog.ATTACK_ENERGY))
 	player["weapon_skill_1"] = String(weapon_profile.get("skill_1", ""))
 	player["weapon_skill_2"] = String(weapon_profile.get("skill_2", ""))
-	var weapon_id := String(player.get("equipment", {}).get("weapon", ""))
+	var weapon_id := String(player.get("tower_equipment", {}).get("weapon", player.get("equipment", {}).get("weapon", "")))
 	player["weapon_profile_id"] = String(weapon_id if weapon_id != "" else "unarmed")
 	attack += int(weapon_profile.get("attack_damage", 0))
-	var equipment_attachments: Dictionary = player.get("equipment_attachments", {})
+	var equipment_attachments: Dictionary = player.get("equipment_attachments", {}).duplicate(true)
+	var permanent_equipment_upgrades: Dictionary = player.get("permanent_equipment_upgrades", {})
+	for item_id in permanent_equipment_upgrades.keys():
+		equipment_attachments[item_id] = equipment_attachments.get(item_id, []) + permanent_equipment_upgrades[item_id]
 	var equipped_ids := _equipped_item_ids(player)
 	for item_id in equipped_ids:
 		var item: Dictionary = DataCatalog.EQUIPMENT[item_id]
@@ -236,18 +360,26 @@ func recalculate_player_stats(player: Dictionary, reset_hp: bool) -> void:
 					player["state_defense_bonus"] += int(attachment.get("value", 0))
 				"extra_hits":
 					player["extra_hits"] += int(attachment.get("value", 0))
-	var skill_attachments: Dictionary = player.get("skill_attachments", {})
-	for skill_id in player["equipped_skills"]:
+	var skill_attachments: Dictionary = player.get("skill_attachments", {}).duplicate(true)
+	var permanent_skill_upgrades: Dictionary = player.get("permanent_skill_upgrades", {})
+	for skill_id in permanent_skill_upgrades.keys():
+		skill_attachments[skill_id] = skill_attachments.get(skill_id, []) + permanent_skill_upgrades[skill_id]
+	for skill_id in _effective_equipped_skills(player):
 		if String(skill_id) == "":
 			continue
 		for attachment in skill_attachments.get(skill_id, []):
-			match ChargeService.attachment_stat_kind(String(attachment.get("kind", ""))):
-				"hp":
-					hp += int(attachment.get("value", 0))
-				"state_attack":
-					player["state_attack_bonus"] += int(attachment.get("value", 0))
-				"state_defense":
-					player["state_defense_bonus"] += int(attachment.get("value", 0))
+				match ChargeService.attachment_stat_kind(String(attachment.get("kind", ""))):
+					"hp":
+						hp += int(attachment.get("value", 0))
+					"state_attack":
+						player["state_attack_bonus"] += int(attachment.get("value", 0))
+					"state_defense":
+						player["state_defense_bonus"] += int(attachment.get("value", 0))
+	for passive_id in _effective_passive_skills(player):
+		var passive: Dictionary = DataCatalog.PASSIVE_SKILLS.get(passive_id, {})
+		for effect in passive.get("effects", []):
+			if String(effect.get("stat", "")) == "max_hp" and String(effect.get("type", "flat")) == "flat":
+				hp += int(effect.get("value", 0))
 	var old_max := int(player.get("max_hp", hp))
 	player["max_hp"] = hp
 	player["attack"] = attack
@@ -302,6 +434,10 @@ func _ensure_player_schema(player: Dictionary) -> void:
 		player["equipment"] = {}
 	if not player.has("equipment_ids"):
 		player["equipment_ids"] = []
+	if not player.has("tower_equipment"):
+		player["tower_equipment"] = {}
+	if not player.has("tower_equipment_ids"):
+		player["tower_equipment_ids"] = []
 	if not player.has("consumables"):
 		player["consumables"] = []
 	while player["consumables"].size() < DataCatalog.NORMAL_CONSUMABLE_SLOTS:
@@ -310,10 +446,12 @@ func _ensure_player_schema(player: Dictionary) -> void:
 		player["consumables"].resize(DataCatalog.NORMAL_CONSUMABLE_SLOTS)
 	if not player.has("consumable_ids"):
 		player["consumable_ids"] = []
+	if not player.has("tower_consumables"):
+		player["tower_consumables"] = []
 	if not player.has("blood_potion_level"):
 		player["blood_potion_level"] = 0
 	if not player.has("blood_potion_uses"):
-		player["blood_potion_uses"] = 0
+		player["blood_potion_uses"] = int(DataCatalog.BLOOD_POTION.get("starting_uses", 0))
 	if not player.has("blood_potion_seed"):
 		player["blood_potion_seed"] = 0
 	if player["consumable_ids"].is_empty():
@@ -324,12 +462,24 @@ func _ensure_player_schema(player: Dictionary) -> void:
 		player["equipped_skills"] = []
 	while player["equipped_skills"].size() < 4:
 		player["equipped_skills"].append("")
+	if not player.has("tower_equipped_skills"):
+		player["tower_equipped_skills"] = ["", "", "", ""]
 	if not player.has("passive_skills"):
 		player["passive_skills"] = player.get("traits", [])
 	while player["passive_skills"].size() < 4:
 		player["passive_skills"].append("")
 	if player["passive_skills"].size() > 4:
 		player["passive_skills"].resize(4)
+	if not player.has("tower_passive_skills"):
+		player["tower_passive_skills"] = []
+	if not player.has("passive_skill_slots"):
+		player["passive_skill_slots"] = 0
+	if not player.has("unlocked_passive_skills"):
+		player["unlocked_passive_skills"] = []
+	if not player.has("permanent_equipment_upgrades"):
+		player["permanent_equipment_upgrades"] = {}
+	if not player.has("permanent_skill_upgrades"):
+		player["permanent_skill_upgrades"] = {}
 	player.erase("traits")
 	if not player.has("innate_skills"):
 		player["innate_skills"] = {
@@ -367,6 +517,34 @@ func _dictionary(value: Variant) -> Dictionary:
 func _equipped_item_ids(player: Dictionary) -> Array[String]:
 	var result: Array[String] = []
 	var equipped: Dictionary = player.get("equipment", {})
-	for item_id in equipped.values():
+	var tower_equipment: Dictionary = player.get("tower_equipment", {})
+	var combined := equipped.duplicate()
+	for slot in tower_equipment.keys():
+		combined[slot] = tower_equipment[slot]
+	for item_id in combined.values():
 		result.append(String(item_id))
+	return result
+
+
+func _effective_equipped_skills(player: Dictionary) -> Array[String]:
+	var skills: Array[String] = []
+	for skill_id in player.get("equipped_skills", []):
+		skills.append(String(skill_id))
+	while skills.size() < 4:
+		skills.append("")
+	var tower_skills: Array = player.get("tower_equipped_skills", [])
+	for index in range(mini(4, tower_skills.size())):
+		if String(tower_skills[index]) != "":
+			skills[index] = String(tower_skills[index])
+	return skills
+
+
+func _effective_passive_skills(player: Dictionary) -> Array[String]:
+	var result: Array[String] = []
+	for passive_id in player.get("passive_skills", []):
+		if String(passive_id) != "":
+			result.append(String(passive_id))
+	for passive_id in player.get("tower_passive_skills", []):
+		if String(passive_id) != "":
+			result.append(String(passive_id))
 	return result
