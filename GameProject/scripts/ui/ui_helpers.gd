@@ -1,6 +1,8 @@
 extends RefCounted
 class_name UIHelpers
 
+const DataCatalog = preload("res://scripts/core/data_catalog.gd")
+
 const SLOTS := ["weapon", "armor", "accessory", "offhand"]
 
 const SLOT_LABELS := {
@@ -29,7 +31,7 @@ static func avatar_for(class_key: String) -> Control:
 	var panel := PanelContainer.new()
 	panel.custom_minimum_size = Vector2(88, 88)
 	var label := Label.new()
-	label.text = "战士" if class_key == "warrior" else "弓箭手"
+	label.text = String(DataCatalog.CLASSES.get(class_key, {}).get("name", class_key))
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	label.autowrap_mode = TextServer.AUTOWRAP_OFF
@@ -38,6 +40,8 @@ static func avatar_for(class_key: String) -> Control:
 
 
 static func texture_from_png(path: String) -> Texture2D:
+	if not FileAccess.file_exists(path):
+		return null
 	var image := Image.load_from_file(ProjectSettings.globalize_path(path))
 	if image == null:
 		return null
@@ -65,6 +69,10 @@ static func skill_type_name(skill: Dictionary) -> String:
 		"debuff":
 			return "减益（增伤 x%.2f，削弱 x%.2f）" % [float(skill.get("mark_multiplier", 1.0)), float(skill.get("weaken_multiplier", 1.0))]
 	return "未知"
+
+
+static func skill_energy_cost(skill: Dictionary) -> int:
+	return int(skill.get("energy_cost", skill.get("cost", 0)))
 
 
 static func slot_label(slot: String) -> String:

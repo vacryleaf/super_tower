@@ -1,43 +1,28 @@
-# 爬塔成长与首次解锁开发清单
+架构优化：
+阅读 architecture-optimization-directions.md —— 按项目需求模板结构，覆盖方向 A（结算下沉）+ B（契约化直测）。
 
-状态：已完成（2026-08-03）。
+任务单核心内容（子线程可直接执行）
 
-## 教学流程
+- [x] 任务 1｜结算主体迁移（纯代码移动，行为零变化）
+battle_service.gd 新增 deal_damage(session: RefCounted, ctx: Dictionary)，将 play_session.gd:774-830 主体逐行迁入
+三个关键转换点已写明：self → session 显式化；触发上下文 "session": self → "session": session；日志文案一字不改
+play_session.deal_damage(ctx) 替换为一行薄转发
 
-- [x] 第一场开战前提供剑，结束后不解锁新技能，引导使用技能。
-- [x] 第一场结束固定提供胸甲（防具）。
-- [x] 第二场教学抽到防御加成卡并引导防御。
-- [x] 第二场结束固定提供木盾（副手）。
-- [x] 第三场教学抽到闪避加成卡并引导闪避。
-- [x] 第三场结束固定提供银戒指（饰品）。
+- [x] 任务 2｜服务级独立测试
+新增 tests/battle_service_test.gd，桩 session 直测 4 个针对性用例：嘲讽重定向、决斗清理、闪避分支、非交互源忽略嘲讽
+模式参考 combat_mechanics_test.gd 已有先例，无需新框架
 
-## 塔内奖励
+- [x] 任务 3｜验证与回写
+run_tests.sh / run_tests.bat 全绿 + git diff 人工核对仅位置移动
+文档回写 docs/combat/（若有结算入口描述）
 
-- [x] 普通/精英/Boss 按怪物等级分别发放 `1x/3x/10x` 塔币。
-- [x] 所有击败结果增加 20% 一次性物品掉落概率。
-- [x] 普通/精英/Boss 装备掉落概率分别为 `10%/50%/100%`。
-- [x] 塔内装备、一次性物品和技能不能带出塔外。
-- [x] Boss 技能奖励只从第 3/4 技能槽和被动技能中选择。
+验收结果：`run_tests.sh` 与 `run_tests.bat` 的同一套入口已串联核心测试、UI 冒烟和 `battle_service_test.gd`；`PlaySession.deal_damage()` 仅保留一行兼容转发，`BattleService` 内部不再反向调用 `session.deal_damage()`，结算入口已回写 `docs/combat/logic/battle_round_detail.md`。
 
-## 首次解锁
+关键数字（迁移前后对照）
+当前保留 3 个 `TriggerService` 兼容调用；`BattleService` 内部 9 个结算调用已改为直接调用 `deal_damage(session, ctx)`，`PlaySession` 对外 API 保持不变。
+验收红线：play_session 中 deal_damage 仅剩一行转发；本次迁移未修改 `trigger_service.gd` 与 `enemy_action_rules.gd` 的调用逻辑。
 
-- [x] 首次击败第 1 层 Boss 解锁商人，出售一次性物品。
-- [x] 首次击败第 3 层 Boss 解锁铁匠，永久解锁自选装备。
-- [x] 首次击败第 5 层 Boss 解锁法师，永久解锁自选技能。
-- [x] 首次通关第 7 层解锁种子、塔加成、首个被动槽和首个被动技能。
-- [x] 移除起始楼层选择功能。
-
-## 塔难度与群落解锁
-
-- [x] 实现 `0塔` 至 `+6塔` 共七种难度。
-- [x] 每种难度首次通关提供一个种子。
-- [x] 种子每个增加血瓶一次使用次数，最终为 `3+7` 次。
-- [x] 第一层累计遇到 9 个群落后解锁商人升级一次性物品功能。
-- [x] 第三层累计遇到 7 个群落后解锁铁匠升级装备功能。
-- [x] 第五层累计遇到 5 个群落后解锁法师升级技能功能。
-
-## 验收
-
-- [x] 更新对应文档。
-- [x] 增加或更新 Godot headless 测试。
-- [x] 全部测试通过后将本清单全部勾选并标记完成。
+3 个执行时确认点
+combat_mechanics_test.gd 是否有 deal_damage 日志文案断言（默认按"一字不改"执行）
+tutorial_and_floors_test.gd 是否已串联全部测试（决定新测试接入方式）
+docs/combat/ 是否有需同步的结算入口文档

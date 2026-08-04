@@ -82,6 +82,7 @@ var message_label_node: Label = null
 var pending_state_label_node: Label = null
 var action_buttons: Array[Button] = []
 var skill_buttons: Array[Button] = []
+var consumable_buttons: Array[Button] = []
 var charge_buttons: Array[Button] = []
 var log_text_node: RichTextLabel = null
 var app_settings
@@ -293,6 +294,7 @@ func _render_battle() -> void:
 	pending_state_label_node = null
 	action_buttons.clear()
 	skill_buttons.clear()
+	consumable_buttons.clear()
 	charge_buttons.clear()
 	log_text_node = null
 	var body := HBoxContainer.new()
@@ -400,10 +402,12 @@ func _render_actions(parent: Control) -> void:
 		Callable(self, "_on_end_turn_pressed"),
 		Callable(self, "_on_blood_potion_pressed"),
 		Callable(self, "_on_skill_pressed"),
+		Callable(self, "_on_consumable_pressed"),
 		Callable(self, "_on_charge_pressed")
 	)
 	action_buttons = controls["action_buttons"]
 	skill_buttons = controls["skill_buttons"]
+	consumable_buttons = controls["consumable_buttons"]
 	charge_buttons = controls["charge_buttons"]
 
 
@@ -683,6 +687,11 @@ func _on_charge_pressed(charge_id: String) -> void:
 	_run_action(Callable(session, "use_charge").bind(charge_id))
 
 
+func _on_consumable_pressed(consumable_id: String) -> void:
+	_debug_log("ui_consumable %s" % consumable_id)
+	_run_action(Callable(session, "use_consumable").bind(consumable_id))
+
+
 func _on_reward_pressed(index: int) -> void:
 	_debug_log("reward_pressed index=%d" % index)
 	session.choose_reward(index)
@@ -806,7 +815,7 @@ func _refresh_battle_ui() -> void:
 
 
 func _refresh_action_buttons() -> void:
-	action_bar_view.refresh(session, input_locked, action_buttons, skill_buttons, charge_buttons)
+	action_bar_view.refresh(session, input_locked, action_buttons, skill_buttons, consumable_buttons, charge_buttons)
 
 
 func _pending_state_text() -> String:
@@ -960,8 +969,8 @@ func _on_pre_run_action(action: String, arg: String) -> void:
 	if action == "select_class":
 		pre_run_view.selected_class = arg
 		pre_run_view.browse_mode = "equipment"
-		pre_run_view.selected_equipment_tab = "head"
-		pre_run_view.selected_equipment_slot = "head"
+		pre_run_view.selected_equipment_tab = "armor"
+		pre_run_view.selected_equipment_slot = "armor"
 		pre_run_view.selected_skill_filter = "skill_1"
 		pre_run_view.selected_consumable_slot = 1
 		pre_run_view.tower_menu_open = false

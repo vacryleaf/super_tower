@@ -14,7 +14,9 @@ static func create_attack(source: String, target_index: int, skill_id: String = 
 		"base_damage": 0,
 		"final_damage": 0,
 		"is_critical": false,
-		"armor_reduce": 0.0
+		"armor_reduce": 0.0,
+		"armor_multiplier": 1.0,
+		"source_actor": {}
 	}
 
 
@@ -28,5 +30,7 @@ static func create_trigger(source: String, target_index: int, base_damage: int, 
 		"base_damage": base_damage,
 		"final_damage": base_damage,
 		"is_critical": false,
-		"armor_reduce": 0.0
+		"armor_reduce": 0.0,
+		"armor_multiplier": 1.0,
+		"source_actor": {}
 	}

@@ -61,7 +61,8 @@ func use_blood_potion(session: RefCounted) -> bool:
 	session.last_events.clear()
 	if not session._can_act():
 		return false
-	var result: Dictionary = session.character.use_blood_potion(session.player)
+	var heal_multiplier: float = session.status_service.resolve_stat(session.player, 1.0, StatusService.STAT_HEAL)
+	var result: Dictionary = session.character.use_blood_potion(session.player, heal_multiplier)
 	if not bool(result.get("used", false)):
 		session.message = "血瓶无法使用。"
 		return false
@@ -136,6 +137,8 @@ func execute_skill(session: RefCounted, skill_id: String, target_index: int, act
 				var aoe_damage: int = session._skill_attack_value(skill_id, ActionSource.ACTIVE_ATTACK)
 				var aoe_ctx := ActionContext.create_attack(ActionSource.ACTIVE_ATTACK, 0, skill_id, skill_damage_type, 1)
 				aoe_ctx["base_damage"] = aoe_damage
+				var aoe_ignore_armor := clampf(float(skill.get("ignore_armor", 0.0)), 0.0, 1.0)
+				aoe_ctx["armor_multiplier"] = 1.0 - aoe_ignore_armor
 				ActionPipeline.compute(aoe_ctx, session)
 				for enemy_idx in range(opposing.size()):
 					if int(opposing[enemy_idx]["hp"]) <= 0:
@@ -147,7 +150,8 @@ func execute_skill(session: RefCounted, skill_id: String, target_index: int, act
 							break
 						var hit_ctx := ActionContext.create_attack(ActionSource.ACTIVE_ATTACK, enemy_idx, skill_id, skill_damage_type, 1)
 						hit_ctx["final_damage"] = aoe_ctx["final_damage"]
-						session.deal_damage(hit_ctx)
+						hit_ctx["is_critical"] = bool(aoe_ctx.get("is_critical", false))
+						deal_damage(session, hit_ctx)
 				var repeats: int = session._consume_charge_repeat("attack", skill_id)
 				for _i in range(repeats):
 					for enemy_idx in range(opposing.size()):
@@ -158,7 +162,8 @@ func execute_skill(session: RefCounted, skill_id: String, target_index: int, act
 								break
 							var hit_ctx := ActionContext.create_attack(ActionSource.ACTIVE_ATTACK, enemy_idx, skill_id, skill_damage_type, 1)
 							hit_ctx["final_damage"] = aoe_ctx["final_damage"]
-							session.deal_damage(hit_ctx)
+							hit_ctx["is_critical"] = bool(aoe_ctx.get("is_critical", false))
+							deal_damage(session, hit_ctx)
 			else:
 				# 单目标攻击
 				var target: int = session._valid_target(target_index)
@@ -170,6 +175,8 @@ func execute_skill(session: RefCounted, skill_id: String, target_index: int, act
 					base_hits = CombatRules.basic_attack_hit_count(actor, opposing[target], session.status_service)
 				var skill_ctx := ActionContext.create_attack(ActionSource.ACTIVE_ATTACK, target, skill_id, skill_damage_type, base_hits)
 				skill_ctx["base_damage"] = base_damage
+				var skill_ignore_armor := clampf(float(skill.get("ignore_armor", 0.0)), 0.0, 1.0)
+				skill_ctx["armor_multiplier"] = 1.0 - skill_ignore_armor
 				ActionPipeline.compute(skill_ctx, session)
 				var armor_reduce := float(skill.get("armor_reduce", 0.0))
 				if armor_reduce > 0.0:
@@ -181,7 +188,8 @@ func execute_skill(session: RefCounted, skill_id: String, target_index: int, act
 						break
 					var hit_ctx := ActionContext.create_attack(ActionSource.ACTIVE_ATTACK, target, skill_id, skill_damage_type, 1)
 					hit_ctx["final_damage"] = skill_ctx["final_damage"]
-					session.deal_damage(hit_ctx)
+					hit_ctx["is_critical"] = bool(skill_ctx.get("is_critical", false))
+					deal_damage(session, hit_ctx)
 				var repeats: int = session._consume_charge_repeat("attack", skill_id)
 				for _i in range(repeats):
 					for _hit in range(base_hits):
@@ -189,13 +197,14 @@ func execute_skill(session: RefCounted, skill_id: String, target_index: int, act
 							break
 						var hit_ctx := ActionContext.create_attack(ActionSource.ACTIVE_ATTACK, target, skill_id, skill_damage_type, 1)
 						hit_ctx["final_damage"] = skill_ctx["final_damage"]
-						session.deal_damage(hit_ctx)
+						hit_ctx["is_critical"] = bool(skill_ctx.get("is_critical", false))
+						deal_damage(session, hit_ctx)
 				if session.pending_state_card == "fallback":
 					session._add_player_block(maxi(1, int(round(float(session.player["block_power"]) * 0.5))))
 				# 横扫/爆裂猛击：对目标左右相邻敌人造成溅射伤害
 				if bool(skill.get("splash", false)):
 					var splash_mult := float(skill.get("splash_multiplier", 1.0))
-					var splash_damage: int = maxi(1, int(round(float(skill_ctx["final_damage"]) * splash_mult)))
+					var splash_damage: int = maxi(1, int(ceil(float(skill_ctx["final_damage"]) * splash_mult)))
 					for offset in [-1, 1]:
 						var splash_idx: int = target + offset
 						if splash_idx >= 0 and splash_idx < opposing.size() and splash_idx != target:
@@ -203,7 +212,8 @@ func execute_skill(session: RefCounted, skill_id: String, target_index: int, act
 							if int(splash_enemy["hp"]) > 0:
 								var splash_ctx := ActionContext.create_attack(ActionSource.ACTIVE_ATTACK, splash_idx, skill_id, skill_damage_type, 1)
 								splash_ctx["final_damage"] = splash_damage
-								session.deal_damage(splash_ctx)
+								splash_ctx["is_critical"] = bool(skill_ctx.get("is_critical", false))
+								deal_damage(session, splash_ctx)
 								session.battle_log.append("%s：溅射 %s，造成 %d 点伤害。" % [skill["name"], splash_enemy["name"], splash_damage])
 				# 挑斩：打断目标本回合行动
 				if bool(skill.get("interrupt", false)):
@@ -226,13 +236,13 @@ func execute_skill(session: RefCounted, skill_id: String, target_index: int, act
 			# 碎裂斩：主目标伤害后，对全体敌人造成追加 AOE 伤害
 			var aoe_multiplier := float(skill.get("aoe_multiplier", 0.0))
 			if aoe_multiplier > 0.0:
-				var aoe_damage: int = maxi(1, int(round(float(session._current_attack_value(ActionSource.ACTIVE_ATTACK)) * aoe_multiplier)))
+				var aoe_damage: int = maxi(1, int(ceil(float(session._current_attack_value(ActionSource.ACTIVE_ATTACK)) * aoe_multiplier)))
 				for enemy_idx in range(opposing.size()):
 					if int(opposing[enemy_idx]["hp"]) <= 0:
 						continue
 					var aoe_ctx := ActionContext.create_attack(ActionSource.ACTIVE_ATTACK, enemy_idx, skill_id, skill_damage_type, 1)
 					aoe_ctx["final_damage"] = aoe_damage
-					session.deal_damage(aoe_ctx)
+					deal_damage(session, aoe_ctx)
 				session.battle_log.append("%s：碎裂冲击对所有敌人造成 %d 点伤害。" % [skill["name"], aoe_damage])
 
 			# 爆裂猛击：给自己提供格挡
@@ -579,7 +589,7 @@ func enemy_attack(session: RefCounted, enemy: Dictionary, enemy_index: int, firs
 				continue
 			var reflect_ctx := ActionContext.create_attack(ActionSource.COUNTER_ATTACK, i, "", "physical", 1)
 			reflect_ctx["final_damage"] = total_reflect
-			session.deal_damage(reflect_ctx)
+			deal_damage(session, reflect_ctx)
 		return
 	var was_hit := false
 	for damage in segments:
@@ -632,7 +642,72 @@ func enemy_attack_segments(session: RefCounted, enemy: Dictionary, first_strike:
 	return session._enemy_attack_segments(enemy, first_strike)
 
 
-func deal_damage_to_target(target: Dictionary, raw_damage: int, damage_type: String, session: RefCounted, attacker: Dictionary = {}) -> Dictionary:
+func deal_damage(session: RefCounted, ctx: Dictionary) -> void:
+	var source := String(ctx.get("source", ""))
+	var target_index := int(ctx.get("target_index", 0))
+	var damage := int(ctx.get("final_damage", 0))
+	var damage_type := String(ctx.get("damage_type", "physical"))
+	var ignore_taunt := not ActionSource.is_interactive(source)
+	var raw_source_actor: Variant = ctx.get("source_actor", {})
+	var source_actor: Dictionary = raw_source_actor if typeof(raw_source_actor) == TYPE_DICTIONARY and not (raw_source_actor as Dictionary).is_empty() else session.player
+	var action_armor_multiplier := float(ctx.get("armor_multiplier", -1.0))
+
+	if not ignore_taunt and String(source_actor.get("side", "player")) == "player":
+		var taunt_target: int = session._active_taunt_target()
+		if taunt_target >= 0:
+			target_index = taunt_target
+			ctx["target_index"] = target_index
+
+	var target_pool: Array[Dictionary] = session._opposing_units(source_actor)
+	var target: Dictionary = target_pool[target_index]
+	var result := deal_damage_to_target(target, damage, damage_type, session, source_actor, action_armor_multiplier)
+	var target_side := "enemy" if String(source_actor.get("side", "player")) == "player" else "player"
+	if target_side == "player" and target_index == 0:
+		session._sync_player_combatant(target)
+	if bool(result["dodged"]):
+		session.battle_log.append("%s 闪避了这次命中。" % target["name"])
+		session.last_events.append({"kind": "dodge_enemy_attack", "target": target_side, "target_index": target_index, "amount": 0})
+		session.status_service.fire_trigger(target, TriggerEvents.ON_DODGE, {"battle_log": session.battle_log, "session": session, "source": source_actor})
+		return
+
+	var is_critical := bool(ctx.get("is_critical", false))
+	var hit_label := "暴击命中" if is_critical else "命中"
+	session.battle_log.append("%s %s：护甲减免 %d，格挡吸收 %d，造成 %d 点伤害。" % [hit_label, target["name"],
+		int(result["armor_reduced"]),
+		int(result["block_absorbed"]),
+		int(result["damage"])
+	])
+	session.last_events.append({"kind": "damage", "target": target_side, "target_index": target_index, "amount": int(result["damage"]), "critical": is_critical})
+
+	if ActionSource.is_interactive(source):
+		var hit_context := {
+			"battle_log": session.battle_log,
+			"session": session,
+			"source": source_actor,
+			"damage": int(result["damage"]),
+			"target": target,
+			"is_critical": is_critical,
+			"damage_type": damage_type
+		}
+		if is_critical:
+			session.status_service.fire_trigger(source_actor, TriggerEvents.ON_CRITICAL, hit_context)
+		session.status_service.fire_trigger(source_actor, TriggerEvents.ON_HIT_DEALT, hit_context)
+		session.status_service.fire_trigger(target, TriggerEvents.ON_HIT_RECEIVED, hit_context)
+		if int(target["hp"]) <= 0:
+			session.status_service.fire_trigger(source_actor, TriggerEvents.ON_KILL, {"battle_log": session.battle_log, "session": session, "source": source_actor, "target": target})
+			if session.duel_target_index >= 0 and target_pool == session.enemies and target_index == session.duel_target_index:
+				session.duel_target_index = -1
+				session.battle_log.append("单挑领域：决斗目标已死亡，单挑结束。")
+
+
+func deal_damage_to_target(
+	target: Dictionary,
+	raw_damage: int,
+	damage_type: String,
+	session: RefCounted,
+	attacker: Dictionary = {},
+	action_armor_multiplier: float = -1.0
+) -> Dictionary:
 	var damage_taken_mult: float = session.status_service.resolve_stat(target, 1.0, StatusService.STAT_DAMAGE_TAKEN)
 	var marked_damage := maxi(0, int(ceil(float(raw_damage) * damage_taken_mult)))
 	if damage_type != DamageType.TRUE:
@@ -640,9 +715,14 @@ func deal_damage_to_target(target: Dictionary, raw_damage: int, damage_type: Str
 		var base_resist := float(target.get("resistances", {}).get(damage_type, 1.0))
 		var resist_mult: float = session.status_service.resolve_stat(target, base_resist, resist_key)
 		marked_damage = maxi(0, int(ceil(float(marked_damage) * resist_mult)))
+	if damage_type == DamageType.SHADOW:
+		var shadow_multiplier: float = session.status_service.resolve_stat(attacker, 1.0, StatusService.STAT_SHADOW_DAMAGE)
+		marked_damage = maxi(0, int(ceil(float(marked_damage) * shadow_multiplier)))
 	if String(target.get("side", "")) == "enemy":
 		marked_damage = maxi(0, int(ceil(float(marked_damage) * CombatRules.ally_guard_damage_multiplier(target, session.enemies))))
 	var armor_multiplier := CombatRules.armor_multiplier_against(attacker)
+	if action_armor_multiplier >= 0.0:
+		armor_multiplier *= clampf(action_armor_multiplier, 0.0, 1.0)
 	var result := Combatant.apply_damage(target, marked_damage, damage_type, armor_multiplier)
 	_apply_shadow_armor_reflect(session, target, attacker, result)
 	if String(target.get("side", "")) == "enemy" and int(result.get("damage", 0)) > 0:
@@ -694,11 +774,14 @@ func _build_buff_effects(skill: Dictionary, skill_id: String, is_player_actor: b
 
 func _execute_action_skill(session: RefCounted, skill_id: String, skill: Dictionary, target_index: int, actor: Dictionary, is_player_actor: bool) -> void:
 	if not is_player_actor:
+		_execute_enemy_action_skill(session, skill_id, skill, target_index, actor)
 		return
 	var attack_repeat_bonus := -1
 	var defense_repeat_bonus := -1
 	for action in SkillActionService.actions(skill):
 		var action_type := String(action.get("type", ""))
+		if not _action_conditions_met(session, skill_id, action, target_index, actor, true):
+			continue
 		match action_type:
 			SkillActionService.ACTION_DAMAGE:
 				var damage_repeat_bonus := 0
@@ -732,6 +815,245 @@ func _execute_action_skill(session: RefCounted, skill_id: String, skill: Diction
 				_execute_action_set_duel(session, skill_id, skill, action, target_index)
 			SkillActionService.ACTION_SET_DEFLECT:
 				_execute_action_set_deflect(session)
+			SkillActionService.ACTION_SUMMON:
+				_execute_action_summon(session, skill_id, action, actor, true)
+			_:
+				_report_unknown_action(session, skill_id, action_type)
+
+
+func _action_conditions_met(session: RefCounted, skill_id: String, action: Dictionary, target_index: int, actor: Dictionary, is_player_actor: bool) -> bool:
+	var raw_conditions: Variant = action.get("conditions", [])
+	var conditions: Array = raw_conditions if typeof(raw_conditions) == TYPE_ARRAY else []
+	if conditions.is_empty() and action.has("condition"):
+		conditions = [action.get("condition", {})]
+	if conditions.is_empty():
+		return true
+	return session.status_service.evaluate_conditions(actor, conditions, _action_condition_context(session, skill_id, action, target_index, actor, is_player_actor))
+
+
+func _action_condition_context(session: RefCounted, skill_id: String, action: Dictionary, target_index: int, actor: Dictionary, is_player_actor: bool) -> Dictionary:
+	return {
+		"session": session,
+		"source": actor,
+		"target": _action_target_dictionary(session, action, target_index, actor, is_player_actor),
+		"target_index": target_index,
+		"skill_id": skill_id,
+		"enemy_count": session._alive_enemy_count(),
+		"round_index": session.round_index,
+		"state_card": session.pending_state_card
+	}
+
+
+func _action_target_dictionary(session: RefCounted, action: Dictionary, target_index: int, actor: Dictionary, is_player_actor: bool) -> Dictionary:
+	var target_mode := String(action.get("target", SkillActionService.TARGET_SELECTED))
+	if target_mode == SkillActionService.TARGET_SELF:
+		return actor
+	if is_player_actor:
+		if target_mode == SkillActionService.TARGET_ALLY_SELECTED:
+			var allied: Array[Dictionary] = session._allied_units(session.player)
+			if target_index >= 0 and target_index < allied.size():
+				return allied[target_index]
+			return {}
+		var enemy_index: int = session._valid_target(target_index)
+		if enemy_index >= 0 and enemy_index < session.enemies.size():
+			return session.enemies[enemy_index]
+		return {}
+	var player_side: Array[Dictionary] = session._player_side_units()
+	if target_mode == SkillActionService.TARGET_ALL_ENEMIES or target_mode == SkillActionService.TARGET_SELECTED:
+		return _enemy_action_target(session, 0) if not player_side.is_empty() else {}
+	return {}
+
+
+func _report_unknown_action(session: RefCounted, skill_id: String, action_type: String) -> void:
+	var message := "[ERROR] 未知 action '%s'（技能 %s）。" % [action_type, skill_id]
+	push_error(message)
+	session.battle_log.append(message)
+	session.message = message
+
+
+func _execute_enemy_action_skill(session: RefCounted, skill_id: String, skill: Dictionary, target_index: int, actor: Dictionary) -> void:
+	for action in SkillActionService.actions(skill):
+		var action_type := String(action.get("type", ""))
+		if not _action_conditions_met(session, skill_id, action, 0, actor, false):
+			continue
+		match action_type:
+			SkillActionService.ACTION_DAMAGE:
+				_execute_enemy_action_damage(session, skill_id, skill, action, actor)
+			SkillActionService.ACTION_MODIFY_ARMOR:
+				_execute_enemy_action_modify_armor(session, skill_id, action, actor)
+			SkillActionService.ACTION_APPLY_STATUS:
+				_execute_enemy_action_apply_status(session, skill_id, action, actor)
+			SkillActionService.ACTION_GAIN_BLOCK:
+				_execute_enemy_action_gain_block(session, skill_id, action, actor)
+			SkillActionService.ACTION_GAIN_DODGE:
+				_execute_enemy_action_gain_dodge(session, action, actor)
+			SkillActionService.ACTION_INTERRUPT:
+				_execute_enemy_action_interrupt(session, action)
+			SkillActionService.ACTION_CLEAR_DEBUFFS:
+				session.status_service.clear_debuffs(actor)
+			SkillActionService.ACTION_HEAL:
+				_execute_enemy_action_heal(session, skill_id, action, actor)
+			SkillActionService.ACTION_SUMMON:
+				_execute_action_summon(session, skill_id, action, actor, false)
+			_:
+				_report_unknown_action(session, skill_id, action_type)
+
+
+func _enemy_action_target_indexes(session: RefCounted, action: Dictionary) -> Array[int]:
+	var target_mode := String(action.get("target", SkillActionService.TARGET_SELECTED))
+	var player_side: Array[Dictionary] = session._player_side_units()
+	var result: Array[int] = []
+	match target_mode:
+		SkillActionService.TARGET_ALL_ENEMIES:
+			for index in range(player_side.size()):
+				if int(player_side[index].get("hp", 0)) > 0:
+					result.append(index)
+		SkillActionService.TARGET_ADJACENT:
+			for index in range(player_side.size()):
+				if int(player_side[index].get("hp", 0)) > 0:
+					result.append(index)
+		SkillActionService.TARGET_SELF:
+			return result
+		_:
+			if not player_side.is_empty() and int(player_side[0].get("hp", 0)) > 0:
+				result.append(0)
+	return result
+
+
+func _enemy_action_target(session: RefCounted, target_index: int) -> Dictionary:
+	if target_index == 0:
+		return session.player
+	var ally_index := target_index - 1
+	if ally_index >= 0 and ally_index < session.allies.size():
+		return session.allies[ally_index]
+	return {}
+
+
+func _execute_enemy_action_damage(session: RefCounted, skill_id: String, skill: Dictionary, action: Dictionary, actor: Dictionary) -> void:
+	var targets := _enemy_action_target_indexes(session, action)
+	if targets.is_empty():
+		return
+	var hits := maxi(1, int(action.get("hits", skill.get("hits", 1))))
+	var multiplier := float(action.get("multiplier", skill.get("multiplier", 1.0)))
+	var damage_type := String(action.get("damage_type", skill.get("damage_type", "physical")))
+	var ignore_armor := clampf(float(action.get("ignore_armor", skill.get("ignore_armor", 0.0))), 0.0, 1.0)
+	var base_damage := _enemy_action_attack_value(actor, multiplier, session)
+	for target_index in targets:
+		for _hit in range(hits):
+			if target_index < 0 or target_index >= session._player_side_units().size():
+				continue
+			var hit_ctx := ActionContext.create_attack(ActionSource.ENEMY_ATTACK, target_index, skill_id, damage_type, 1)
+			hit_ctx["final_damage"] = base_damage
+			hit_ctx["source_actor"] = actor
+			hit_ctx["armor_multiplier"] = 1.0 - ignore_armor
+			deal_damage(session, hit_ctx)
+
+
+func _enemy_action_attack_value(actor: Dictionary, multiplier: float, session: RefCounted) -> int:
+	var attack: float = session.status_service.resolve_stat(actor, float(actor.get("attack", 1)), StatusService.STAT_ATTACK)
+	var rank_multiplier := 1.0
+	if not bool(actor.get("fixed_stats", false)):
+		rank_multiplier = CombatRules.RANK_SKILL_MULTIPLIER.get(String(actor.get("rank", "normal")), 1.0)
+	return maxi(1, int(ceil(attack * multiplier * rank_multiplier)))
+
+
+func _execute_enemy_action_modify_armor(session: RefCounted, skill_id: String, action: Dictionary, actor: Dictionary) -> void:
+	var targets := _enemy_action_target_indexes(session, action)
+	var multiplier := clampf(float(action.get("multiplier", 1.0)), 0.0, 1.0)
+	for target_index in targets:
+		var target: Dictionary = _enemy_action_target(session, target_index)
+		if target.is_empty():
+			continue
+		session.status_service.add_status(target, {
+			"id": "%s:armor" % skill_id,
+			"name": String(action.get("name", skill_id)),
+			"kind": "debuff",
+			"stack": "replace",
+			"effects": [{"stat": StatusService.STAT_ARMOR, "type": StatusService.EFFECT_MULTIPLY, "value": multiplier}],
+			"duration": int(action.get("duration", -1))
+		})
+
+
+func _execute_enemy_action_apply_status(session: RefCounted, skill_id: String, action: Dictionary, actor: Dictionary) -> void:
+	var raw_status: Variant = action.get("status", {})
+	if typeof(raw_status) != TYPE_DICTIONARY or (raw_status as Dictionary).is_empty():
+		return
+	var status: Dictionary = (raw_status as Dictionary).duplicate(true)
+	for effect in status.get("effects", []):
+		effect.erase("skill_bonus_stat")
+	var target_mode := String(action.get("target", SkillActionService.TARGET_SELECTED))
+	if target_mode == SkillActionService.TARGET_SELF:
+		session.status_service.add_status(actor, status)
+		return
+	for target_index in _enemy_action_target_indexes(session, action):
+		var target := _enemy_action_target(session, target_index)
+		if not target.is_empty():
+			session.status_service.add_status(target, status)
+
+
+func _execute_enemy_action_gain_block(session: RefCounted, skill_id: String, action: Dictionary, actor: Dictionary) -> void:
+	var amount := int(action.get("amount", 0))
+	if amount <= 0:
+		amount = maxi(1, int(round(float(actor.get("block_power", actor.get("defense", 1))) * float(action.get("multiplier", 1.0)))))
+	Combatant.add_block_amount(actor, amount)
+	session.battle_log.append("%s 使用 %s：获得 %d 点格挡。" % [actor.get("name", "敌人"), skill_id, amount])
+	session.last_events.append({"kind": "defense", "target": "enemy", "source": actor.get("name", "敌人"), "amount": amount})
+
+
+func _execute_enemy_action_gain_dodge(session: RefCounted, action: Dictionary, actor: Dictionary) -> void:
+	var layers := maxi(1, int(action.get("layers", 1)))
+	Combatant.add_dodge(actor, layers)
+	session.last_events.append({"kind": "dodge", "target": "enemy", "source": actor.get("name", "敌人"), "amount": layers})
+
+
+func _execute_enemy_action_interrupt(session: RefCounted, action: Dictionary) -> void:
+	for target_index in _enemy_action_target_indexes(session, action):
+		var target := _enemy_action_target(session, target_index)
+		if not target.is_empty():
+			target["interrupted"] = true
+
+
+func _execute_enemy_action_heal(session: RefCounted, skill_id: String, action: Dictionary, actor: Dictionary) -> void:
+	var target: Dictionary = actor
+	if String(action.get("target", SkillActionService.TARGET_SELF)) != SkillActionService.TARGET_SELF:
+		var target_indexes := _enemy_action_target_indexes(session, action)
+		if not target_indexes.is_empty():
+			target = _enemy_action_target(session, target_indexes[0])
+	var amount := int(action.get("amount", 0))
+	if amount <= 0:
+		amount = maxi(1, int(ceil(float(target.get("max_hp", 1)) * float(action.get("multiplier", 0.25)))))
+	target["hp"] = mini(int(target.get("max_hp", target.get("hp", 1))), int(target.get("hp", 0)) + amount)
+	if target == session.player:
+		session._sync_player_combatant(target)
+	session.last_events.append({"kind": "heal", "target": "enemy", "source": actor.get("name", "敌人"), "amount": amount})
+
+
+func _execute_action_summon(session: RefCounted, skill_id: String, action: Dictionary, actor: Dictionary, is_player_actor: bool) -> void:
+	var count := maxi(1, int(action.get("count", 1)))
+	var delay := maxi(0, int(action.get("delay", 1)))
+	var raw_unit: Variant = action.get("unit", action.get("unit_id", "rat_minion"))
+	var unit_template: Dictionary = {}
+	if typeof(raw_unit) == TYPE_DICTIONARY:
+		unit_template = (raw_unit as Dictionary).duplicate(true)
+	else:
+		var unit_id := String(raw_unit)
+		if unit_id in ["rat", "rat_minion", "mouse"]:
+			unit_template = {"id": "rat_minion", "name": "小鼠", "fixed_stats": true, "hp": 20, "attack": 5, "defense": 0, "block_power": 0, "passive_skills": ["swarm", "", "", ""], "skills": []}
+		else:
+			unit_template = DataCatalog.monster_unit(unit_id)
+	if unit_template.is_empty():
+		_report_unknown_action(session, skill_id, "summon:%s" % String(raw_unit))
+		return
+	for _i in range(count):
+		var summoned := Combatant.from_enemy_unit(unit_template, "normal", session.floor_index)
+		summoned["available_round"] = session.round_index + delay
+		if is_player_actor:
+			summoned["side"] = "ally"
+			summoned["controlled_by"] = "ai"
+			session.allies.append(summoned)
+		else:
+			session.enemies.append(summoned)
+	session.battle_log.append("%s 使用 %s：召唤 %d 个单位。" % [actor.get("name", "角色"), skill_id, count])
 
 
 func _execute_action_damage(session: RefCounted, skill_id: String, skill: Dictionary, action: Dictionary, target_index: int, repeat_bonus: int) -> void:
@@ -742,6 +1064,7 @@ func _execute_action_damage(session: RefCounted, skill_id: String, skill: Dictio
 	var hits := maxi(1, int(action.get("hits", skill.get("hits", 1))) + extra_hits)
 	var multiplier: float = float(action.get("multiplier", skill.get("multiplier", 1.0))) + session._skill_multiplier_bonus(skill_id, "attack")
 	var damage_type := String(action.get("damage_type", skill.get("damage_type", "physical")))
+	var ignore_armor := clampf(float(action.get("ignore_armor", skill.get("ignore_armor", 0.0))), 0.0, 1.0)
 	var repeat_count := 1 + repeat_bonus if bool(action.get("repeat_with_charge", true)) else 1
 	for _repeat in range(repeat_count):
 		for target in targets:
@@ -757,8 +1080,9 @@ func _execute_action_damage(session: RefCounted, skill_id: String, skill: Dictio
 				var base_damage := _action_attack_value(session, skill_id, multiplier, ActionSource.ACTIVE_ATTACK)
 				var hit_ctx := ActionContext.create_attack(ActionSource.ACTIVE_ATTACK, target, skill_id, damage_type, 1)
 				hit_ctx["base_damage"] = base_damage
+				hit_ctx["armor_multiplier"] = 1.0 - ignore_armor
 				ActionPipeline.compute(hit_ctx, session)
-				session.deal_damage(hit_ctx)
+				deal_damage(session, hit_ctx)
 
 
 func _execute_action_modify_armor(session: RefCounted, skill: Dictionary, action: Dictionary, target_index: int) -> void:
@@ -871,8 +1195,8 @@ func _execute_action_heal(session: RefCounted, skill_id: String, action: Diction
 			multiplier += session._skill_multiplier_bonus(skill_id, bonus_stat)
 		amount = maxi(1, int(round(float(heal_target.get(stat, 0)) * multiplier)))
 	if bool(action.get("resolve_heal", true)):
-		var resolved_heal: float = session.status_service.resolve_stat(session.player, float(amount), StatusService.STAT_HEAL)
-		amount = maxi(1, int(round(resolved_heal)))
+		var resolved_heal: float = session.status_service.resolve_stat(heal_target, float(amount), StatusService.STAT_HEAL)
+		amount = maxi(1, int(ceil(resolved_heal)))
 	heal_target["hp"] = mini(int(heal_target["max_hp"]), int(heal_target["hp"]) + amount)
 	if String(heal_target.get("side", "")) == "player":
 		session._sync_player_combatant(heal_target)
@@ -882,10 +1206,12 @@ func _execute_action_heal(session: RefCounted, skill_id: String, action: Diction
 func _action_heal_target(session: RefCounted, action: Dictionary, target_index: int) -> Dictionary:
 	var target_mode := String(action.get("target", SkillActionService.TARGET_SELF))
 	if target_mode == SkillActionService.TARGET_ALLY_SELECTED:
-		var allied: Array[Dictionary] = session._allied_units(session.player)
-		if target_index < 0 or target_index >= allied.size():
+		if target_index == 0:
+			return session.player
+		var ally_index := target_index - 1
+		if ally_index < 0 or ally_index >= session.allies.size():
 			return {}
-		return allied[target_index]
+		return session.allies[ally_index]
 	return session.player
 
 
@@ -918,7 +1244,7 @@ func _execute_action_set_deflect(session: RefCounted) -> void:
 func _action_attack_value(session: RefCounted, skill_id: String, multiplier: float, action_source: String) -> int:
 	var resolved_attack: float = session.status_service.resolve_stat(session.player, float(session.player["attack"]), StatusService.STAT_ATTACK)
 	var modifiers: Array = ModifierPipeline.collect_from_session(session, "attack", {"skill_id": skill_id, "skill_multiplier": multiplier}, action_source)
-	return maxi(1, int(round(ModifierPipeline.resolve(resolved_attack, modifiers))))
+	return maxi(1, int(ceil(ModifierPipeline.resolve(resolved_attack, modifiers))))
 
 
 func _action_target_indexes(session: RefCounted, action: Dictionary, target_index: int) -> Array[int]:

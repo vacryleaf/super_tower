@@ -24,13 +24,23 @@ echo   PATH: godot.exe
 exit /b 1
 
 :run_tests
-"%GODOT%" --headless --quiet --no-header --path "%PROJECT%" --script "res://scripts/tests/tutorial_and_floors_test.gd" > "%TEST_LOG%" 2>&1
+call :run_test tutorial_and_floors_test
+if not "%ERRORLEVEL%"=="0" exit /b %ERRORLEVEL%
+call :run_test pre_run_ui_smoke_test
+if not "%ERRORLEVEL%"=="0" exit /b %ERRORLEVEL%
+call :run_test ui_click_smoke_test
+if not "%ERRORLEVEL%"=="0" exit /b %ERRORLEVEL%
+
+echo ALL TESTS PASSED
+exit /b 0
+
+:run_test
+set "TEST_NAME=%~1"
+set "TEST_LOG=%TEMP%\super_tower_tests_%RANDOM%.log"
+"%GODOT%" --headless --quiet --no-header --path "%PROJECT%" --script "res://scripts/tests/%TEST_NAME%.gd" > "%TEST_LOG%" 2>&1
 set "STATUS=%ERRORLEVEL%"
 type "%TEST_LOG%"
 findstr /C:"Failed to load script" /C:"Compilation failed" /C:"SCRIPT ERROR" "%TEST_LOG%" >nul
 if %ERRORLEVEL% EQU 0 set "STATUS=1"
 del /q "%TEST_LOG%" >nul 2>nul
-if not "%STATUS%"=="0" exit /b %STATUS%
-
-echo ALL TESTS PASSED
-exit /b 0
+exit /b %STATUS%

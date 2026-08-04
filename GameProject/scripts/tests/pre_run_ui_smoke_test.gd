@@ -20,7 +20,7 @@ func _run() -> void:
 	_press_button_containing(main, "槽位 1")
 	await _wait_for_render()
 	_assert_label_exists(main, "选择职业")
-	_press_button_with_child_label(main, "战士")
+	_press_button_with_child_label(main, "探索者")
 	await _wait_for_animation()
 	_assert_button_exists(main, "开始教程")
 	_press_button(main, "开始教程")
@@ -38,12 +38,12 @@ func _run() -> void:
 	_assert_label_missing(main, "消耗品栏")
 	_assert_label_missing(main, "仓库")
 
-	_press_button_with_child_label(main, "战士")
+	_press_button_with_child_label(main, "探索者")
 	await _wait_for_animation()
 	_assert_class_card_shape(main)
 	_assert_equipment_slots_are_square(main)
 	_assert_skill_slots_visible(main)
-	_assert_button_containing(main, "层数")
+	_assert_button_containing(main, "难度")
 	_assert_button_exists(main, "出发")
 	_press_button(main, "攻")
 	await _wait_for_render()
@@ -52,9 +52,9 @@ func _run() -> void:
 	await _wait_for_render()
 	_assert_button_exists(root, "???")
 
-	_press_button_containing(main, "层数")
+	_press_button_containing(main, "难度")
 	await _wait_for_render()
-	_assert_button_exists(main, "MAX")
+	_assert_button_exists(main, "+0塔")
 
 	_press_button(main, "出发")
 	await _wait_for_render()
@@ -179,7 +179,7 @@ func _wait_for_animation() -> void:
 
 
 func _assert_class_card_shape(node: Node) -> void:
-	var button := _find_button_with_child_label(node, "战士")
+	var button := _find_button_with_child_label(node, "探索者")
 	if button == null:
 		failures.append("missing selected class card")
 		return
@@ -192,7 +192,7 @@ func _assert_class_card_shape(node: Node) -> void:
 func _assert_equipment_slots_are_square(node: Node) -> void:
 	var button := _find_button_containing(node, "训练铁盔")
 	if button == null:
-		button = _find_button(node, "头部")
+		button = _find_button(node, "防具")
 	if button == null:
 		failures.append("missing head equipment slot")
 		return

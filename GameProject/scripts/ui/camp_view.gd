@@ -317,7 +317,7 @@ func _render_skills() -> void:
 	_detail_container.add_child(_label_factory.call("先天技能（所有职业通用）：", 16))
 	for skill_id in DataCatalog.INNATE_SKILLS.keys():
 		var skill: Dictionary = DataCatalog.INNATE_SKILLS[skill_id]
-		_detail_container.add_child(_label_factory.call("  %s - %s，费用 %d" % [skill["name"], UIHelpers.skill_type_name(skill), int(skill["cost"])], 14))
+		_detail_container.add_child(_label_factory.call("  %s - %s，费用 %d" % [skill["name"], UIHelpers.skill_type_name(skill), UIHelpers.skill_energy_cost(skill)], 14))
 	_detail_container.add_child(_label_factory.call("职业技能与通用技能：", 16))
 	for skill_id in DataCatalog.SKILLS.keys():
 		var skill: Dictionary = DataCatalog.SKILLS[skill_id]
@@ -330,7 +330,7 @@ func _render_skills() -> void:
 				class_label = "弓箭手"
 			"common":
 				class_label = "通用"
-		_detail_container.add_child(_label_factory.call("  %s [%s] - %s，费用 %d" % [skill["name"], class_label, UIHelpers.skill_type_name(skill), int(skill["cost"])], 14))
+		_detail_container.add_child(_label_factory.call("  %s [%s] - %s，费用 %d" % [skill["name"], class_label, UIHelpers.skill_type_name(skill), UIHelpers.skill_energy_cost(skill)], 14))
 
 
 func _render_class_info() -> void:
@@ -353,5 +353,4 @@ func _render_traits() -> void:
 	for trait_id in all_traits:
 		var label_text := "%s：%s" % [TraitCatalog.LABELS.get(trait_id, trait_id), TraitCatalog.DESCRIPTIONS.get(trait_id, "暂无说明。")]
 		_detail_container.add_child(_label_factory.call(label_text, 14))
-
 

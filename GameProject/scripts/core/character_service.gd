@@ -80,21 +80,24 @@ func equip_item(player: Dictionary, item_id: String) -> void:
 	recalculate_player_stats(player, false)
 
 
-func equip_tower_item(player: Dictionary, item_id: String) -> void:
+func equip_tower_item(player: Dictionary, item_id: String) -> bool:
 	if not DataCatalog.EQUIPMENT.has(item_id):
-		return
+		return false
 	var item: Dictionary = DataCatalog.EQUIPMENT[item_id]
 	var slot := DataCatalog.equipment_slot(item)
 	if slot == "":
-		return
+		return false
 	var tower_equipment: Dictionary = player.get("tower_equipment", {})
+	var ids: Array = player.get("tower_equipment_ids", [])
+	if not ids.has(item_id) and ids.size() >= DataCatalog.TOWER_EQUIPMENT_SLOTS:
+		return false
 	tower_equipment[slot] = item_id
 	player["tower_equipment"] = tower_equipment
-	var ids: Array = player.get("tower_equipment_ids", [])
 	if not ids.has(item_id):
 		ids.append(item_id)
 	player["tower_equipment_ids"] = ids
 	recalculate_player_stats(player, false)
+	return true
 
 
 func add_tower_consumable(player: Dictionary, item_id: String, upgraded: bool = false) -> void:
@@ -156,7 +159,7 @@ func apply_permanent_upgrade(player: Dictionary, target_type: String, target_id:
 	recalculate_player_stats(player, false)
 
 
-func use_blood_potion(player: Dictionary) -> Dictionary:
+func use_blood_potion(player: Dictionary, heal_multiplier: float = 1.0) -> Dictionary:
 	var uses_left := int(player.get("blood_potion_uses", 0))
 	var max_hp := int(player.get("max_hp", player.get("base_max_hp", 1)))
 	var current_hp := int(player.get("hp", max_hp))
@@ -167,7 +170,8 @@ func use_blood_potion(player: Dictionary) -> Dictionary:
 	var level := maxi(0, int(player.get("blood_potion_level", 0)))
 	var base_ratio := float(DataCatalog.BLOOD_POTION.get("heal_ratio", 0.0))
 	var level_ratio := float(DataCatalog.BLOOD_POTION.get("level_heal_ratio", 0.0))
-	var heal_amount := maxi(1, int(round(float(max_hp) * (base_ratio + level_ratio * level))))
+	var heal_amount := maxi(1, int(ceil(float(max_hp) * (base_ratio + level_ratio * level))))
+	heal_amount = maxi(1, int(ceil(float(heal_amount) * maxf(0.0, heal_multiplier))))
 	heal_amount = mini(heal_amount, max_hp - current_hp)
 	player["hp"] = current_hp + heal_amount
 	player["blood_potion_uses"] = uses_left - 1
@@ -438,6 +442,19 @@ func _ensure_player_schema(player: Dictionary) -> void:
 		player["tower_equipment"] = {}
 	if not player.has("tower_equipment_ids"):
 		player["tower_equipment_ids"] = []
+	var normalized_tower_ids: Array = []
+	for equipped_item_id in player["tower_equipment"].values():
+		var normalized_equipped_id := String(equipped_item_id)
+		if normalized_equipped_id != "" and DataCatalog.EQUIPMENT.has(normalized_equipped_id) and not normalized_tower_ids.has(normalized_equipped_id):
+			normalized_tower_ids.append(normalized_equipped_id)
+	for item_id in player["tower_equipment_ids"]:
+		var normalized_item_id := String(item_id)
+		if normalized_item_id == "" or not DataCatalog.EQUIPMENT.has(normalized_item_id) or normalized_tower_ids.has(normalized_item_id):
+			continue
+		if normalized_tower_ids.size() >= DataCatalog.TOWER_EQUIPMENT_SLOTS:
+			break
+		normalized_tower_ids.append(normalized_item_id)
+	player["tower_equipment_ids"] = normalized_tower_ids
 	if not player.has("consumables"):
 		player["consumables"] = []
 	while player["consumables"].size() < DataCatalog.NORMAL_CONSUMABLE_SLOTS:

@@ -7,6 +7,7 @@ const Combatant = preload("res://scripts/core/combatant.gd")
 const StatusService = preload("res://scripts/core/status_service.gd")
 const CombatRules = preload("res://scripts/core/combat_rules.gd")
 const TriggerEvents = preload("res://scripts/core/trigger_events.gd")
+const UIHelpers = preload("res://scripts/ui/ui_helpers.gd")
 
 
 func run() -> void:
@@ -14,23 +15,33 @@ func run() -> void:
 	test_enemy_block_power_is_separate_from_armor()
 	test_player_and_enemy_share_combatant_contract()
 	test_thick_skin_always_grants_armor()
+	test_loaded_enemy_traits_are_idempotent()
 	test_rat_corruption_and_armor_reduction()
 	test_swarm_triggers_one_assist_per_living_ally()
 	test_hidden_targets_require_visible_fallback()
 	test_curse_refreshes_instead_of_stacking()
-	test_toxic_mist_uses_holder_attack()
+	test_toxic_mist_hits_player_and_allies()
+	test_arena_damage_and_heal_modifiers()
 	test_new_units_wait_one_round()
 	test_skill_multiplier_effects()
 	test_counter_stance_and_multihit_dodge()
 	test_block_expires_each_round()
 	test_enemy_skill_execution()
 	test_enemy_ai_skill_selection()
+	test_enemy_enrage_duration_and_cooldown()
 	test_enemy_taunt_skill()
 	test_rank_skill_multiplier()
 	test_basic_attack_agility_segments()
 	test_agility_action_order()
 	test_skeleton_passive_damage_rules()
 	test_skeleton_taunt_requires_an_ally()
+	test_documented_trigger_conditions()
+	test_trigger_counters()
+	test_skill_energy_cost_display_value()
+	test_normal_consumables_can_be_used()
+	test_weapon_critical_weight_and_trigger()
+	test_data_driven_action_execution()
+	test_damage_rounding_uses_ceiling()
 
 
 func test_rat_corruption_and_armor_reduction() -> void:
@@ -44,6 +55,204 @@ func test_rat_corruption_and_armor_reduction() -> void:
 	CombatRules.apply_armor_reduction(player, 3, status_service, "测试减防")
 	var combatant := Combatant.from_player(player, 0, 0, status_service)
 	assert_equal(int(combatant["armor"]), -2, "armor reduction should allow negative defense")
+
+
+func test_documented_trigger_conditions() -> void:
+	var status_service := StatusService.new()
+	var target := {"hp": 10, "max_hp": 100, "block": 0, "statuses": []}
+	status_service.add_status(target, {
+		"id": "documented_trigger",
+		"triggers": [{
+			"event": TriggerEvents.ON_HIT_RECEIVED,
+			"conditions": [{"stat": "hp", "operator": "lt", "value": 20}],
+			"actions": [{"type": TriggerEvents.ACTION_GAIN_BLOCK, "value": 4}]
+		}]
+	})
+	status_service.fire_trigger(target, TriggerEvents.ON_HIT_RECEIVED, {})
+	assert_equal(int(target["block"]), 4, "documented trigger condition should allow matching action")
+	target["hp"] = 30
+	target["block"] = 0
+	status_service.fire_trigger(target, TriggerEvents.ON_HIT_RECEIVED, {})
+	assert_equal(int(target["block"]), 0, "documented trigger condition should block non-matching action")
+
+
+func test_trigger_counters() -> void:
+	var session := PlaySession.new()
+	session.delete_save()
+	session.start_new_game("warrior")
+	session.status_service.add_status(session.player, {
+		"id": "counter_trigger_test",
+		"triggers": [{
+			"event": TriggerEvents.ON_HIT_RECEIVED,
+			"actions": [{
+				"type": TriggerEvents.ACTION_INCREMENT_COUNTER,
+				"counter": "test_counter",
+				"max": 10,
+				"threshold": 2,
+				"threshold_actions": [{"type": TriggerEvents.ACTION_GAIN_BLOCK, "value": 3}]
+			}]
+		}]
+	})
+	session.status_service.fire_trigger(session.player, TriggerEvents.ON_HIT_RECEIVED, {"session": session, "battle_log": []})
+	assert_equal(session.get_counter("test_counter"), 1, "counter should increment on trigger")
+	session.status_service.fire_trigger(session.player, TriggerEvents.ON_HIT_RECEIVED, {"session": session, "battle_log": []})
+	assert_equal(session.get_counter("test_counter"), 0, "counter should reset by threshold consumption")
+	assert_equal(int(session.player.get("block", 0)), 3, "counter threshold action should execute")
+	session.set_counter("test_counter", -5)
+	assert_equal(session.get_counter("test_counter"), 0, "counter should not become negative")
+	session.delete_save()
+
+
+func test_skill_energy_cost_display_value() -> void:
+	assert_equal(UIHelpers.skill_energy_cost(DataCatalog.SKILLS["po_jun"]), 8, "skill pages should display energy_cost")
+	assert_equal(UIHelpers.skill_energy_cost(DataCatalog.INNATE_SKILLS["innate_attack_1"]), 0, "innate skills without a cost should display zero")
+
+
+func test_normal_consumables_can_be_used() -> void:
+	var session := PlaySession.new()
+	session.delete_save()
+	session.start_new_game("warrior")
+	var effects := {
+		"minor_heal": "heal",
+		"iron_skin": "armor",
+		"swift_step": "dodge",
+		"rage_draught": "attack",
+		"focus_tea": "skill",
+		"emergency_kit": "block"
+	}
+	for item_id in effects.keys():
+		session.player["consumables"] = [String(item_id), "", ""]
+		session.player["statuses"] = []
+		session.player["hp"] = 40
+		session.player_block = 0
+		session.dodge_layers = 0
+		session.energy = 0
+		session.has_acted = false
+		assert_true(session.available_consumables().any(func(item: Dictionary): return String(item.get("item_id", "")) == String(item_id)), "%s should appear in the battle item bar" % item_id)
+		assert_true(session.use_consumable(0), "%s should be usable" % item_id)
+		assert_equal(String(session.player["consumables"][0]), "", "%s should be consumed" % item_id)
+		match String(effects[item_id]):
+			"heal":
+				assert_equal(int(session.player["hp"]), 58, "minor heal should restore its configured value")
+			"armor":
+				var armor := session.status_service.resolve_stat(session.player, float(session.player["defense"]), StatusService.STAT_ARMOR)
+				assert_equal(int(armor), int(session.player["defense"]) + 2, "iron skin should add armor")
+			"dodge":
+				assert_equal(int(session.dodge_layers), 1, "swift step should add dodge layers")
+			"attack":
+				var attack := session.status_service.resolve_stat(session.player, float(session.player["attack"]), StatusService.STAT_ATTACK)
+				assert_equal(int(attack), int(session.player["attack"]) + 3, "rage draught should add attack")
+			"skill":
+				assert_equal(int(session.energy), 1, "focus tea should restore energy")
+			"block":
+				assert_equal(int(session.player_block), 2, "emergency kit should add block")
+		session.has_acted = false
+	session.delete_save()
+
+
+func test_weapon_critical_weight_and_trigger() -> void:
+	var session := PlaySession.new()
+	session.delete_save()
+	session.start_new_game("warrior")
+	session.player["attack"] = 10
+	session.player["agility"] = 1
+	session.player["critical_weight"] = 100
+	session.player["critical_damage_bonus"] = 0.0
+	session.player["statuses"] = []
+	session.pending_state_card = ""
+	var critical_status := {
+		"id": "critical_test_trigger",
+		"triggers": [{
+			"event": TriggerEvents.ON_CRITICAL,
+			"conditions": [{"stat": "is_critical", "operator": "eq", "value": true}],
+			"actions": [{"type": TriggerEvents.ACTION_APPLY_STATUS, "status": {"id": "critical_marker", "kind": "buff", "effects": []}}]
+		}]
+	}
+	session.status_service.add_status(session.player, critical_status)
+	var critical_target := TestHelpers.test_enemy("暴击目标", 1000, 0, [])
+	critical_target["agility"] = 2
+	session.enemies = [critical_target]
+	session.has_acted = false
+	session.player_attack(0)
+	assert_equal(int(session.enemies[0]["hp"]), 980, "critical weight 100 should double basic attack damage")
+	assert_true(session.player.get("statuses", []).any(func(status: Dictionary): return String(status.get("id", "")) == "critical_marker"), "critical attack should fire ON_CRITICAL trigger")
+	assert_true(session.battle_log.any(func(entry: String): return entry.contains("暴击命中")), "critical attack should be visible in battle log")
+	session.player["critical_weight"] = 0
+	session.player["statuses"] = []
+	session.enemies[0]["hp"] = 1000
+	session.has_acted = false
+	session.player_attack(0)
+	assert_equal(int(session.enemies[0]["hp"]), 990, "critical weight 0 should keep normal damage")
+	session.delete_save()
+
+
+func test_data_driven_action_execution() -> void:
+	var conditional_skill := {"name": "条件动作测试", "type": "attack", "actions": [{"type": "damage", "target": "selected", "multiplier": 1.0, "conditions": [{"stat": "hp", "operator": "lt", "value": 50}]}]}
+	var ignore_armor_skill := {"name": "破甲动作测试", "type": "attack", "actions": [{"type": "damage", "target": "selected", "multiplier": 1.0, "ignore_armor": 1.0}]}
+	var enemy_damage_skill := {"name": "敌方动作测试", "type": "attack", "class": "enemy", "actions": [{"type": "damage", "target": "selected", "multiplier": 1.5}]}
+	var enemy_summon_skill := {"name": "敌方召唤测试", "type": "summon", "class": "enemy", "actions": [{"type": "summon", "unit_id": "rat_minion", "count": 2, "delay": 1}]}
+	var unknown_skill := {"name": "未知动作测试", "type": "attack", "actions": [{"type": "not_registered", "target": "self"}]}
+
+	var session := PlaySession.new()
+	session.delete_save()
+	session.start_new_game("warrior")
+	session.player["attack"] = 10
+	session.player["critical_weight"] = 0
+	session.pending_state_card = ""
+	session.player["hp"] = 40
+	var target := TestHelpers.test_enemy("动作目标", 100, 0, [])
+	target["side"] = "enemy"
+	target["agility"] = 9
+	target["statuses"] = []
+	session.enemies = [target]
+	session.battle_service._execute_action_skill(session, "test_action_conditions", conditional_skill, 0, session.player, true)
+	assert_equal(int(session.enemies[0]["hp"]), 90, "matching action conditions should execute damage")
+	session.has_acted = false
+	session.player["hp"] = 80
+	session.enemies[0]["hp"] = 100
+	session.battle_service._execute_action_skill(session, "test_action_conditions", conditional_skill, 0, session.player, true)
+	assert_equal(int(session.enemies[0]["hp"]), 100, "non-matching action conditions should skip damage")
+
+	session.has_acted = false
+	session.enemies[0]["hp"] = 100
+	session.enemies[0]["armor"] = 30
+	session.enemies[0]["defense"] = 30
+	session.battle_service._execute_action_skill(session, "test_action_ignore_armor", ignore_armor_skill, 0, session.player, true)
+	assert_equal(int(session.enemies[0]["hp"]), 90, "ignore_armor should bypass target armor")
+
+	var enemy := TestHelpers.test_enemy("敌方动作敌人", 100, 10, [])
+	enemy["side"] = "enemy"
+	enemy["fixed_stats"] = true
+	enemy["statuses"] = []
+	session.enemies = [enemy]
+	session.player["hp"] = 80
+	session.battle_service._execute_action_skill(session, "test_enemy_action_damage", enemy_damage_skill, 0, enemy, false)
+	assert_equal(int(session.player["hp"]), 65, "enemy actions damage should use the shared target pipeline")
+
+	session.battle_service._execute_action_skill(session, "test_enemy_action_summon", enemy_summon_skill, 0, enemy, false)
+	assert_equal(session.enemies.size(), 3, "summon action should add the configured number of enemies")
+	assert_equal(int(session.enemies[1].get("available_round", 0)), int(session.round_index) + 1, "summoned enemies should wait for the configured delay")
+
+	session.has_acted = false
+	session.message = ""
+	session.battle_service._execute_action_skill(session, "test_action_unknown", unknown_skill, 0, session.player, true)
+	assert_true(session.message.contains("未知 action"), "unknown action should report a product-visible error")
+
+	session.delete_save()
+
+
+func test_damage_rounding_uses_ceiling() -> void:
+	var session := PlaySession.new()
+	session.delete_save()
+	session.start_new_game("warrior")
+	session.pending_state_card = ""
+	session.player["critical_weight"] = 0
+	session.player["attack"] = 8
+	session.battle_attack_multiplier = 1.05
+	assert_equal(CombatRules.current_attack_value(session), 9, "8.4 attack damage should round up to 9")
+	session.player["attack"] = 10.5
+	assert_equal(CombatRules.skill_attack_value(session, "quick_shot"), 9, "8.4 skill damage should round up to 9")
+	session.delete_save()
 
 
 func test_basic_attack_agility_segments() -> void:
@@ -62,6 +271,7 @@ func test_basic_attack_agility_segments() -> void:
 	realtime.pending_state_card = ""
 	realtime.player["attack"] = 10
 	realtime.player["agility"] = 12
+	realtime.player["critical_weight"] = 0
 	realtime.player["statuses"] = []
 	var realtime_enemies: Array[Dictionary] = [TestHelpers.test_enemy("实时敏捷目标", 100, 0, [])]
 	realtime.enemies = realtime_enemies
@@ -163,19 +373,51 @@ func test_curse_refreshes_instead_of_stacking() -> void:
 	assert_equal(int(curse_statuses[0]["duration"]), 3, "curse duration should refresh to 3 rounds")
 
 
-func test_toxic_mist_uses_holder_attack() -> void:
+func test_toxic_mist_hits_player_and_allies() -> void:
 	var status_service := StatusService.new()
 	var player := {"hp": 100, "max_hp": 100, "statuses": []}
 	var ally := {"hp": 100, "max_hp": 100, "statuses": []}
+	var enemy := {"hp": 100, "max_hp": 100, "side": "enemy", "statuses": [], "passive_skills": []}
 	var boss := {
 		"hp": 100,
+		"max_hp": 100,
 		"attack": 20,
 		"defense": 0,
-		"passive_skills": ["toxic_mist", "", "", ""]
+		"side": "enemy",
+		"passive_skills": ["toxic_mist", "", "", ""],
+		"statuses": []
 	}
-	CombatRules.apply_arena_effects(player, [boss], 3, status_service, [ally], [])
-	assert_equal(int(player["hp"]), 94, "toxic mist should use holder attack against player")
-	assert_equal(int(ally["hp"]), 94, "toxic mist should also hit allied units")
+	CombatRules.apply_arena_effects(player, [boss, enemy], 3, status_service, [ally], [])
+	assert_equal(int(player["hp"]), 94, "toxic mist should deal 30 percent of the boss attack to the player")
+	assert_equal(int(ally["hp"]), 94, "toxic mist should deal 30 percent of the boss attack to allies")
+	assert_equal(int(boss["hp"]), 100, "toxic mist should not affect its holder")
+	assert_equal(int(enemy["hp"]), 100, "toxic mist should not affect enemy units")
+
+
+func test_arena_damage_and_heal_modifiers() -> void:
+	var status_service := StatusService.new()
+	var player := {"hp": 100, "max_hp": 100, "attack": 10, "statuses": []}
+	var shadow_boss := {"hp": 100, "max_hp": 100, "side": "enemy", "passive_skills": ["shadow_domain", "", "", ""], "statuses": []}
+	CombatRules.apply_arena_effects(player, [shadow_boss], 1, status_service)
+	assert_equal(status_service.resolve_stat(player, 1.0, StatusService.STAT_SHADOW_DAMAGE), 1.20, "shadow domain should increase shadow damage")
+	assert_equal(status_service.resolve_stat(player, 10.0, StatusService.STAT_HEAL), 5.0, "shadow domain should halve healing")
+
+	player["statuses"] = []
+	var blood_boss := {"hp": 100, "max_hp": 100, "side": "enemy", "passive_skills": ["blood_moon", "", "", ""], "statuses": []}
+	CombatRules.apply_arena_effects(player, [blood_boss], 1, status_service)
+	assert_equal(int(status_service.resolve_stat(player, 10.0, StatusService.STAT_ATTACK)), 11, "blood moon should add one attack")
+	assert_equal(int(status_service.resolve_stat(player, 10.0, StatusService.STAT_HEAL)), 11, "blood moon should add one healing")
+
+	var session := PlaySession.new()
+	session.delete_save()
+	session.start_new_game("warrior")
+	session.player["hp"] = 40
+	session.player["max_hp"] = 80
+	session.player["statuses"] = [{"id": "shadow_heal_test", "kind": "debuff", "effects": [{"stat": StatusService.STAT_HEAL, "type": StatusService.EFFECT_MULTIPLY, "value": 0.50}]}]
+	session.has_acted = false
+	session.use_blood_potion_in_battle()
+	assert_equal(int(session.player["hp"]), 52, "blood potion should respect healing modifiers")
+	session.delete_save()
 
 
 func test_new_units_wait_one_round() -> void:
@@ -305,6 +547,23 @@ func test_thick_skin_always_grants_armor() -> void:
 	assert_true(int(session.enemies[0]["armor"]) >= 1, "loaded thick skin enemy should recover armor")
 
 
+func test_loaded_enemy_traits_are_idempotent() -> void:
+	var enemy := Combatant.from_enemy_unit({
+		"name": "重复特性测试",
+		"rank": "normal",
+		"hp": 30,
+		"attack": 5,
+		"defense": 2,
+		"passive_skills": ["curse", "", "", ""]
+	}, "normal", 1)
+	enemy["statuses"].append({"id": "saved_dynamic_status", "kind": "debuff", "duration": 2})
+	Combatant.normalize_enemy(enemy)
+	Combatant.normalize_enemy(enemy)
+	var trait_statuses: Array = enemy["statuses"].filter(func(status): return String(status.get("id", "")).begins_with("trait_"))
+	assert_equal(trait_statuses.size(), 1, "reloading an enemy should not duplicate trait statuses")
+	assert_true(enemy["statuses"].any(func(status): return String(status.get("id", "")) == "saved_dynamic_status"), "reloading should preserve dynamic statuses")
+
+
 func test_skill_multiplier_effects() -> void:
 	var session_script = load("res://scripts/core/play_session.gd")
 	var warrior = session_script.new()
@@ -370,6 +629,7 @@ func test_counter_stance_and_multihit_dodge() -> void:
 	archer.player["skill_attachments"] = {}
 	archer.player["weapon_skill_2"] = "quick_shot"
 	archer.player["attack"] = 10
+	archer.player["critical_weight"] = 0
 	var dodging_enemies: Array[Dictionary] = [TestHelpers.test_enemy("闪避测试敌人", 100, 0, [])]
 	dodging_enemies[0]["dodge_layers"] = 1
 	archer.enemies = dodging_enemies
@@ -519,6 +779,54 @@ func test_enemy_ai_skill_selection() -> void:
 		"innate_skills": {"attack_1": "innate_attack_1", "defend": "innate_defend", "dodge": "innate_dodge"}
 	}
 	assert_equal(rules.choose_skill(no_skills_enemy, 1), "innate_attack_1", "enemy with no skills should fallback to innate attack")
+
+
+func test_enemy_enrage_duration_and_cooldown() -> void:
+	var enrage_skill: Dictionary = DataCatalog.SKILLS["enemy_enrage"]
+	assert_equal(int(enrage_skill["duration"]), 4, "enemy enrage should last four rounds")
+	assert_equal(int(enrage_skill["cooldown"]), 6, "enemy enrage should have a six-round cooldown")
+
+	var play_session_script = load("res://scripts/core/play_session.gd")
+	var battle_service_script = load("res://scripts/core/battle_service.gd")
+	var session = play_session_script.new()
+	session.delete_save()
+	session.start_new_game("warrior")
+	session.player["hp"] = 200
+	var enemy := {
+		"name": "狂暴测试敌人",
+		"side": "enemy",
+		"rank": "normal",
+		"max_hp": 100,
+		"hp": 100,
+		"attack": 10,
+		"defense": 3,
+		"armor": 0,
+		"block_power": 3,
+		"block": 0,
+		"dodge_layers": 0,
+		"taunt": 0,
+		"passive_skills": [],
+		"skills": ["enemy_enrage", "enemy_heavy_strike"],
+		"behavior_weights": {"enemy_enrage": 20},
+		"skill_cooldowns": {},
+		"statuses": [],
+		"innate_skills": {"attack_1": "innate_attack_1", "defend": "innate_defend", "dodge": "innate_dodge"}
+	}
+	session.enemies = [enemy] as Array[Dictionary]
+	var battle_service = battle_service_script.new()
+	battle_service.resolve_enemy_action(session, enemy, 0)
+	assert_equal(int(enemy["skill_cooldowns"]["enemy_enrage"]), 6, "using enemy enrage should start its cooldown")
+	var enrage_status: Dictionary = {}
+	for status in enemy["statuses"]:
+		if String(status.get("id", "")) == "enemy_enrage":
+			enrage_status = status
+			break
+	assert_equal(int(enrage_status.get("duration", -1)), 4, "enemy enrage status should last four rounds")
+
+	var rules = load("res://scripts/core/enemy_action_rules.gd").new()
+	enemy["behavior_weights"] = {"enemy_enrage": 20, "enemy_heavy_strike": 1}
+	assert_equal(rules.choose_skill(enemy, 1), "enemy_heavy_strike", "cooling-down enemy enrage should be excluded from behavior weights")
+	session.delete_save()
 
 
 func test_enemy_taunt_skill() -> void:

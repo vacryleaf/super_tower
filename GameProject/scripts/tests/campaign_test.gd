@@ -16,6 +16,7 @@ func run() -> void:
 	test_encounter_generation()
 	test_late_battles_are_stronger_than_openers()
 	test_equipment_slots_without_sets()
+	test_tower_equipment_capacity()
 
 
 func test_tutorial_data() -> void:
@@ -139,18 +140,26 @@ func test_tower_bonus_range_and_seed_progression() -> void:
 	session._unlock_boss_npc(5)
 	assert_true(session.is_npc_unlocked("mage"), "floor five boss should unlock the mage")
 	assert_true(session.buy_common_skill("first_aid"), "mage should sell permanent skills")
+	session.tutorial_active = false
+	session.encountered_groups_by_floor = []
 	session.floor_index = 1
-	session.floor_encounter_count = 9
-	session._record_group_encounter("group_a")
-	assert_true(session.is_npc_feature_unlocked("merchant_upgraded"), "nine first-floor encounters should unlock merchant upgrades")
-	session.floor_index = 3
-	session.floor_encounter_count = 7
+	for group_index in range(8):
+		session._record_group_encounter("group_a")
+	assert_true(not session.is_npc_feature_unlocked("merchant_upgraded"), "eight first-floor groups should not unlock merchant upgrades")
 	session._record_group_encounter("group_b")
-	assert_true(session.is_npc_feature_unlocked("blacksmith_upgraded"), "seven third-floor encounters should unlock blacksmith upgrades")
-	session.floor_index = 5
-	session.floor_encounter_count = 5
+	assert_true(session.is_npc_feature_unlocked("merchant_upgraded"), "nine first-floor groups should unlock merchant upgrades")
+	session.floor_index = 3
+	for group_index in range(6):
+		session._record_group_encounter("group_b")
+	assert_true(not session.is_npc_feature_unlocked("blacksmith_upgraded"), "six third-floor groups should not unlock blacksmith upgrades")
 	session._record_group_encounter("group_c")
-	assert_true(session.is_npc_feature_unlocked("mage_upgraded"), "five fifth-floor encounters should unlock mage upgrades")
+	assert_true(session.is_npc_feature_unlocked("blacksmith_upgraded"), "seven third-floor groups should unlock blacksmith upgrades")
+	session.floor_index = 5
+	for group_index in range(4):
+		session._record_group_encounter("group_c")
+	assert_true(not session.is_npc_feature_unlocked("mage_upgraded"), "four fifth-floor groups should not unlock mage upgrades")
+	session._record_group_encounter("group_d")
+	assert_true(session.is_npc_feature_unlocked("mage_upgraded"), "five fifth-floor groups should unlock mage upgrades")
 	session.floor_index = 7
 	session.tower_bonus = 0
 	session.cleared_tower_bonuses.clear()
@@ -224,3 +233,19 @@ func test_equipment_slots_without_sets() -> void:
 	equipment_service.normalize_equipment(legacy_player)
 	assert_equal(String(legacy_player["equipment"].get("accessory", "")), "common_moon_necklace", "legacy ring should migrate to accessory")
 	assert_equal(String(legacy_player["equipment"].get("armor", "")), "circus_mask", "legacy head should migrate to armor")
+
+
+func test_tower_equipment_capacity() -> void:
+	var character := CharacterService.new()
+	var player := character.create_character("unified")
+	var candidates: Array[String] = []
+	for item_id in DataCatalog.EQUIPMENT.keys():
+		var normalized_id := String(item_id)
+		if not player["tower_equipment_ids"].has(normalized_id):
+			candidates.append(normalized_id)
+	assert_true(candidates.size() >= DataCatalog.TOWER_EQUIPMENT_SLOTS, "equipment catalog should provide capacity test items")
+	for item_index in range(DataCatalog.TOWER_EQUIPMENT_SLOTS - 1):
+		assert_true(character.equip_tower_item(player, candidates[item_index]), "tower equipment should fill an available bag slot")
+	assert_equal(player["tower_equipment_ids"].size(), DataCatalog.TOWER_EQUIPMENT_SLOTS, "tower equipment bag should stop at four items")
+	assert_true(not character.equip_tower_item(player, candidates[DataCatalog.TOWER_EQUIPMENT_SLOTS - 1]), "fifth tower equipment should be rejected")
+	assert_equal(player["tower_equipment_ids"].size(), DataCatalog.TOWER_EQUIPMENT_SLOTS, "rejected equipment should not expand the bag")

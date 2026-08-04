@@ -7,13 +7,14 @@ const Combatant = preload("res://scripts/core/combatant.gd")
 
 func save_data(session: RefCounted) -> Dictionary:
 	return {
-		"version": 3,
+		"version": 4,
 		"class_id": session.class_id,
 		"floor_index": session.floor_index,
 		"battle_index": session.battle_index,
 		"tower_bonus": session.tower_bonus,
 		"floor_encounter_count": session.floor_encounter_count,
 		"floor_group_id": session.floor_group_id,
+		"encountered_groups_by_floor": session.encountered_groups_by_floor.duplicate(true),
 		"tutorial_active": session.tutorial_active,
 		"phase": session.phase,
 		"message": session.message,
@@ -35,10 +36,14 @@ func save_data(session: RefCounted) -> Dictionary:
 		"counter_stance_charges": session.counter_stance_charges,
 		"counter_attack_multiplier": session.counter_attack_multiplier,
 		"dodge_streak": session.dodge_streak,
+		"counters": session.counters.duplicate(true),
 		"charge_used": session.charge_used,
 		"charge_ready": session.charge_ready,
 		"charge_uses_left": session.charge_uses_left,
 		"pending_charge_effects": session.pending_charge_effects,
+		"deferred_damage": session.deferred_damage,
+		"duel_target_index": session.duel_target_index,
+		"perfect_deflect": session.perfect_deflect,
 		"reward_options": session.reward_options,
 		"pending_reward": session.pending_reward,
 		"reward_targets": session.reward_targets
@@ -58,6 +63,9 @@ func load_save_data(session: RefCounted, data: Dictionary) -> bool:
 	session.tower_bonus = int(data.get("tower_bonus", 0))
 	session.floor_encounter_count = int(data.get("floor_encounter_count", 0))
 	session.floor_group_id = String(data.get("floor_group_id", ""))
+	session.encountered_groups_by_floor = _array_array(data.get("encountered_groups_by_floor", []))
+	session._restore_legacy_group_history(session.floor_encounter_count)
+	session.floor_encounter_count = session._current_floor_group_count()
 	# Legacy active runs used floor 1 plus tutorial_completed=false to represent the tutorial.
 	session.tutorial_active = bool(data.get("tutorial_active", session.floor_index == 1 and not bool(saved_player.get("tutorial_completed", false))))
 	session.phase = String(data.get("phase", "battle"))
@@ -81,11 +89,15 @@ func load_save_data(session: RefCounted, data: Dictionary) -> bool:
 	session.counter_stance_charges = int(data.get("counter_stance_charges", 0))
 	session.counter_attack_multiplier = float(data.get("counter_attack_multiplier", 1.0))
 	session.dodge_streak = int(data.get("dodge_streak", 0))
+	session.counters = _dictionary(data.get("counters", {}))
 	session.charge_used = _dictionary(data.get("charge_used", {}))
 	session.charge_ready = _dictionary(data.get("charge_ready", {}))
 	session.charge_uses_left = _dictionary(data.get("charge_uses_left", {}))
 	session.pending_charge_effects = _dictionary(data.get("pending_charge_effects", {}))
 	session._ensure_charge_effects()
+	session.deferred_damage = float(data.get("deferred_damage", 0.0))
+	session.duel_target_index = int(data.get("duel_target_index", -1))
+	session.perfect_deflect = bool(data.get("perfect_deflect", false))
 	session.reward_options = _dictionary_array(data.get("reward_options", []))
 	session.pending_reward = _dictionary(data.get("pending_reward", {}))
 	session.reward_targets = _dictionary_array(data.get("reward_targets", []))
@@ -125,4 +137,21 @@ func _dictionary_array(value: Variant) -> Array[Dictionary]:
 	for item in value:
 		if typeof(item) == TYPE_DICTIONARY:
 			result.append((item as Dictionary).duplicate(true))
+	return result
+
+
+func _array_array(value: Variant) -> Array:
+	var result: Array = []
+	if typeof(value) != TYPE_ARRAY:
+		return result
+	for row_value in value:
+		if typeof(row_value) != TYPE_ARRAY:
+			result.append([])
+			continue
+		var row: Array = []
+		for group_id in row_value:
+			var normalized_id := String(group_id)
+			if normalized_id != "":
+				row.append(normalized_id)
+		result.append(row)
 	return result

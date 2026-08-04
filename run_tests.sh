@@ -20,19 +20,22 @@ else
     exit 1
 fi
 
-TEST_LOG=$(mktemp "${TMPDIR:-/tmp}/super_tower_tests.XXXXXX")
-set +e
-"$GODOT" --headless --quiet --no-header --path "$PROJECT" --script "res://scripts/tests/tutorial_and_floors_test.gd" >"$TEST_LOG" 2>&1
-status=$?
-set -e
-cat "$TEST_LOG"
-if grep -Eq "Failed to load script|Compilation failed|SCRIPT ERROR" "$TEST_LOG"; then
-    status=1
-fi
-rm -f "$TEST_LOG"
-if [ "$status" -ne 0 ]; then
-    exit "$status"
-fi
+run_test() {
+    test_name="$1"
+    test_log=$(mktemp "${TMPDIR:-/tmp}/super_tower_tests.XXXXXX")
+    "$GODOT" --headless --quiet --no-header --path "$PROJECT" --script "res://scripts/tests/${test_name}.gd" >"$test_log" 2>&1
+    test_status=$?
+    cat "$test_log"
+    if grep -Eq "Failed to load script|Compilation failed|SCRIPT ERROR" "$test_log"; then
+        test_status=1
+    fi
+    rm -f "$test_log"
+    return "$test_status"
+}
+
+run_test tutorial_and_floors_test || exit $?
+run_test pre_run_ui_smoke_test || exit $?
+run_test ui_click_smoke_test || exit $?
 
 echo "ALL TESTS PASSED"
 exit 0

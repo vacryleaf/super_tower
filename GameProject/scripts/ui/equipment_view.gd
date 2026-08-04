@@ -77,15 +77,16 @@ func _render_bag(parent: Control, session: Variant, label_factory: Callable) -> 
 	var bag := VBoxContainer.new()
 	bag.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	bag_scroll.add_child(bag)
-	bag.add_child(label_factory.call("本局背包", 16))
-	if session.player["equipment_ids"].is_empty():
+	var tower_equipment_ids: Array = session.player.get("tower_equipment_ids", [])
+	bag.add_child(label_factory.call("本局背包（%d/%d）" % [tower_equipment_ids.size(), DataCatalog.TOWER_EQUIPMENT_SLOTS], 16))
+	if tower_equipment_ids.is_empty():
 		bag.add_child(label_factory.call("暂无本局装备。", 13))
 	else:
-		for item_id in session.player["equipment_ids"]:
+		for item_id in tower_equipment_ids:
 			if not DataCatalog.EQUIPMENT.has(String(item_id)):
 				continue
 			var item: Dictionary = DataCatalog.EQUIPMENT[String(item_id)]
-			bag.add_child(label_factory.call("%s%s\n%s  生命+%d 攻击+%d 护甲+%d 格挡+%d\n%s" % [
+			bag.add_child(label_factory.call("%s（%s）\n生命+%d 攻击+%d 护甲+%d 格挡+%d\n%s" % [
 				item["name"],
 				slot_label(DataCatalog.equipment_slot(item)),
 				int(item["hp"]),
@@ -105,7 +106,9 @@ func _render_bag(parent: Control, session: Variant, label_factory: Callable) -> 
 
 
 func _equipped_name(session: Variant, slot: String) -> String:
-	var equipment: Dictionary = session.player.get("equipment", {})
+	var equipment: Dictionary = session.player.get("tower_equipment", {})
+	if equipment.is_empty():
+		equipment = session.player.get("equipment", {})
 	if equipment.has(slot):
 		var item_id: String = equipment[slot]
 		return DataCatalog.EQUIPMENT[item_id]["name"]

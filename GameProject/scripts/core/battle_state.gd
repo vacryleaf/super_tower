@@ -8,6 +8,7 @@ var battle_index := 1
 var tower_bonus := 0
 var floor_encounter_count := 0
 var floor_group_id := ""
+var encountered_groups_by_floor: Array = []
 var tutorial_active := false
 var phase := "menu"
 var message := ""
@@ -28,6 +29,7 @@ var enemy_attack_multiplier := 1.0
 var counter_stance_charges := 0
 var counter_attack_multiplier := 1.0
 var dodge_streak := 0
+var counters: Dictionary = {}
 var attacked_this_turn := false
 var reward_options: Array[Dictionary] = []
 var pending_reward: Dictionary = {}
@@ -51,6 +53,7 @@ func reset() -> void:
 	tower_bonus = 0
 	floor_encounter_count = 0
 	floor_group_id = ""
+	encountered_groups_by_floor.clear()
 	tutorial_active = false
 	phase = "menu"
 	message = "已返回塔下营地。"
@@ -71,6 +74,7 @@ func reset() -> void:
 	counter_stance_charges = 0
 	counter_attack_multiplier = 1.0
 	dodge_streak = 0
+	counters = {}
 	attacked_this_turn = false
 	reward_options.clear()
 	pending_reward = {}

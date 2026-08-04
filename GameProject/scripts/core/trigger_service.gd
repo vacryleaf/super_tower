@@ -28,8 +28,12 @@ func fire_trigger(target: Dictionary, event: String, context: Dictionary) -> voi
 		for trigger in status.get("triggers", []):
 			if String(trigger.get("event", "")) != event:
 				continue
-			if trigger.has("condition"):
-				if service == null or not service.evaluate_condition(target, trigger["condition"], context):
+			if service == null:
+				continue
+			if trigger.has("condition") and not service.evaluate_condition(target, trigger["condition"], context):
+				continue
+			var conditions: Array = trigger.get("conditions", [])
+			if not conditions.is_empty() and not service.evaluate_conditions(target, conditions, context):
 					continue
 			for action in trigger.get("actions", []):
 				_execute_action(target, action, context)

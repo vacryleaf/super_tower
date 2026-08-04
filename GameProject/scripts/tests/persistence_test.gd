@@ -10,6 +10,7 @@ func run() -> void:
 	test_profile_migrates_legacy_class_ids_to_unified()
 	test_tower_coins_persist()
 	test_npc_unlock_persists()
+	test_group_history_persists_by_floor()
 	test_blood_potion_persists_and_can_be_used_in_battle()
 
 
@@ -20,6 +21,10 @@ func test_save_round_trip() -> void:
 	session.start_new_game("warrior")
 	TestHelpers.force_win(session)
 	session.battle_log.append("save_marker")
+	session.deferred_damage = 7.5
+	session.duel_target_index = 0
+	session.perfect_deflect = true
+	session.set_counter("saved_counter", 4)
 	assert_true(session.save_game(), "save should succeed")
 	var loaded = session_script.new()
 	assert_true(loaded.load_game(), "load should succeed")
@@ -29,6 +34,10 @@ func test_save_round_trip() -> void:
 	assert_equal(int(loaded.battle_index), int(session.battle_index), "loaded battle")
 	assert_equal(int(loaded.player["hp"]), int(session.player["hp"]), "loaded hp")
 	assert_equal(loaded.enemies.size(), session.enemies.size(), "loaded enemy count")
+	assert_equal(loaded.deferred_damage, session.deferred_damage, "loaded deferred damage")
+	assert_equal(loaded.duel_target_index, session.duel_target_index, "loaded duel target")
+	assert_equal(loaded.perfect_deflect, session.perfect_deflect, "loaded perfect deflect")
+	assert_equal(loaded.get_counter("saved_counter"), 4, "loaded trigger counter")
 	assert_true(not loaded.battle_log.has("save_marker"), "battle log should not persist")
 	loaded.delete_save()
 
@@ -124,6 +133,23 @@ func test_npc_unlock_persists() -> void:
 	loaded._load_account()
 	assert_true(loaded.is_npc_unlocked("mage"), "mage unlock should persist")
 	session.delete_save()
+
+
+func test_group_history_persists_by_floor() -> void:
+	var session_script = load("res://scripts/core/play_session.gd")
+	var session = session_script.new()
+	session.delete_save()
+	session.start_new_game("warrior")
+	session.tutorial_active = false
+	session.floor_index = 3
+	session.encountered_groups_by_floor = [["rat", "guard"], [], ["shadow", "caster", "mutant"]]
+	session.floor_encounter_count = 3
+	assert_true(session.save_game(), "group history should save with active run")
+	var loaded = session_script.new()
+	assert_true(loaded.load_game(), "group history save should load")
+	assert_equal(loaded.encountered_groups_by_floor, session.encountered_groups_by_floor, "group history should preserve each floor row")
+	assert_equal(loaded.floor_encounter_count, 3, "current floor group count should be restored")
+	loaded.delete_save()
 
 
 func test_blood_potion_persists_and_can_be_used_in_battle() -> void:

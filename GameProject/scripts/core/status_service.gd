@@ -17,6 +17,7 @@ const STAT_ARMOR := "armor"
 const STAT_EXTRA_HITS := "extra_hits"
 const STAT_ENERGY_COST := "energy_cost"
 const STAT_COOLDOWN := "cooldown"
+const STAT_SHADOW_DAMAGE := "shadow_damage"
 const STAT_RESIST_PREFIX := "resist_"
 
 const EFFECT_FLAT := "flat"
@@ -112,6 +113,15 @@ func resolve_stat(target: Dictionary, base_value: float, stat_key: String, conte
 
 func evaluate_condition(target: Dictionary, condition: Dictionary, context: Dictionary) -> bool:
 	return condition_evaluator.evaluate(target, condition, context)
+
+
+func evaluate_conditions(target: Dictionary, conditions: Array, context: Dictionary) -> bool:
+	for condition in conditions:
+		if typeof(condition) != TYPE_DICTIONARY:
+			return false
+		if not evaluate_condition(target, condition, context):
+			return false
+	return true
 
 
 func fire_trigger(target: Dictionary, event: String, context: Dictionary) -> void:

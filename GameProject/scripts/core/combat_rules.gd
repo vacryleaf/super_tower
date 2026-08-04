@@ -12,6 +12,8 @@ const RANK_SKILL_MULTIPLIER := {
 	"boss": 1.45
 }
 
+const CRITICAL_MULTIPLIER := 2.0
+
 # 回合结束特性效果常量（集中管理，battle_service 使用）
 const CURSE_INTERVAL := 3
 const CURSE_DAMAGE := 1
@@ -118,6 +120,19 @@ static func alive_count(enemies: Array[Dictionary]) -> int:
 		if int(enemy.get("hp", 0)) > 0:
 			count += 1
 	return count
+
+
+static func roll_critical(attacker: Dictionary, rng: RandomNumberGenerator) -> bool:
+	var weight := clampf(float(attacker.get("critical_weight", 0)), 0.0, 100.0)
+	if weight <= 0.0:
+		return false
+	if weight >= 100.0:
+		return true
+	return rng.randf_range(0.0, 100.0) < weight
+
+
+static func critical_multiplier(attacker: Dictionary) -> float:
+	return maxf(1.0, CRITICAL_MULTIPLIER + float(attacker.get("critical_damage_bonus", 0.0)))
 
 
 # 普通攻击段数由当前攻击者与目标的敏捷比值决定；主动技能 hits 不走此规则。
@@ -248,7 +263,7 @@ static func current_attack_value(session: RefCounted, action_source: String = ""
 	var modifiers: Array = ModifierPipeline.collect_from_session(session, "attack", {
 		"state_card": session.pending_state_card,
 	}, action_source)
-	return maxi(1, int(round(ModifierPipeline.resolve(resolved_attack, modifiers))))
+	return maxi(1, int(ceil(ModifierPipeline.resolve(resolved_attack, modifiers))))
 
 
 static func defense_value(session: RefCounted) -> int:
@@ -270,7 +285,7 @@ static func skill_attack_value(session: RefCounted, skill_id: String, action_sou
 	var multiplier: float = float(skill.get("multiplier", 1.0)) + session._skill_multiplier_bonus(skill_id, "attack")
 	var resolved_attack: float = session.status_service.resolve_stat(session.player, float(session.player["attack"]), StatusService.STAT_ATTACK)
 	var modifiers: Array = ModifierPipeline.collect_from_session(session, "attack", {"skill_id": skill_id, "skill_multiplier": multiplier}, action_source)
-	return maxi(1, int(round(ModifierPipeline.resolve(resolved_attack, modifiers))))
+	return maxi(1, int(ceil(ModifierPipeline.resolve(resolved_attack, modifiers))))
 
 
 static func skill_defense_value(session: RefCounted, skill_id: String) -> int:
@@ -365,7 +380,7 @@ static func enemy_attack_segments(session: RefCounted, enemy: Dictionary, first_
 		return segments
 	var result: Array[int] = []
 	for damage in segments:
-		result.append(maxi(1, int(round(float(damage) * total_multiplier))))
+		result.append(maxi(1, int(ceil(float(damage) * total_multiplier))))
 	return result
 
 
@@ -499,7 +514,8 @@ static func apply_end_round_traits(player: Dictionary, enemies: Array[Dictionary
 		if passive_skills.has("support") and round_index % SUPPORT_INTERVAL == 0:
 			var lowest_ally: Dictionary = find_lowest_hp_ally(enemies, enemy)
 			if not lowest_ally.is_empty():
-				var heal := maxi(1, int(round(float(lowest_ally["max_hp"]) * SUPPORT_HEAL_RATIO)))
+				var base_heal := maxi(1, int(ceil(float(lowest_ally["max_hp"]) * SUPPORT_HEAL_RATIO)))
+				var heal := maxi(1, int(ceil(status_service.resolve_stat(lowest_ally, float(base_heal), StatusService.STAT_HEAL))))
 				lowest_ally["hp"] = mini(int(lowest_ally["max_hp"]), int(lowest_ally["hp"]) + heal)
 				if not log.is_empty():
 					log.append("support_heal:%s:%d" % [lowest_ally["name"], heal])
@@ -528,7 +544,7 @@ static func apply_arena_effects(player: Dictionary, enemies: Array[Dictionary], 
 			has_shadow_domain = true
 		if skill_id == "blood_moon":
 			has_blood_moon = true
-	# 毒雾：每 3 回合对玩家和友军造成基于持有者攻击力的伤害
+	# 毒雾：每 3 回合对玩家和存活盟友造成首领攻击力 30% 的伤害
 	if has_toxic_mist and round_index % 3 == 0:
 		var source_attack := 0.0
 		for source in toxic_sources:
@@ -545,27 +561,40 @@ static func apply_arena_effects(player: Dictionary, enemies: Array[Dictionary], 
 					log.append("毒雾：%s 闪避了伤害。" % String(target.get("name", "")))
 				else:
 					log.append("毒雾：%s 受到 %d 点伤害。" % [String(target.get("name", "")), int(result["damage"])])
-	# 暗影领域：暗影伤害 +20%，治疗 -50%
+	# 暗影领域：全体暗影伤害 +20%，全体治疗 -50%
 	if has_shadow_domain:
 		var shadow_status := {"id": "shadow_domain_effect", "name": "暗影领域", "kind": "debuff", "stack": "replace",
 			"effects": [
-				{"stat": "resist_shadow", "type": "multiply", "value": 0.80},
+				{"stat": StatusService.STAT_SHADOW_DAMAGE, "type": "multiply", "value": 1.20},
 				{"stat": "heal", "type": "multiply", "value": 0.50}
 			],
-			"duration": 1}
-		status_service.add_status(player, shadow_status)
+			"duration": 2}
+		var shadow_targets: Array[Dictionary] = [player]
+		for enemy in enemies:
+			if int(enemy.get("hp", 0)) > 0:
+				shadow_targets.append(enemy)
+		for ally in allies:
+			if int(ally.get("hp", 0)) > 0:
+				shadow_targets.append(ally)
+		for target in shadow_targets:
+			status_service.add_status(target, shadow_status)
 	# 血月：所有攻击 +1，所有治疗 +1
 	if has_blood_moon:
 		var blood_status := {"id": "blood_moon_effect", "name": "血月", "kind": "buff", "stack": "replace",
 			"effects": [
-				{"stat": "attack", "type": "flat", "value": 0.5},
+				{"stat": StatusService.STAT_ATTACK, "type": "flat", "value": 1.0},
 				{"stat": "heal", "type": "flat", "value": 1.0}
 			],
-			"duration": 1}
-		status_service.add_status(player, blood_status)
+			"duration": 2}
+		var blood_targets: Array[Dictionary] = [player]
 		for enemy in enemies:
 			if int(enemy.get("hp", 0)) > 0:
-				status_service.add_status(enemy, blood_status)
+				blood_targets.append(enemy)
+		for ally in allies:
+			if int(ally.get("hp", 0)) > 0:
+				blood_targets.append(ally)
+		for target in blood_targets:
+			status_service.add_status(target, blood_status)
 
 
 static func shadow_armor_reflect_damage(result: Dictionary) -> int:

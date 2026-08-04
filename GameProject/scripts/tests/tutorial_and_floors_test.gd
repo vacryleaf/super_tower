@@ -5,6 +5,7 @@ const CombatMechanicsTests = preload("res://scripts/tests/combat_mechanics_test.
 const RewardSystemTests = preload("res://scripts/tests/reward_system_test.gd")
 const PersistenceTests = preload("res://scripts/tests/persistence_test.gd")
 const CampaignTests = preload("res://scripts/tests/campaign_test.gd")
+const BattleServiceTests = preload("res://scripts/tests/battle_service_test.gd")
 
 var failures: Array[String] = []
 
@@ -30,6 +31,7 @@ func run_all() -> void:
 	_run(RewardSystemTests.new())
 	_run(PersistenceTests.new())
 	_run(CampaignTests.new())
+	_run(BattleServiceTests.new())
 
 
 func _run(suite: RefCounted) -> void:

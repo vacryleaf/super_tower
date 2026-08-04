@@ -119,7 +119,9 @@ func apply_tower_equipment(session: Variant, reward: Dictionary) -> void:
 	var item_id := String(reward.get("item_id", ""))
 	if item_id == "" or not DataCatalog.EQUIPMENT.has(item_id):
 		return
-	session.character.equip_tower_item(session.player, item_id)
+	if not session.character.equip_tower_item(session.player, item_id):
+		session.message = "本局装备背包已满，无法获得：%s。" % DataCatalog.EQUIPMENT[item_id]["name"]
+		return
 	session.message = "获得塔内装备：%s。" % DataCatalog.EQUIPMENT[item_id]["name"]
 
 

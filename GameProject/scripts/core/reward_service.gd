@@ -19,12 +19,15 @@ func tutorial_reward(class_id: String, battle_index: int) -> Dictionary:
 func tower_equipment_reward(player: Dictionary, class_id: String) -> Dictionary:
 	var candidates: Array[String] = []
 	var tower_equipment: Dictionary = player.get("tower_equipment", {})
+	var tower_equipment_ids: Array = player.get("tower_equipment_ids", [])
+	if tower_equipment_ids.size() >= DataCatalog.TOWER_EQUIPMENT_SLOTS:
+		return {}
 	for item_id in DataCatalog.EQUIPMENT.keys():
 		var item: Dictionary = DataCatalog.EQUIPMENT[item_id]
 		var item_class := String(item.get("class", "common"))
 		if item_class != "common" and item_class != class_id and not (class_id == "unified" and item_class in ["warrior", "archer"]):
 			continue
-		if player.get("equipment_ids", []).has(item_id) or tower_equipment.values().has(item_id):
+		if player.get("equipment_ids", []).has(item_id) or tower_equipment_ids.has(item_id) or tower_equipment.values().has(item_id):
 			continue
 		candidates.append(String(item_id))
 	if candidates.is_empty():

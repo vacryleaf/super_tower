@@ -44,7 +44,13 @@
 - [system.docx](system.docx)：面向用户查看的 Word 汇总版；源内容仍以本索引链接的 Markdown 为准。
 - [archive/legacy/README.md](archive/legacy/README.md)：旧文件迁移说明，不参与当前规则判断。
 
-## 5. 代码权威入口
+## 5. 架构顾问资产
+
+- [assistant/README.md](assistant/README.md)：项目架构顾问 Ghost 的入口、使用方式和可迁移资产。
+- [assistant/project-architecture-consultant/SKILL.md](assistant/project-architecture-consultant/SKILL.md)：需求细化、快速问答、模块抽象和知识沉淀工作流。
+- [assistant/requirements/README.md](assistant/requirements/README.md)：需求文档保存约定。
+
+## 6. 代码权威入口
 
 - 静态数据：`GameProject/scripts/core/data_catalog.gd`、`GameProject/scripts/core/trait_catalog.gd`
 - 外部表：`GameProject/data/catalog_v1.json`、`GameProject/scripts/core/data_repository.gd`
@@ -53,6 +59,6 @@
 - 通用效果：`action_pipeline.gd`、`status_service.gd`、`trigger_service.gd`
 - 内容行为：`enemy_action_rules.gd`、`combat_rules.gd`
 
-## 6. 文档状态
+## 7. 文档状态
 
 本次整理不删除历史内容；旧的散落文件已移动到 `archive/legacy/`，并从当前入口中移除。新内容若尚未有代码支持，必须明确写成“设计已确认待实现”，不得伪装成已实现功能。

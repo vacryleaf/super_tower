@@ -4,7 +4,6 @@ class_name PreRunView
 const DataCatalog = preload("res://scripts/core/data_catalog.gd")
 const UIHelpers = preload("res://scripts/ui/ui_helpers.gd")
 
-const CLASS_ORDER := ["warrior", "archer"]
 const CLASS_CARD_SIZE := Vector2(150, 210)
 const EQUIPMENT_SLOT_SIZE := Vector2(58, 58)
 const SKILL_SLOT_SIZE := Vector2(62, 62)
@@ -103,10 +102,17 @@ func _build_class_column(session: Variant, label_factory: Callable, action_callb
 	list.add_theme_constant_override("separation", 10)
 	scroll.add_child(list)
 
-	for class_key in CLASS_ORDER:
+	for class_key in _class_order():
 		list.add_child(_build_class_card(session, class_key, label_factory, action_callback, false))
 
 	return column
+
+
+func _class_order() -> Array[String]:
+	var result: Array[String] = []
+	for class_key in DataCatalog.CLASSES.keys():
+		result.append(String(class_key))
+	return result
 
 
 func _build_selected_class_card(session: Variant, label_factory: Callable) -> Control:
@@ -260,7 +266,7 @@ func _build_warehouse_column(session: Variant, label_factory: Callable, action_c
 	column.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	column.add_theme_constant_override("separation", 10)
 
-	column.add_child(_nowrap_label(label_factory, "仓库", 18, 80))
+	column.add_child(_nowrap_label(label_factory, "永久装备仓库", 18, 120))
 	if selected_class == "":
 		column.add_child(label_factory.call("选中职业后，仓库才会显示可用物品。", 14))
 		return column

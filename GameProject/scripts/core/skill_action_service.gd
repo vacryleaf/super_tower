@@ -12,6 +12,7 @@ const ACTION_CLEAR_DEBUFFS := "clear_debuffs"
 const ACTION_HEAL := "heal"
 const ACTION_SET_DUEL := "set_duel"
 const ACTION_SET_DEFLECT := "set_deflect"
+const ACTION_SUMMON := "summon"
 
 const TARGET_SELECTED := "selected"
 const TARGET_ALL_ENEMIES := "all_enemies"

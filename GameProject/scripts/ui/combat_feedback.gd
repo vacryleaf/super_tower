@@ -22,13 +22,13 @@ func _play_single_event_feedback(event: Dictionary, enemy_card_nodes: Dictionary
 		var target_index := int(event.get("target_index", 0))
 		var target_node: Variant = enemy_card_nodes.get(target_index, null)
 		_shake_node(target_node)
-		var enemy_prefix := "+" if event.get("kind", "") in ["defense", "dodge"] else "-"
+		var enemy_prefix := "+" if event.get("kind", "") in ["defense", "dodge", "buff", "energy"] else "-"
 		if int(event.get("amount", 0)) > 0:
 			_float_number(target_node, "%s%d" % [enemy_prefix, int(event.get("amount", 0))], "center_bottom", label_fn)
 	elif event.get("target", "") == "player":
 		_shake_node(player_status_node)
 		if int(event.get("amount", 0)) > 0:
-			var prefix := "+" if event.get("kind", "") in ["defense", "heal", "dodge"] else "-"
+			var prefix := "+" if event.get("kind", "") in ["defense", "heal", "dodge", "buff", "energy"] else "-"
 			_float_number(player_status_node, "%s%d" % [prefix, int(event.get("amount", 0))], "center_top", label_fn)
 
 

@@ -9,6 +9,7 @@ const RewardService = preload("res://scripts/core/reward_service.gd")
 const SaveProfile = preload("res://scripts/core/save_profile.gd")
 const BattleService = preload("res://scripts/core/battle_service.gd")
 const ChargeService = preload("res://scripts/core/charge_service.gd")
+const ConsumableService = preload("res://scripts/core/consumable_service.gd")
 const StateBuffService = preload("res://scripts/core/state_buff_service.gd")
 const RunProgressService = preload("res://scripts/core/run_progress_service.gd")
 const RewardApplyService = preload("res://scripts/core/reward_apply_service.gd")
@@ -34,6 +35,7 @@ var rewards := RewardService.new()
 var save_profile := SaveProfile.new()
 var battle_service := BattleService.new()
 var charge_service := ChargeService.new()
+var consumable_service := ConsumableService.new()
 var state_buffs := StateBuffService.new()
 var run_progress := RunProgressService.new()
 var reward_apply := RewardApplyService.new()
@@ -91,6 +93,11 @@ var floor_group_id: String:
 		return battle_state.floor_group_id
 	set(value):
 		battle_state.floor_group_id = value
+var encountered_groups_by_floor: Array:
+	get:
+		return battle_state.encountered_groups_by_floor
+	set(value):
+		battle_state.encountered_groups_by_floor = value
 var tutorial_active: bool:
 	get:
 		return battle_state.tutorial_active
@@ -191,6 +198,11 @@ var dodge_streak: int:
 		return battle_state.dodge_streak
 	set(value):
 		battle_state.dodge_streak = value
+var counters: Dictionary:
+	get:
+		return battle_state.counters
+	set(value):
+		battle_state.counters = value
 var attacked_this_turn: bool:
 	get:
 		return battle_state.attacked_this_turn
@@ -286,6 +298,7 @@ func start_new_game(selected_class: String, selected_tower_bonus: int = 0) -> vo
 	tower_stash.clear()
 	pending_tutorial_epilogue = false
 	floor_group_id = ""
+	encountered_groups_by_floor = []
 	tower_bonus = clampi(selected_tower_bonus, 0, max_tower_bonus)
 	floor_index = 1
 	floor_encounter_count = 0
@@ -414,6 +427,7 @@ func delete_save() -> void:
 	npc_unlocks.clear()
 	npc_features.clear()
 	encountered_groups.clear()
+	encountered_groups_by_floor = []
 	cleared_tower_bonuses.clear()
 	max_tower_bonus = 0
 	tower_seeds = 0
@@ -435,7 +449,6 @@ func _start_current_battle() -> void:
 	_ensure_floor_group_id()
 	current_encounter = _get_current_encounter()
 	if not is_tutorial():
-		floor_encounter_count += 1
 		_record_group_encounter(String(current_encounter.get("group_id", floor_group_id)))
 	enemies = _build_enemies(current_encounter)
 	allies = []
@@ -453,6 +466,7 @@ func _start_current_battle() -> void:
 	counter_stance_charges = 0
 	counter_attack_multiplier = 1.0
 	dodge_streak = 0
+	counters = {}
 	attacked_this_turn = false
 	charge_used = {}
 	charge_ready = {}
@@ -734,19 +748,22 @@ func _check_dodge_streak() -> void:
 
 
 func get_counter(name: String) -> int:
-	match name:
-		_: return 0
+	if name == "":
+		return 0
+	return maxi(0, int(counters.get(name, 0)))
 
 
 func set_counter(name: String, value: int) -> void:
-	pass
+	if name == "":
+		return
+	counters[name] = maxi(0, value)
 
 func _apply_damage_to_enemy(target_index: int, damage: int, ignore_taunt: bool = false, damage_type: String = "physical") -> void:
 	var taunt_target := _active_taunt_target()
 	if not ignore_taunt and taunt_target >= 0:
 		target_index = taunt_target
 	var enemy := enemies[target_index]
-	var result := battle_service.deal_damage_to_target(enemy, damage, damage_type, self)
+	var result := battle_service.deal_damage_to_target(enemy, damage, damage_type, self, player)
 	if bool(result["dodged"]):
 		battle_log.append("%s 闪避了这次命中。" % enemy["name"])
 		last_events.append({"kind": "dodge_enemy_attack", "target": "enemy", "target_index": target_index, "amount": 0})
@@ -770,46 +787,7 @@ func _apply_damage_to_enemy(target_index: int, damage: int, ignore_taunt: bool =
 
 
 func deal_damage(ctx: Dictionary) -> void:
-	var source := String(ctx.get("source", ""))
-	var target_index := int(ctx.get("target_index", 0))
-	var damage := int(ctx.get("final_damage", 0))
-	var damage_type := String(ctx.get("damage_type", "physical"))
-	var ignore_taunt := not ActionSource.is_interactive(source)
-	var source_actor: Dictionary = ctx.get("source_actor", player)
-
-	if not ignore_taunt:
-		var taunt_target := _active_taunt_target()
-		if taunt_target >= 0:
-			target_index = taunt_target
-			ctx["target_index"] = target_index
-
-	var target_pool := _opposing_units(source_actor)
-	var target := target_pool[target_index]
-	var result := battle_service.deal_damage_to_target(target, damage, damage_type, self)
-	if bool(result["dodged"]):
-		battle_log.append("%s 闪避了这次命中。" % target["name"])
-		last_events.append({"kind": "dodge_enemy_attack", "target": "enemy", "target_index": target_index, "amount": 0})
-		status_service.fire_trigger(target, TriggerEvents.ON_DODGE, {"battle_log": battle_log, "session": self, "source": source_actor})
-		return
-
-	battle_log.append("命中 %s：护甲减免 %d，格挡吸收 %d，造成 %d 点伤害。" % [
-		target["name"],
-		int(result["armor_reduced"]),
-		int(result["block_absorbed"]),
-		int(result["damage"])
-	])
-	last_events.append({"kind": "damage", "target": "enemy", "target_index": target_index, "amount": int(result["damage"])})
-
-	if ActionSource.is_interactive(source):
-		var hit_context := {"battle_log": battle_log, "session": self, "source": source_actor, "damage": int(result["damage"]), "target": target}
-		status_service.fire_trigger(source_actor, TriggerEvents.ON_HIT_DEALT, hit_context)
-		status_service.fire_trigger(target, TriggerEvents.ON_HIT_RECEIVED, hit_context)
-		if int(target["hp"]) <= 0:
-			status_service.fire_trigger(source_actor, TriggerEvents.ON_KILL, {"battle_log": battle_log, "session": self, "source": source_actor, "target": target})
-			# 清除决斗目标
-			if duel_target_index >= 0 and target_pool == enemies and target_index == duel_target_index:
-				duel_target_index = -1
-				battle_log.append("单挑领域：决斗目标已死亡，单挑结束。")
+	battle_service.deal_damage(self, ctx)
 
 
 func _on_victory() -> void:
@@ -871,15 +849,56 @@ func _record_tower_completion() -> void:
 
 
 func _record_group_encounter(group_id: String) -> void:
-	if group_id != "" and not encountered_groups.has(group_id):
+	if group_id == "" or floor_index <= 0:
+		return
+	_ensure_encountered_groups_by_floor()
+	var current_floor_groups: Array = encountered_groups_by_floor[floor_index - 1]
+	current_floor_groups.append(group_id)
+	encountered_groups_by_floor[floor_index - 1] = current_floor_groups
+	floor_encounter_count = current_floor_groups.size()
+	if not encountered_groups.has(group_id):
 		encountered_groups.append(group_id)
-	if floor_index == 1 and floor_encounter_count >= 9:
-		_unlock_npc_feature("merchant_upgraded")
-	if floor_index == 3 and floor_encounter_count >= 7:
-		_unlock_npc_feature("blacksmith_upgraded")
-	if floor_index == 5 and floor_encounter_count >= 5:
-		_unlock_npc_feature("mage_upgraded")
+	_unlock_npc_upgrades_for_current_floor(current_floor_groups.size())
 	_sync_profile_now()
+
+
+func _ensure_encountered_groups_by_floor() -> void:
+	while encountered_groups_by_floor.size() < floor_index:
+		encountered_groups_by_floor.append([])
+
+
+func _current_floor_group_count() -> int:
+	if floor_index <= 0 or encountered_groups_by_floor.size() < floor_index:
+		return 0
+	return (encountered_groups_by_floor[floor_index - 1] as Array).size()
+
+
+func _restore_legacy_group_history(legacy_count: int) -> void:
+	if legacy_count <= 0 or floor_group_id == "" or floor_index <= 0:
+		return
+	_ensure_encountered_groups_by_floor()
+	var current_floor_groups: Array = encountered_groups_by_floor[floor_index - 1]
+	if not current_floor_groups.is_empty():
+		return
+	var remaining_count := legacy_count
+	while remaining_count > 0:
+		current_floor_groups.append(floor_group_id)
+		remaining_count -= 1
+	encountered_groups_by_floor[floor_index - 1] = current_floor_groups
+	floor_encounter_count = current_floor_groups.size()
+	_unlock_npc_upgrades_for_current_floor(current_floor_groups.size())
+
+
+func _unlock_npc_upgrades_for_current_floor(group_count: int) -> void:
+	for npc_id in DataCatalog.NPCS.keys():
+		var npc: Dictionary = DataCatalog.NPCS[npc_id]
+		if int(npc.get("upgrade_floor", 0)) != floor_index:
+			continue
+		var required_groups := int(npc.get("upgrade_groups", 0))
+		if required_groups <= 0 or group_count < required_groups:
+			continue
+		var feature_id := String(npc.get("upgrade_feature", "%s_upgraded" % String(npc_id)))
+		_unlock_npc_feature(feature_id)
 
 
 func get_bestiary() -> Dictionary:
@@ -1113,6 +1132,14 @@ func available_charges() -> Array[Dictionary]:
 	return charge_service.available_charges(self)
 
 
+func available_consumables() -> Array[Dictionary]:
+	return consumable_service.available_consumables(self)
+
+
+func use_consumable(reference: Variant) -> bool:
+	return consumable_service.use_consumable(self, reference)
+
+
 func use_charge(charge_id: String) -> void:
 	charge_service.use_charge(self, charge_id)
 
@@ -1227,6 +1254,7 @@ func _process_tick_effects(target: Dictionary) -> void:
 				if tick_type == "percent":
 					var amount := maxi(1, int(round(float(target["max_hp"]) * abs(tick_value))))
 					if tick_value > 0.0:
+						amount = maxi(1, int(ceil(status_service.resolve_stat(target, float(amount), StatusService.STAT_HEAL))))
 						target["hp"] = mini(int(target["max_hp"]), int(target["hp"]) + amount)
 						battle_log.append("%s：每回合恢复 %d 点 HP。" % [String(status.get("name", "")), amount])
 					elif tick_value < 0.0:
@@ -1234,7 +1262,8 @@ func _process_tick_effects(target: Dictionary) -> void:
 						battle_log.append("%s：每回合失去 %d 点 HP。" % [String(status.get("name", "")), amount])
 				elif tick_type == "flat":
 					if tick_value > 0.0:
-						target["hp"] = mini(int(target["max_hp"]), int(target["hp"]) + int(tick_value))
+						var resolved_tick: int = maxi(1, int(ceil(status_service.resolve_stat(target, abs(tick_value), StatusService.STAT_HEAL))))
+						target["hp"] = mini(int(target["max_hp"]), int(target["hp"]) + resolved_tick)
 					elif tick_value < 0.0:
 						target["hp"] = maxi(1, int(target["hp"]) + int(tick_value))
 			elif tick_stat == "energy" and tick_type == "flat":

@@ -13,6 +13,7 @@ const DODGE_ENERGY := 2
 const MAX_TOWER_FLOOR := 7
 const MAX_TOWER_BONUS := 6
 const NORMAL_CONSUMABLE_SLOTS := 3
+const TOWER_EQUIPMENT_SLOTS := 4
 const TOWER_COIN_MULTIPLIERS := {"normal": 1, "elite": 3, "boss": 10}
 const TOWER_EQUIPMENT_DROP_CHANCES := {"normal": 0.10, "elite": 0.50, "boss": 1.00}
 const TOWER_CONSUMABLE_DROP_CHANCE := 0.20
@@ -28,9 +29,9 @@ const BLOOD_POTION := {
 }
 
 const NPCS := {
-	"merchant": {"name": "商人", "unlock_boss_floor": 1, "upgrade_floor": 1, "upgrade_encounters": 9},
-	"blacksmith": {"name": "铁匠", "unlock_boss_floor": 3, "upgrade_floor": 3, "upgrade_encounters": 7},
-	"mage": {"name": "法师", "unlock_boss_floor": 5, "upgrade_floor": 5, "upgrade_encounters": 5}
+	"merchant": {"name": "商人", "unlock_boss_floor": 1, "upgrade_floor": 1, "upgrade_groups": 9, "upgrade_feature": "merchant_upgraded"},
+	"blacksmith": {"name": "铁匠", "unlock_boss_floor": 3, "upgrade_floor": 3, "upgrade_groups": 7, "upgrade_feature": "blacksmith_upgraded"},
+	"mage": {"name": "法师", "unlock_boss_floor": 5, "upgrade_floor": 5, "upgrade_groups": 5, "upgrade_feature": "mage_upgraded"}
 }
 
 const PASSIVE_SKILLS := {
@@ -115,7 +116,7 @@ const SKILLS := {
 	"enemy_bite": {"name": "撕咬", "class": "enemy", "type": "attack", "slot": 0, "energy_cost": 0, "cooldown": 5, "multiplier": 1.20, "hits": 1, "damage_type": "physical", "armor_reduction": 2},
 	"enemy_rend": {"name": "撕裂", "class": "enemy", "type": "attack", "slot": 0, "energy_cost": 0, "cooldown": 0, "multiplier": 0.70, "hits": 2, "damage_type": "physical"},
 	"enemy_fortify": {"name": "固守", "class": "enemy", "type": "defense", "slot": 0, "energy_cost": 0, "cooldown": 0, "multiplier": 1.50},
-	"enemy_enrage": {"name": "狂暴", "class": "enemy", "type": "buff", "slot": 0, "energy_cost": 0, "cooldown": 0, "attack_multiplier": 1.30},
+	"enemy_enrage": {"name": "狂暴", "class": "enemy", "type": "buff", "slot": 0, "energy_cost": 0, "cooldown": 6, "duration": 4, "attack_multiplier": 1.30},
 	"enemy_weaken": {"name": "虚弱凝视", "class": "enemy", "type": "debuff", "slot": 0, "energy_cost": 0, "cooldown": 0, "weaken_multiplier": 0.80},
 	"enemy_quick_evade": {"name": "迅捷闪避", "class": "enemy", "type": "dodge", "slot": 0, "energy_cost": 0, "cooldown": 0, "dodge_layers": 1},
 	"enemy_dark_bolt": {"name": "暗影弹", "class": "enemy", "type": "attack", "slot": 0, "energy_cost": 0, "cooldown": 0, "multiplier": 1.20, "hits": 1, "damage_type": "shadow"},

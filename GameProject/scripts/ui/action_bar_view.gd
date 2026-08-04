@@ -15,10 +15,12 @@ func render(
 	end_turn_callback: Callable,
 	blood_potion_callback: Callable,
 	skill_callback: Callable,
+	consumable_callback: Callable,
 	charge_callback: Callable
 ) -> Dictionary:
 	var action_buttons: Array[Button] = []
 	var skill_buttons: Array[Button] = []
+	var consumable_buttons: Array[Button] = []
 	var charge_buttons: Array[Button] = []
 	var actions := VBoxContainer.new()
 	actions.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -78,10 +80,29 @@ func render(
 			charge_grid.add_child(button)
 			charge_buttons.append(button)
 
-	refresh(session, input_locked, action_buttons, skill_buttons, charge_buttons)
+	var consumables: Array[Dictionary] = session.available_consumables()
+	if not consumables.is_empty():
+		var consumable_grid := GridContainer.new()
+		consumable_grid.columns = 3
+		consumable_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		actions.add_child(consumable_grid)
+		for item in consumables:
+			var button := Button.new()
+			var consumable_id := String(item.get("consumable_id", ""))
+			button.set_meta("consumable_id", consumable_id)
+			button.custom_minimum_size = Vector2(128, 56)
+			button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			button.text = _consumable_button_label(item)
+			button.disabled = input_locked or session.has_acted
+			button.pressed.connect(consumable_callback.bind(consumable_id))
+			consumable_grid.add_child(button)
+			consumable_buttons.append(button)
+
+	refresh(session, input_locked, action_buttons, skill_buttons, consumable_buttons, charge_buttons)
 	return {
 		"action_buttons": action_buttons,
 		"skill_buttons": skill_buttons,
+		"consumable_buttons": consumable_buttons,
 		"charge_buttons": charge_buttons
 	}
 
@@ -91,6 +112,7 @@ func refresh(
 	input_locked: bool,
 	action_buttons: Array[Button],
 	skill_buttons: Array[Button],
+	consumable_buttons: Array[Button],
 	charge_buttons: Array[Button]
 ) -> void:
 	for i in range(action_buttons.size()):
@@ -125,6 +147,19 @@ func refresh(
 			button.text = "%s（冷却 %d）" % [skill["name"], cd_remaining]
 		else:
 			button.text = "%s（%d 能量）" % [skill["name"], energy_cost]
+	var available_items: Dictionary = {}
+	for item in session.available_consumables():
+		available_items[String(item.get("consumable_id", ""))] = item
+	for button in consumable_buttons:
+		if button == null or not is_instance_valid(button):
+			continue
+		var consumable_id := String(button.get_meta("consumable_id", ""))
+		if not available_items.has(consumable_id):
+			button.text = "已用尽"
+			button.disabled = true
+			continue
+		button.text = _consumable_button_label(available_items[consumable_id])
+		button.disabled = input_locked or session.has_acted
 	for button in charge_buttons:
 		if button == null or not is_instance_valid(button):
 			continue
@@ -157,6 +192,10 @@ func _charge_button_label(charge: Dictionary) -> String:
 	if uses > 1:
 		state = "%s %d/%d" % [state, uses_left, uses]
 	return "%s\n%s" % [label, state]
+
+
+func _consumable_button_label(item: Dictionary) -> String:
+	return "%s\n%s" % [String(item.get("name", "消耗品")), String(item.get("source_label", "消耗品"))]
 
 
 func _blood_potion_label(session: Variant) -> String:

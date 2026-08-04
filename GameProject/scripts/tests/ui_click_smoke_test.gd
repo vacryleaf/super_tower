@@ -20,7 +20,7 @@ func _run() -> void:
 	_press_button_containing(main, "槽位 1")
 	await _wait_for_render()
 	_assert_label_exists(main, "选择职业")
-	_press_button_with_label_descendant(main, "战士")
+	_press_button_with_label_descendant(main, "探索者")
 	await _wait_seconds(0.3)
 	_assert_button_exists(main, "开始教程")
 	_press_button(main, "开始教程")
@@ -57,7 +57,7 @@ func _run() -> void:
 	await _wait_seconds(1.1)
 	_assert_phase(main, "reward")
 	_assert_label_exists(main, "选择奖励")
-	_press_button_containing(main, "解锁")
+	_press_button_containing(main, "获得装备")
 	await _wait_for_render()
 	_assert_phase(main, "battle")
 	if main.session.player.get("equipment_ids", []).is_empty():

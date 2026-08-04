@@ -19,5 +19,5 @@
 
 ## 2026-08-03 验收记录
 
-- `sh run_tests.sh`：通过，输出 `ALL TESTS PASSED`。
-- 额外执行 UI smoke 时，场景因仓库缺失 `GameProject/img/unified.png` 资源无法完成；未读取或生成图片资源。
+- `HOME=/tmp/super_tower_test_home sh run_tests.sh`：通过，输出 `ALL TESTS PASSED`，包含核心 headless、准备页 UI 冒烟和战斗点击 UI 冒烟。
+- UI 冒烟只检查节点、文本和交互状态，不读取或生成图片资源。

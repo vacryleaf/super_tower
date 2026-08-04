@@ -12,6 +12,8 @@ const OP_LTE := "lte"
 func evaluate(subject: Dictionary, condition: Dictionary, context: Dictionary) -> bool:
 	if condition.is_empty():
 		return true
+	if condition.has("stat"):
+		return _evaluate_stat_condition(subject, condition, context)
 	for key in condition.keys():
 		var value = condition[key]
 		match key:
@@ -61,6 +63,61 @@ func evaluate(subject: Dictionary, condition: Dictionary, context: Dictionary) -
 				if evaluate(subject, value, context):
 					return false
 	return true
+
+
+func _evaluate_stat_condition(subject: Dictionary, condition: Dictionary, context: Dictionary) -> bool:
+	var stat_key := String(condition.get("stat", ""))
+	var actual: Variant = _stat_value(subject, stat_key, context)
+	if actual == null:
+		return false
+	var operator := String(condition.get("operator", OP_EQ))
+	var expected: Variant = condition.get("value")
+	if typeof(actual) == TYPE_STRING or typeof(expected) == TYPE_STRING:
+		match operator:
+			OP_EQ:
+				return String(actual) == String(expected)
+			OP_NE:
+				return String(actual) != String(expected)
+			_:
+				return false
+	return _compare_operator(float(actual), operator, float(expected))
+
+
+func _stat_value(subject: Dictionary, stat_key: String, context: Dictionary) -> Variant:
+	match stat_key:
+		"hp_ratio":
+			return float(subject.get("hp", 0)) / maxf(1.0, float(subject.get("max_hp", 1)))
+		"round_index", "enemy_count", "damage_type", "state_card", "is_critical":
+			return context.get(stat_key)
+		"armor":
+			return subject.get("armor", subject.get("defense"))
+		"block":
+			return subject.get("block", 0)
+		"dodge":
+			return subject.get("dodge_layers", 0)
+		_:
+			if subject.has(stat_key):
+				return subject[stat_key]
+			return context.get(stat_key)
+
+
+func _compare_operator(actual: float, operator: String, expected: float) -> bool:
+	match operator:
+		OP_EQ:
+			return abs(actual - expected) < 0.0001
+		OP_NE:
+			return abs(actual - expected) >= 0.0001
+		OP_GT:
+			return actual > expected
+		OP_GTE:
+			return actual >= expected
+		OP_LT:
+			return actual < expected
+		OP_LTE:
+			return actual <= expected
+		"mod":
+			return int(actual) % maxi(1, int(expected)) == 0
+	return false
 
 
 # 所有约束条件都必须满足（多 operator 用于范围判断，如 {"gte": 0.30, "lt": 0.60}）

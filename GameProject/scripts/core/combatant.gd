@@ -276,9 +276,13 @@ static func normalize_enemy(enemy: Dictionary) -> void:
 
 static func _apply_trait_statuses(enemy: Dictionary) -> void:
 	var passive_skills := passive_skill_slots(enemy.get("passive_skills", enemy.get("traits", [])))
-	if passive_skills.filter(func(skill_id): return skill_id != "").is_empty():
-		return
 	var statuses: Array = enemy.get("statuses", [])
+	for status_index in range(statuses.size() - 1, -1, -1):
+		if String(statuses[status_index].get("id", "")).begins_with("trait_"):
+			statuses.remove_at(status_index)
+	if passive_skills.filter(func(skill_id): return skill_id != "").is_empty():
+		enemy["statuses"] = statuses
+		return
 
 	if passive_skills.has("claw"):
 		statuses.append({
