@@ -43,6 +43,13 @@ func version() -> int:
 	return int(load_data().get("version", 0))
 
 
+func migration_notes() -> Dictionary:
+	var notes: Variant = load_data().get("migration_notes", {})
+	if typeof(notes) != TYPE_DICTIONARY:
+		return {}
+	return (notes as Dictionary).duplicate(true)
+
+
 func available_tables() -> Array[String]:
 	var loaded := load_data()
 	var tables: Dictionary = loaded.get("tables", {})

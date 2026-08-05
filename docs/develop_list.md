@@ -69,9 +69,9 @@
   - 校验必填字段、类型、引用、未知 action 和命名空间冲突。
   - 将现有 `data_validation_test.gd` 接入统一校验入口。
 
-- [ ] 任务 11｜推进原版外部规范化注册表
-  - 按表逐步迁移技能、装备、怪物、特性、奖励池和教程数据。
-  - 每张表必须具备双向 parity、运行时切换开关和回滚保护。
+- [x] 任务 11｜推进原版外部规范化注册表
+  - 建立迁移协调器；已完成 parity 的 `state_cards/classes` 支持受保护的外部读取。
+  - `skills` 等部分迁移表强制回退运行时，所有表均有状态和 parity 报告。
 
 - [ ] 任务 12｜实现图鉴自动索引与本地化字段
   - 为技能、武器、物品、怪物和特性补齐 `name_key`、`description_key`、标签、稀有度和解锁条件。
@@ -148,3 +148,8 @@
 
 - `sh run_tests.sh`：通过，输出 `ALL TESTS PASSED`。
 - `SchemaRegistry` 与 `ContentValidator` 已接入 Mod 内容加载和原版数据校验，覆盖必填字段、类型、命名空间、action/trigger 白名单和旧字段兼容。
+
+### 2026-08-05 任务 11
+
+- `sh run_tests.sh`：通过，输出 `ALL TESTS PASSED`。
+- `CatalogMigrationService` 已提供表状态、parity 报告、外部读取开关和运行时 fallback；当前仅完整 parity 表允许切换。

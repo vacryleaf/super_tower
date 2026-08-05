@@ -13,6 +13,10 @@
     "partial_tables": [
       "skills"
     ],
+    "runtime_switchable_tables": [
+      "state_cards",
+      "classes"
+    ],
     "next_tables": [
       "skills_full_stats",
       "traits",

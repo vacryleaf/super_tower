@@ -11,5 +11,6 @@
 7. UI/图鉴从同一数据源读取可展示字段。
 8. `data_validation_test.gd` 对外部怪物 manifest 与运行时 normal/elite/boss ID 做双向 parity 校验；通过前不得切换运行时权威。
 9. 外部 `skills` 当前是部分迁移表，只做运行时子集字段兼容校验；完整技能表仍由 `DataCatalog.SKILLS` 提供。
+10. `CatalogMigrationService` 根据 migration notes 和 parity 报告决定是否允许外部表接管；未完成完整 parity 的表始终回退 `DataCatalog`。
 
 禁止 UI 直接读 Mod 原始文件；禁止战斗服务根据文件名猜测内容类型。

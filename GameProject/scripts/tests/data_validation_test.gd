@@ -5,6 +5,7 @@ const Combatant = preload("res://scripts/core/combatant.gd")
 const TraitCatalog = preload("res://scripts/core/trait_catalog.gd")
 const SchemaRegistry = preload("res://scripts/core/schema_registry.gd")
 const ContentValidator = preload("res://scripts/core/content_validator.gd")
+const CatalogMigrationService = preload("res://scripts/core/catalog_migration_service.gd")
 
 
 func run() -> void:
@@ -25,6 +26,7 @@ func run() -> void:
 	test_trait_catalog_definitions()
 	test_unified_ui_metadata()
 	test_schema_registry_and_content_validator()
+	test_catalog_migration_guard()
 
 
 func test_state_card_weights() -> void:
@@ -287,3 +289,16 @@ func test_schema_registry_and_content_validator() -> void:
 	var legacy_skill: Dictionary = DataCatalog.SKILLS["po_jun"].duplicate(true)
 	legacy_skill["id"] = "po_jun"
 	assert_true(bool(validator.validate_entry("skills", legacy_skill, {"allow_legacy": true}).get("ok", false)), "legacy runtime skill should pass compatibility validation")
+
+
+func test_catalog_migration_guard() -> void:
+	var migration := CatalogMigrationService.new()
+	assert_equal(migration.table_status("state_cards"), "migrated", "state cards should be marked migrated")
+	assert_equal(migration.table_status("skills"), "partial", "skills should remain partial")
+	assert_true(migration.can_use_external("state_cards"), "fully parity-checked state cards may use external data")
+	assert_true(not migration.can_use_external("skills"), "partial skills table must not become runtime authority")
+	var resolved_state_cards := migration.resolve_table("state_cards", DataCatalog.STATE_CARDS, true)
+	assert_true(bool(migration.parity_report()["state_cards"].get("complete", false)), "external state cards should match runtime table")
+	assert_true(not resolved_state_cards.is_empty(), "resolved external state cards should not be empty")
+	var resolved_skills := migration.resolve_table("skills", DataCatalog.SKILLS, true)
+	assert_equal(resolved_skills, DataCatalog.SKILLS, "partial skills table should fall back to runtime table")
