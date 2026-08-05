@@ -64,7 +64,7 @@
   - 保持稳定 ID、命名空间和跨平台路径规则。
   - 增加最小 Mod fixture 与 headless 测试。
 
-- [ ] 任务 10｜实现 Schema 注册与内容校验基础能力
+- [x] 任务 10｜实现 Schema 注册与内容校验基础能力
   - 注册技能、状态、触发器、特性和奖励 Schema。
   - 校验必填字段、类型、引用、未知 action 和命名空间冲突。
   - 将现有 `data_validation_test.gd` 接入统一校验入口。
@@ -143,3 +143,8 @@
 
 - `sh run_tests.sh`：通过，输出 `ALL TESTS PASSED`。
 - `ModLoader` 已实现发现、manifest 校验、依赖解析、内容注册/禁用、冲突保护和结构化错误；新增 fixture 与 `mod_loader_test.gd`。
+
+### 2026-08-05 任务 10
+
+- `sh run_tests.sh`：通过，输出 `ALL TESTS PASSED`。
+- `SchemaRegistry` 与 `ContentValidator` 已接入 Mod 内容加载和原版数据校验，覆盖必填字段、类型、命名空间、action/trigger 白名单和旧字段兼容。

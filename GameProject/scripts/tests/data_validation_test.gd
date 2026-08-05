@@ -3,6 +3,8 @@ extends "res://scripts/tests/test_base.gd"
 const DataCatalog = preload("res://scripts/core/data_catalog.gd")
 const Combatant = preload("res://scripts/core/combatant.gd")
 const TraitCatalog = preload("res://scripts/core/trait_catalog.gd")
+const SchemaRegistry = preload("res://scripts/core/schema_registry.gd")
+const ContentValidator = preload("res://scripts/core/content_validator.gd")
 
 
 func run() -> void:
@@ -22,6 +24,7 @@ func run() -> void:
 	test_unified_class_semantics()
 	test_trait_catalog_definitions()
 	test_unified_ui_metadata()
+	test_schema_registry_and_content_validator()
 
 
 func test_state_card_weights() -> void:
@@ -259,3 +262,28 @@ func test_trait_catalog_definitions() -> void:
 func test_unified_ui_metadata() -> void:
 	assert_equal(DataCatalog.resource_label("adrenaline"), "肾上腺素", "adrenaline resource label")
 	assert_equal(DataCatalog.avatar_asset_for_class("unified"), "warrior", "unified avatar compatibility asset")
+
+
+func test_schema_registry_and_content_validator() -> void:
+	var registry := SchemaRegistry.new()
+	assert_true(registry.has_schema("skill.v1"), "skill schema should be registered")
+	assert_true(registry.skill_action_types().has("damage"), "damage action should be registered")
+	assert_true(registry.trigger_event_types().has("on_hit_dealt"), "hit event should be registered")
+	var validator := ContentValidator.new()
+	var valid_skill := {
+		"schema_version": 1,
+		"id": "fixture.good.skill.test",
+		"name_key": "skill.fixture.test.name",
+		"slot": 3,
+		"kind": "attack",
+		"energy_cost": 10,
+		"cooldown": 0,
+		"actions": [{"type": "damage", "target": "selected", "multiplier": 2.0}]
+	}
+	assert_true(bool(validator.validate_entry("skills", valid_skill, {"namespace": "fixture.good"}).get("ok", false)), "valid skill should pass content validation")
+	var invalid_skill := valid_skill.duplicate(true)
+	invalid_skill["actions"] = [{"type": "not_registered", "target": "selected"}]
+	assert_true(not bool(validator.validate_entry("skills", invalid_skill, {"namespace": "fixture.good"}).get("ok", false)), "unknown action should fail content validation")
+	var legacy_skill: Dictionary = DataCatalog.SKILLS["po_jun"].duplicate(true)
+	legacy_skill["id"] = "po_jun"
+	assert_true(bool(validator.validate_entry("skills", legacy_skill, {"allow_legacy": true}).get("ok", false)), "legacy runtime skill should pass compatibility validation")

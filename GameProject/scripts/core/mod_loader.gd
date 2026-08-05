@@ -2,6 +2,7 @@ extends RefCounted
 class_name ModLoader
 
 const DataCatalog = preload("res://scripts/core/data_catalog.gd")
+const ContentValidator = preload("res://scripts/core/content_validator.gd")
 
 const API_VERSION := 1
 const MANIFEST_FILE := "mod.json"
@@ -20,6 +21,7 @@ var _registered_content: Dictionary = {}
 var _active_mods: Dictionary = {}
 var _disabled_mods: Dictionary = {}
 var _errors: Array[Dictionary] = []
+var validator := ContentValidator.new()
 
 
 func _init(root_path: String = "user://mods") -> void:
@@ -223,6 +225,11 @@ func _read_content_files(mod_id: String, package_path: String, manifest: Diction
 			var expected_prefix := "%s.%s." % [mod_id, DOMAIN_SINGULAR[domain]]
 			if not entry_id.begins_with(expected_prefix):
 				_record_error(mod_id, path, "id", "内容 ID 必须以 %s 开头。" % expected_prefix, "invalid_content_id")
+				return {}
+			var validation := validator.validate_entry(domain, entry, {"namespace": mod_id})
+			if not bool(validation.get("ok", false)):
+				for error in validation.get("errors", []):
+					_record_error(mod_id, path, String(error.get("path", "")), String(error.get("message", "内容校验失败。")), String(error.get("code", "content_validation_error")))
 				return {}
 			entries.append(entry)
 		content_result[domain] = entries

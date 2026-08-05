@@ -1,6 +1,6 @@
 # 内容校验逻辑
 
-状态：设计已确认待实现；当前已有 `data_validation_test.gd` 覆盖部分原版字段一致性。
+状态：已实现基础校验 + 扩展待实现。
 
 校验顺序：
 
@@ -13,3 +13,5 @@
 7. 依赖和 API 版本是否满足。
 
 失败项写入结构化错误日志；不自动降级为半有效内容。可选展示字段可以使用默认值，但不可为核心效果静默补值。
+
+当前实现入口为 `GameProject/scripts/core/content_validator.gd`。Mod Loader 已在读取内容文件时调用它；原版 `data_validation_test.gd` 通过 `allow_legacy` 模式校验旧版 DataCatalog 字段，同时对新 Schema 内容执行严格 action/trigger 校验。
