@@ -17,6 +17,7 @@ func run() -> void:
 	test_external_resource_manifests()
 	test_external_enemy_manifest_parity()
 	test_external_runtime_field_parity()
+	test_external_skill_subset_compatibility()
 
 
 func test_state_card_weights() -> void:
@@ -191,8 +192,7 @@ func test_external_enemy_manifest_parity() -> void:
 func test_external_runtime_field_parity() -> void:
 	var migrated_tables := {
 		"state_cards": DataCatalog.STATE_CARDS,
-		"classes": DataCatalog.CLASSES,
-		"skills": DataCatalog.SKILLS
+		"classes": DataCatalog.CLASSES
 	}
 	for table_name in migrated_tables.keys():
 		var external_table := DataCatalog.external_table(table_name)
@@ -206,3 +206,19 @@ func test_external_runtime_field_parity() -> void:
 			for field in external_entry.keys():
 				assert_true(runtime_entry.has(field), "%s.%s.%s should exist in runtime catalog" % [table_name, entry_id, field])
 				assert_catalog_value_equal(external_entry[field], runtime_entry[field], "%s.%s.%s parity" % [table_name, entry_id, field])
+
+
+func test_external_skill_subset_compatibility() -> void:
+	var external_table := DataCatalog.external_table("skills")
+	var runtime_table: Dictionary = DataCatalog.SKILLS
+	assert_true(not external_table.is_empty(), "external skill validation table should not be empty")
+	for entry_id in external_table.keys():
+		assert_true(runtime_table.has(entry_id), "skills.%s should exist in runtime catalog" % entry_id)
+		if not runtime_table.has(entry_id):
+			continue
+		var external_entry: Dictionary = external_table[entry_id]
+		var runtime_entry: Dictionary = runtime_table[entry_id]
+		for field in external_entry.keys():
+			assert_true(runtime_entry.has(field), "skills.%s.%s should exist in runtime catalog" % [entry_id, field])
+			if runtime_entry.has(field):
+				assert_catalog_value_equal(external_entry[field], runtime_entry[field], "skills.%s.%s subset parity" % [entry_id, field])

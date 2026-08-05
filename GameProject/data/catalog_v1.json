@@ -6,12 +6,15 @@
     "migrated_tables": [
       "state_cards",
       "classes",
-      "skills",
       "equipment_sets",
       "equipment_manifest",
       "enemy_unit_manifest"
     ],
+    "partial_tables": [
+      "skills"
+    ],
     "next_tables": [
+      "skills_full_stats",
       "traits",
       "equipment_full_stats",
       "tutorial_unlocks",

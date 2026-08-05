@@ -2,7 +2,7 @@
 
 状态：已实现（原版部分）+ 设计已确认待实现（统一注册表）。
 
-当前原版技能定义权威来源：`DataCatalog.SKILLS`；外部 `catalog_v1.json` 只覆盖部分旧/校验字段。技能条目按 ID 拆在 `../encyclopedia/entries/`，图鉴展示应从规范化注册表生成。
+当前原版技能定义权威来源：`DataCatalog.SKILLS`；外部 `catalog_v1.json` 的 `skills` 是部分迁移/校验用表，不是完整运行时注册表。`data_validation_test.gd` 只要求外部条目与运行时做子集字段兼容，完整技能表迁移仍待后续任务完成。技能条目按 ID 拆在 `../encyclopedia/entries/`，图鉴展示应从规范化注册表生成。
 
 | 类别 | 条目 |
 | --- | --- |
