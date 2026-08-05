@@ -18,14 +18,14 @@ func _init() -> void:
 
 
 func run_all() -> void:
-	run_manual_campaign("warrior")
-	run_manual_campaign("archer")
+	run_manual_campaign("unified")
 
 
 func run_manual_campaign(class_id: String) -> void:
 	var session := PlaySession.new()
 	session.delete_save()
 	session.start_new_game(class_id)
+	var formal_run_started := false
 	var guard := 0
 	while session.phase != "victory" and session.phase != "game_over" and guard < 2000:
 		guard += 1
@@ -35,8 +35,12 @@ func run_manual_campaign(class_id: String) -> void:
 			session.choose_reward(_best_reward_index(session))
 		elif session.phase == "reward_target":
 			session.choose_reward_target(_best_target_index(session))
+		elif session.phase == "tutorial_epilogue":
+			session.end_run_to_camp()
+			session.start_new_game(class_id)
+			formal_run_started = true
 	assert_equal(session.phase, "game_over", "%s baseline manual campaign should eventually be stopped by the build gate" % class_id)
-	assert_true(int(session.floor_index) >= 2, "%s should clear the tutorial floor" % class_id)
+	assert_true(formal_run_started, "%s should enter the formal tower after the tutorial epilogue" % class_id)
 	assert_true(int(session.player["battles_completed"]) >= 3, "%s should complete the tutorial" % class_id)
 	assert_true(bool(session.player["tutorial_completed"]), "%s tutorial completed" % class_id)
 	assert_true(session.player["equipped_skills"].size() <= 4, "%s skill slots limited to 4" % class_id)

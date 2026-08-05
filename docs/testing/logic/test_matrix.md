@@ -10,6 +10,7 @@
 | 奖励和附着 | `reward_system_test.gd` |
 | 存档迁移与序列化 | `persistence_test.gd` |
 | UI 点击冒烟 | `ui_click_smoke_test.gd` |
+| 长时可玩回归（非默认） | `playable_manual_test.gd` |
 | 全量 | `run_tests.bat` / `run_tests.sh` |
 
-当前验收要求：不得依赖模拟战斗；跨平台核心断言使用 Godot headless；Windows pywinauto 只做桌面 UI 补充验收。
+当前验收要求：不得依赖模拟战斗；跨平台核心断言使用 Godot headless；Windows pywinauto 只做桌面 UI 补充验收。`playable_manual_test.gd` 是长时可玩回归脚本，默认入口不执行它，不能将未运行该脚本称为包含长时回归的全量通过。
