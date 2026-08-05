@@ -3,6 +3,15 @@ setlocal
 
 set "ROOT=%~dp0"
 set "PROJECT=%ROOT%GameProject"
+set "TEST_HOME=%TEMP%\super_tower_test_home_%RANDOM%_%RANDOM%"
+set "TEST_APPDATA=%TEST_HOME%\AppData\Roaming"
+set "TEST_LOCALAPPDATA=%TEST_HOME%\AppData\Local"
+mkdir "%TEST_APPDATA%" >nul 2>nul
+mkdir "%TEST_LOCALAPPDATA%" >nul 2>nul
+set "HOME=%TEST_HOME%"
+set "USERPROFILE=%TEST_HOME%"
+set "APPDATA=%TEST_APPDATA%"
+set "LOCALAPPDATA=%TEST_LOCALAPPDATA%"
 set "GODOT_DEFAULT=C:\Program Files (x86)\Godot\godot.exe"
 set "TEST_LOG=%TEMP%\super_tower_tests_%RANDOM%.log"
 
@@ -37,10 +46,13 @@ exit /b 0
 :run_test
 set "TEST_NAME=%~1"
 set "TEST_LOG=%TEMP%\super_tower_tests_%RANDOM%.log"
-"%GODOT%" --headless --quiet --no-header --path "%PROJECT%" --script "res://scripts/tests/%TEST_NAME%.gd" > "%TEST_LOG%" 2>&1
+set "GODOT_LOG=%TEMP%\super_tower_godot_%RANDOM%.log"
+"%GODOT%" --headless --quiet --no-header --log-file "%GODOT_LOG%" --path "%PROJECT%" --script "res://scripts/tests/%TEST_NAME%.gd" > "%TEST_LOG%" 2>&1
 set "STATUS=%ERRORLEVEL%"
+type "%GODOT_LOG%" >> "%TEST_LOG%"
 type "%TEST_LOG%"
 findstr /C:"Failed to load script" /C:"Compilation failed" /C:"SCRIPT ERROR" "%TEST_LOG%" >nul
 if %ERRORLEVEL% EQU 0 set "STATUS=1"
 del /q "%TEST_LOG%" >nul 2>nul
+del /q "%GODOT_LOG%" >nul 2>nul
 exit /b %STATUS%
