@@ -1,28 +1,100 @@
-架构优化：
-阅读 architecture-optimization-directions.md —— 按项目需求模板结构，覆盖方向 A（结算下沉）+ B（契约化直测）。
+# Super Tower 开发清单
 
-任务单核心内容（子线程可直接执行）
+状态：持续维护。
 
-- [x] 任务 1｜结算主体迁移（纯代码移动，行为零变化）
-battle_service.gd 新增 deal_damage(session: RefCounted, ctx: Dictionary)，将 play_session.gd:774-830 主体逐行迁入
-三个关键转换点已写明：self → session 显式化；触发上下文 "session": self → "session": session；日志文案一字不改
-play_session.deal_damage(ctx) 替换为一行薄转发
+## 执行规则
 
-- [x] 任务 2｜服务级独立测试
-新增 tests/battle_service_test.gd，桩 session 直测 4 个针对性用例：嘲讽重定向、决斗清理、闪避分支、非交互源忽略嘲讽
-模式参考 combat_mechanics_test.gd 已有先例，无需新框架
+1. 按任务顺序执行，不跳过未完成任务。
+2. 每个任务必须同时完成代码/数据、测试和对应 Markdown 文档回写。
+3. 每完成一个任务，运行 `sh run_tests.sh`；Windows 使用等价的 `run_tests.bat`。
+4. 测试通过后将任务改为 `[x]`，记录日期、测试命令和结果，并单独提交该任务的变更。
+5. 不覆盖已有用户改动；提交时只暂存当前任务相关文件。
+6. `run_tests.sh` 与 `run_tests.bat` 必须保持同一组测试入口和失败判定。
 
-- [x] 任务 3｜验证与回写
-run_tests.sh / run_tests.bat 全绿 + git diff 人工核对仅位置移动
-文档回写 docs/combat/（若有结算入口描述）
+## 当前任务
 
-验收结果：`run_tests.sh` 与 `run_tests.bat` 的同一套入口已串联核心测试、UI 冒烟和 `battle_service_test.gd`；`PlaySession.deal_damage()` 仅保留一行兼容转发，`BattleService` 内部不再反向调用 `session.deal_damage()`，结算入口已回写 `docs/combat/logic/battle_round_detail.md`。
+### 数据契约与迁移
 
-关键数字（迁移前后对照）
-当前保留 3 个 `TriggerService` 兼容调用；`BattleService` 内部 9 个结算调用已改为直接调用 `deal_damage(session, ctx)`，`PlaySession` 对外 API 保持不变。
-验收红线：play_session 中 deal_damage 仅剩一行转发；本次迁移未修改 `trigger_service.gd` 与 `enemy_action_rules.gd` 的调用逻辑。
+- [ ] 任务 1｜修正外部怪物清单并补双向 parity
+  - 对齐 `catalog_v1.json.enemy_unit_manifest` 与 `DataCatalog.NORMAL_UNITS`、`ELITE_UNITS`、`BOSS_UNITS` 的完整 ID 集合。
+  - 增加外部有而运行时无、运行时有而外部无的失败断言。
+  - 回写运行时数据管线和迁移说明。
 
-3 个执行时确认点
-combat_mechanics_test.gd 是否有 deal_damage 日志文案断言（默认按"一字不改"执行）
-tutorial_and_floors_test.gd 是否已串联全部测试（决定新测试接入方式）
-docs/combat/ 是否有需同步的结算入口文档
+- [ ] 任务 2｜明确外部技能表的部分迁移状态
+  - 将 `catalog_v1.json` 中技能表标记为“部分迁移/校验用表”，不得误称为完整迁移。
+  - 测试外部表的字段兼容性，并明确完整技能表仍以 `DataCatalog.SKILLS` 为权威。
+  - 同步技能目录和运行时数据管线文档。
+
+- [ ] 任务 3｜统一职业字段语义
+  - 明确运行时职业 `unified` 与 `warrior`/`archer` 内容分类标签的边界。
+  - 更新技能、装备 Schema 与兼容函数，避免将历史标签误当作运行时职业。
+  - 增加统一职业过滤、旧存档迁移和 Mod 校验测试。
+
+### 成长与战斗数据
+
+- [ ] 任务 4｜落地奖励运行时 Schema
+  - 为奖励建立统一的 `source`、`target_type`、`effect`/效果参数字段，同时保留旧存档兼容读取。
+  - 更新 `RewardService`、`RewardApplyService`、保存迁移和奖励测试。
+  - 将文档状态从“目标字段”更新为当前真实契约。
+
+- [ ] 任务 5｜将可声明 Trait 迁移到数据目录
+  - 在 `TraitCatalog` 中登记特性效果、状态和触发器定义。
+  - 让 `Combatant` 通过统一入口加载数据，行为决策仍保留在 `EnemyActionRules`。
+  - 增加 Trait 注册、状态生成和未知 Trait 校验测试。
+
+### UI、图鉴与验收
+
+- [ ] 任务 6｜统一资源名称与职业头像映射
+  - 将 `adrenaline` 在营地和百科显示为“肾上腺素”。
+  - 明确 `unified` 头像的资源映射和无资源 fallback，不在 UI 中使用隐式“其他即专注”。
+  - 增加 UI 文本冒烟断言并同步物品/技能文档。
+
+- [ ] 任务 7｜补齐 `throwing_dart` 图鉴与使用测试
+  - 更新物品目录、增加稳定 ID 图鉴条目。
+  - 覆盖生成、装备/消耗和效果路径；若暂不开放，明确数据可用状态。
+
+- [ ] 任务 8｜整理可玩手工测试入口
+  - 将 `playable_manual_test.gd` 改为当前 `unified` 职业模型。
+  - 明确它是长时手工回归还是默认自动测试；测试矩阵不得把未执行脚本称为全量通过。
+
+### 扩展能力
+
+- [ ] 任务 9｜实现 Mod Loader 基础能力
+  - 实现发现、manifest 解析、版本/依赖校验、注册、禁用和错误查询接口。
+  - 保持稳定 ID、命名空间和跨平台路径规则。
+  - 增加最小 Mod fixture 与 headless 测试。
+
+- [ ] 任务 10｜实现 Schema 注册与内容校验基础能力
+  - 注册技能、状态、触发器、特性和奖励 Schema。
+  - 校验必填字段、类型、引用、未知 action 和命名空间冲突。
+  - 将现有 `data_validation_test.gd` 接入统一校验入口。
+
+- [ ] 任务 11｜推进原版外部规范化注册表
+  - 按表逐步迁移技能、装备、怪物、特性、奖励池和教程数据。
+  - 每张表必须具备双向 parity、运行时切换开关和回滚保护。
+
+- [ ] 任务 12｜实现图鉴自动索引与本地化字段
+  - 为技能、武器、物品、怪物和特性补齐 `name_key`、`description_key`、标签、稀有度和解锁条件。
+  - 从规范化注册表生成图鉴索引，避免手工维护第二份效果逻辑。
+  - 增加缺失条目和本地化键的自动化测试。
+
+## 已完成历史
+
+- [x] 移除自动模拟战斗路径，保留实时 `BattleService`。
+- [x] 固定新角色前三场教程，教程不消耗正式第 1 层。
+- [x] 固定正式楼层 10 场编排，正式第 1 层不是教程层。
+- [x] 统一运行时角色和四个装备槽。
+- [x] 将战斗状态、触发器和技能动作统一到现有服务。
+- [x] 建立领域化三级 Markdown 文档结构。
+- [x] 建立技能、武器、物品、怪物图鉴 Schema 与实体条目入口。
+- [x] 完成结算主体迁移和 `BattleService` 服务级测试。
+- [x] 完成 2026-08-05 首轮实现与文档一致性审计，报告见 `docs/testing/logic/implementation_audit.md`。
+
+## 验收记录
+
+### 2026-08-05
+
+- 首轮审计基线：提交 `9d4102f`。
+- `sh run_tests.sh`：通过，输出 `ALL TESTS PASSED`。
+- 已确认旧问题中，计数器、技能费用、条件兼容、统一职业准备页和核心/UI 测试入口已经实现。
+- 审计报告记录了当前外部清单、奖励 Schema、Trait、UI 资源、物品图鉴和手工测试入口差异。
