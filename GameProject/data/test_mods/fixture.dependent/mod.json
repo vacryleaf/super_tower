@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "id": "fixture.dependent",
+  "version": "1.0.0",
+  "api_version": 1,
+  "name_key": "mod.fixture_dependent.name",
+  "author": "test",
+  "dependencies": [{"id": "fixture.good", "version": ">=1.0.0"}],
+  "content": {}
+}

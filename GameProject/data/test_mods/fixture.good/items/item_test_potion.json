@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "id": "fixture.good.item.test_potion",
+  "name_key": "item.fixture_good.test_potion.name",
+  "kind": "consumable",
+  "stack_limit": 1,
+  "use_context": ["camp", "battle"],
+  "actions": [{"type": "heal", "target": "self", "amount": 20}],
+  "tags": ["fixture"]
+}

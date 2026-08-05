@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "id": "fixture.good",
+  "version": "1.0.0",
+  "api_version": 1,
+  "name_key": "mod.fixture_good.name",
+  "author": "test",
+  "dependencies": [],
+  "content": {
+    "skills": ["skills/skill_arc_burst.json"],
+    "items": ["items/item_test_potion.json"]
+  }
+}

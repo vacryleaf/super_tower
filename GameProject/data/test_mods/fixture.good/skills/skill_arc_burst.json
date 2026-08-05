@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "id": "fixture.good.skill.arc_burst",
+  "name_key": "skill.fixture_good.arc_burst.name",
+  "description_key": "skill.fixture_good.arc_burst.description",
+  "runtime_class": "unified",
+  "content_class": "common",
+  "slot": 3,
+  "kind": "attack",
+  "energy_cost": 10,
+  "cooldown": 0,
+  "targets": "selected",
+  "actions": [{"type": "damage", "target": "selected", "multiplier": 2.0, "hits": 1, "damage_type": "physical"}],
+  "tags": ["fixture"]
+}

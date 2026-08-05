@@ -59,7 +59,7 @@
 
 ### 扩展能力
 
-- [ ] 任务 9｜实现 Mod Loader 基础能力
+- [x] 任务 9｜实现 Mod Loader 基础能力
   - 实现发现、manifest 解析、版本/依赖校验、注册、禁用和错误查询接口。
   - 保持稳定 ID、命名空间和跨平台路径规则。
   - 增加最小 Mod fixture 与 headless 测试。
@@ -138,3 +138,8 @@
 
 - `sh run_tests.sh`：通过，输出 `ALL TESTS PASSED`。
 - 额外运行 `playable_manual_test.gd`：使用 `unified` 职业完成长时回归；该脚本继续作为非默认测试入口。
+
+### 2026-08-05 任务 9
+
+- `sh run_tests.sh`：通过，输出 `ALL TESTS PASSED`。
+- `ModLoader` 已实现发现、manifest 校验、依赖解析、内容注册/禁用、冲突保护和结构化错误；新增 fixture 与 `mod_loader_test.gd`。

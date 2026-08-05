@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "id": "fixture.bad",
+  "version": "1.0.0",
+  "api_version": 1,
+  "name_key": "mod.fixture_bad.name",
+  "author": "test",
+  "dependencies": [],
+  "content": {
+    "unknown": ["unknown/content.json"]
+  }
+}

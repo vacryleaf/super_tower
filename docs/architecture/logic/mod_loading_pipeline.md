@@ -1,6 +1,6 @@
 # Mod 载入流程
 
-状态：设计已确认待实现。
+状态：基础流程已实现 + 完整校验待实现。
 
 ```text
 扫描启用包
@@ -15,3 +15,5 @@
 ```
 
 生命周期接口预留：`discover_mods()`、`validate_manifest()`、`load_content()`、`register_content()`、`disable_mod()`、`content_errors()`。接口返回规范化字典，不让调用方依赖磁盘布局。
+
+当前实现入口为 `GameProject/scripts/core/mod_loader.gd`；默认 Mod 根目录为 `user://mods`，测试使用 `res://data/test_mods` fixture。注册表与 `DataCatalog` 保持隔离，尚未切换原版运行时权威。
