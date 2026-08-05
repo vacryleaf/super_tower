@@ -20,6 +20,7 @@ func run() -> void:
 	test_tower_reward_rules()
 	test_skill_shop_purchase()
 	test_reward_schema_fields()
+	test_throwing_dart_charge()
 
 
 func test_reward_attachment_flow() -> void:
@@ -326,3 +327,25 @@ func test_reward_schema_fields() -> void:
 	assert_equal(String(normalized.get("target_type", "")), "attachment", "legacy reward target migration")
 	var effect: Dictionary = normalized["effect"]
 	assert_equal(String(effect.get("stat", "")), "attack", "legacy reward effect stat migration")
+
+
+func test_throwing_dart_charge() -> void:
+	var session_script = load("res://scripts/core/play_session.gd")
+	var session = session_script.new()
+	session.delete_save()
+	session.start_new_game("unified")
+	session.player["tower_consumables"] = [{"id": "throwing_dart"}]
+	var charges: Array[Dictionary] = session.available_charges()
+	var dart_charge: Dictionary = {}
+	for charge in charges:
+		if String(charge.get("target_type", "")) == "consumable" and String(charge.get("target_id", "")) == "throwing_dart":
+			dart_charge = charge
+			break
+	assert_true(not dart_charge.is_empty(), "throwing dart should be exposed as a charge")
+	var charge_id := String(dart_charge.get("charge_id", ""))
+	session.charge_ready[charge_id] = true
+	session.use_charge(charge_id)
+	assert_true(bool(session.charge_used.get(charge_id, false)), "throwing dart charge should be consumed")
+	assert_equal(int(session.pending_charge_effects["global"].get("bonus_damage", 0)), 5, "throwing dart should add five bonus damage")
+	assert_equal(session._apply_charge_attack_modifiers(10), 15, "throwing dart should add damage to the next attack")
+	session.delete_save()
