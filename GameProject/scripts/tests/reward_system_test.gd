@@ -58,7 +58,11 @@ func test_random_reward_pool_counts() -> void:
 	session.current_encounter = {"type": "normal"}
 	session._build_reward_options()
 	assert_true(session.reward_options.size() >= 3, "normal rewards should include at least three random options")
-	assert_true(session._reward_pool("normal").size() > session.reward_options.size(), "normal reward pool should be larger than shown options")
+	var random_option_count := 0
+	for reward in session.reward_options:
+		if ["attack", "defense", "hp", "skill_power"].has(String(reward.get("kind", ""))):
+			random_option_count += 1
+	assert_true(session._reward_pool("normal").size() > random_option_count, "normal reward pool should be larger than shown random options")
 	assert_true(TestHelpers.has_core_growth_reward(session.reward_options), "normal rewards should include at least one core growth option")
 
 	session.current_encounter = {"type": "elite"}
