@@ -15,6 +15,7 @@ func run() -> void:
 	test_cunning_masks_enemy_intent()
 	test_skill_costs_minimum_two()
 	test_external_resource_manifests()
+	test_external_enemy_manifest_parity()
 	test_external_runtime_field_parity()
 
 
@@ -166,6 +167,25 @@ func test_external_resource_manifests() -> void:
 	assert_true(equipment_manifest.get("set_equipment", []).size() >= 2, "equipment manifest should include set equipment")
 	var enemy_manifest := DataCatalog.external_table("enemy_unit_manifest")
 	assert_true(enemy_manifest.get("boss", []).size() >= 5, "enemy manifest should include boss ids")
+
+
+func test_external_enemy_manifest_parity() -> void:
+	var manifest := DataCatalog.external_table("enemy_unit_manifest")
+	var runtime_groups := {
+		"normal": DataCatalog.NORMAL_UNITS,
+		"elite": DataCatalog.ELITE_UNITS,
+		"boss": DataCatalog.BOSS_UNITS
+	}
+	for rank in runtime_groups.keys():
+		var runtime_ids: Array[String] = []
+		for unit in runtime_groups[rank]:
+			runtime_ids.append(String(unit.get("id", "")))
+		var external_ids: Array[String] = []
+		for unit_id in manifest.get(rank, []):
+			external_ids.append(String(unit_id))
+		runtime_ids.sort()
+		external_ids.sort()
+		assert_equal(external_ids, runtime_ids, "external %s enemy manifest must match runtime IDs" % rank)
 
 
 func test_external_runtime_field_parity() -> void:

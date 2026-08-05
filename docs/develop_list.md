@@ -15,7 +15,7 @@
 
 ### 数据契约与迁移
 
-- [ ] 任务 1｜修正外部怪物清单并补双向 parity
+- [x] 任务 1｜修正外部怪物清单并补双向 parity
   - 对齐 `catalog_v1.json.enemy_unit_manifest` 与 `DataCatalog.NORMAL_UNITS`、`ELITE_UNITS`、`BOSS_UNITS` 的完整 ID 集合。
   - 增加外部有而运行时无、运行时有而外部无的失败断言。
   - 回写运行时数据管线和迁移说明。
@@ -98,3 +98,8 @@
 - `sh run_tests.sh`：通过，输出 `ALL TESTS PASSED`。
 - 已确认旧问题中，计数器、技能费用、条件兼容、统一职业准备页和核心/UI 测试入口已经实现。
 - 审计报告记录了当前外部清单、奖励 Schema、Trait、UI 资源、物品图鉴和手工测试入口差异。
+
+### 2026-08-05 任务 1
+
+- `sh run_tests.sh`：通过，输出 `ALL TESTS PASSED`。
+- 外部 normal/elite/boss 怪物 manifest 已与运行时 ID 完全对齐，并加入双向 parity 测试。

@@ -221,23 +221,26 @@
       "normal": [
         "normal_rat_01",
         "normal_rat_02",
-        "normal_guard_01",
-        "normal_guard_03",
+        "normal_rat_03",
+        "normal_skeleton_01",
+        "normal_skeleton_02",
+        "normal_skeleton_03",
         "normal_shadow_01",
         "normal_shadow_02",
         "normal_caster_01",
         "normal_mutant_02"
       ],
       "elite": [
-        "elite_rat_01",
-        "elite_guard_01",
+        "elite_skeleton_01",
+        "elite_skeleton_02",
+        "elite_skeleton_03",
         "elite_shadow_01",
         "elite_caster_01",
         "elite_mutant_01"
       ],
       "boss": [
         "boss_rat_king",
-        "boss_iron_warden",
+        "boss_skeleton_warden",
         "boss_shadow_duke",
         "boss_deep_oracle",
         "boss_tower_core"
