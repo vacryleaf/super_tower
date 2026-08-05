@@ -73,7 +73,7 @@
   - 建立迁移协调器；已完成 parity 的 `state_cards/classes` 支持受保护的外部读取。
   - `skills` 等部分迁移表强制回退运行时，所有表均有状态和 parity 报告。
 
-- [ ] 任务 12｜实现图鉴自动索引与本地化字段
+- [x] 任务 12｜实现图鉴自动索引与本地化字段
   - 为技能、武器、物品、怪物和特性补齐 `name_key`、`description_key`、标签、稀有度和解锁条件。
   - 从规范化注册表生成图鉴索引，避免手工维护第二份效果逻辑。
   - 增加缺失条目和本地化键的自动化测试。
@@ -153,3 +153,8 @@
 
 - `sh run_tests.sh`：通过，输出 `ALL TESTS PASSED`。
 - `CatalogMigrationService` 已提供表状态、parity 报告、外部读取开关和运行时 fallback；当前仅完整 parity 表允许切换。
+
+### 2026-08-05 任务 12
+
+- `sh run_tests.sh`：通过，输出 `ALL TESTS PASSED`。
+- `EncyclopediaIndexService` 已生成稳定 ID、本地化键、标签、稀有度、解锁状态和来源字段；百科技能/特性列表改用自动索引，并补充缺失字段测试。

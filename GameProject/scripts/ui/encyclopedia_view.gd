@@ -4,11 +4,13 @@ class_name EncyclopediaView
 const DataCatalog = preload("res://scripts/core/data_catalog.gd")
 const TraitCatalog = preload("res://scripts/core/trait_catalog.gd")
 const UIHelpers = preload("res://scripts/ui/ui_helpers.gd")
+const EncyclopediaIndexService = preload("res://scripts/core/encyclopedia_index_service.gd")
 
 var _label_factory: Callable
 var _bestiary_callback: Callable
 var _detail_container: Control
 var _category_buttons: Array[Button] = []
+var _index_service := EncyclopediaIndexService.new()
 
 
 func render(root: Control, label_factory: Callable, close_callback: Callable, bestiary_callback: Callable = Callable()) -> void:
@@ -120,11 +122,15 @@ func _render_state_cards() -> void:
 func _render_skills() -> void:
 	_detail_container.add_child(_label_factory.call("技能", 22))
 	_detail_container.add_child(_label_factory.call("先天技能（所有职业通用）：", 16))
+	var index := _index_service.build_index()
 	for skill_id in DataCatalog.INNATE_SKILLS.keys():
 		var skill: Dictionary = DataCatalog.INNATE_SKILLS[skill_id]
 		_detail_container.add_child(_label_factory.call("  %s - %s，费用 %d" % [skill["name"], UIHelpers.skill_type_name(skill), UIHelpers.skill_energy_cost(skill)], 14))
 	_detail_container.add_child(_label_factory.call("职业技能与通用技能：", 16))
-	for skill_id in DataCatalog.SKILLS.keys():
+	for entry in _index_service.entries(index, "skills"):
+		var skill_id := String(entry.get("id", ""))
+		if not DataCatalog.SKILLS.has(skill_id):
+			continue
 		var skill: Dictionary = DataCatalog.SKILLS[skill_id]
 		var class_label := DataCatalog.content_class_label(skill)
 		_detail_container.add_child(_label_factory.call("  %s [%s] - %s，费用 %d" % [skill["name"], class_label, UIHelpers.skill_type_name(skill), UIHelpers.skill_energy_cost(skill)], 14))
@@ -143,10 +149,9 @@ func _render_classes() -> void:
 
 func _render_traits() -> void:
 	_detail_container.add_child(_label_factory.call("被动技能", 22))
-	var all_traits: Array[String] = []
-	for trait_id in TraitCatalog.LABELS.keys():
-		all_traits.append(String(trait_id))
-	all_traits.sort()
-	for trait_id in all_traits:
-		var label_text := "%s：%s" % [TraitCatalog.LABELS.get(trait_id, trait_id), TraitCatalog.DESCRIPTIONS.get(trait_id, "暂无说明。")]
+	var index := _index_service.build_index()
+	var entries := _index_service.entries(index, "traits")
+	entries.sort_custom(func(left: Dictionary, right: Dictionary): return String(left.get("id", "")) < String(right.get("id", "")))
+	for entry in entries:
+		var label_text := "%s：%s" % [entry.get("display_name", entry.get("id", "")), entry.get("display_description", "暂无说明。")]
 		_detail_container.add_child(_label_factory.call(label_text, 14))

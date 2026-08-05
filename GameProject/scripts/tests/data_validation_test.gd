@@ -6,6 +6,7 @@ const TraitCatalog = preload("res://scripts/core/trait_catalog.gd")
 const SchemaRegistry = preload("res://scripts/core/schema_registry.gd")
 const ContentValidator = preload("res://scripts/core/content_validator.gd")
 const CatalogMigrationService = preload("res://scripts/core/catalog_migration_service.gd")
+const EncyclopediaIndexService = preload("res://scripts/core/encyclopedia_index_service.gd")
 
 
 func run() -> void:
@@ -27,6 +28,7 @@ func run() -> void:
 	test_unified_ui_metadata()
 	test_schema_registry_and_content_validator()
 	test_catalog_migration_guard()
+	test_encyclopedia_index()
 
 
 func test_state_card_weights() -> void:
@@ -302,3 +304,16 @@ func test_catalog_migration_guard() -> void:
 	assert_true(not resolved_state_cards.is_empty(), "resolved external state cards should not be empty")
 	var resolved_skills := migration.resolve_table("skills", DataCatalog.SKILLS, true)
 	assert_equal(resolved_skills, DataCatalog.SKILLS, "partial skills table should fall back to runtime table")
+
+
+func test_encyclopedia_index() -> void:
+	var index_service := EncyclopediaIndexService.new()
+	var index := index_service.build_index()
+	var errors := index_service.validate_index(index)
+	assert_true(errors.is_empty(), "generated encyclopedia index should include all required fields")
+	assert_true(index["skills"].has("po_jun"), "skill encyclopedia index should include po_jun")
+	assert_true(index["items"].has("throwing_dart"), "item encyclopedia index should include throwing_dart")
+	assert_true(index["monsters"].has("normal_rat_01"), "monster encyclopedia index should include normal rat")
+	assert_true(index["traits"].has("claw"), "trait encyclopedia index should include claw")
+	assert_equal(String(index["items"]["throwing_dart"].get("name_key", "")), "item.throwing_dart.name", "item name key should use stable fallback")
+	assert_equal(String(index["monsters"]["normal_rat_01"].get("unlock_state", {}).get("type", "")), "bestiary", "monster unlock state should use bestiary")
