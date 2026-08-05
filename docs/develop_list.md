@@ -37,7 +37,7 @@
   - 更新 `RewardService`、`RewardApplyService`、保存迁移和奖励测试。
   - 将文档状态从“目标字段”更新为当前真实契约。
 
-- [ ] 任务 5｜将可声明 Trait 迁移到数据目录
+- [x] 任务 5｜将可声明 Trait 迁移到数据目录
   - 在 `TraitCatalog` 中登记特性效果、状态和触发器定义。
   - 让 `Combatant` 通过统一入口加载数据，行为决策仍保留在 `EnemyActionRules`。
   - 增加 Trait 注册、状态生成和未知 Trait 校验测试。
@@ -118,3 +118,8 @@
 
 - `sh run_tests.sh`：通过，输出 `ALL TESTS PASSED`。
 - 奖励已统一写入 Schema v1 字段，并对旧奖励和 active run 增加归一化兼容；补充奖励字段测试。
+
+### 2026-08-05 任务 5
+
+- `sh run_tests.sh`：通过，输出 `ALL TESTS PASSED`。
+- 可声明 Trait 的 status、conditional_effects 和 triggers 已迁移到 `TraitCatalog`，并补充未知 ID 与运行时状态生成测试。

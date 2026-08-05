@@ -5,6 +5,7 @@ const TriggerEvents = preload("res://scripts/core/trigger_events.gd")
 const ARMOR_BASE := 30.0
 const DamageType = preload("res://scripts/core/damage_type.gd")
 const StatusService = preload("res://scripts/core/status_service.gd")
+const TraitCatalog = preload("res://scripts/core/trait_catalog.gd")
 const DEFAULT_ENEMY_AGILITY := 9
 
 
@@ -247,8 +248,9 @@ static func normalize_enemy(enemy: Dictionary) -> void:
 		enemy["dodge_layers"] = 0
 	if not enemy.has("taunt"):
 		enemy["taunt"] = 0
-	if passive_skills.has("thick_skin") and int(enemy.get("armor", 0)) <= 0:
-		enemy["armor"] = maxi(1, int(ceil(float(defense) * 1.20)))
+	var base_armor_effect := TraitCatalog.base_stat_effect("thick_skin")
+	if not base_armor_effect.is_empty() and int(enemy.get("armor", 0)) <= 0:
+		enemy["armor"] = maxi(1, int(ceil(float(defense) * float(base_armor_effect.get("value", 1.0)))))
 	elif not enemy.has("armor"):
 		enemy["armor"] = 0
 	if not enemy.has("skills"):
@@ -280,176 +282,11 @@ static func _apply_trait_statuses(enemy: Dictionary) -> void:
 	for status_index in range(statuses.size() - 1, -1, -1):
 		if String(statuses[status_index].get("id", "")).begins_with("trait_"):
 			statuses.remove_at(status_index)
-	if passive_skills.filter(func(skill_id): return skill_id != "").is_empty():
-		enemy["statuses"] = statuses
-		return
-
-	if passive_skills.has("claw"):
-		statuses.append({
-			"id": "trait_claw", "name": "利爪", "kind": "buff", "stack": "replace",
-			"effects": [{"stat": "attack", "type": "multiply", "value": 1.15}],
-			"duration": -1
-		})
-
-	if passive_skills.has("enrage"):
-		statuses.append({
-			"id": "trait_enrage", "name": "激怒", "kind": "buff", "stack": "replace",
-			"effects": [],
-			"conditional_effects": [
-				{"condition": {"hp_ratio": {"lt": 0.5}}, "effects": [{"stat": "attack", "type": "multiply", "value": 1.50}, {"stat": "damage_taken", "type": "multiply", "value": 1.30}]}
-			],
-			"duration": -1
-		})
-
-	if passive_skills.has("revive"):
-		statuses.append({
-			"id": "trait_revive", "name": "复苏", "kind": "buff", "stack": "replace",
-			"effects": [],
-			"triggers": [{
-				"event": TriggerEvents.ON_TURN_END,
-				"condition": {"round_index": {"mod": 3}},
-				"actions": [{"type": TriggerEvents.ACTION_HEAL, "self_stat": "max_hp", "self_ratio": 0.05}]
-			}],
-			"duration": -1
-		})
-
-	if passive_skills.has("fortify"):
-		statuses.append({
-			"id": "trait_fortify", "name": "固守", "kind": "buff", "stack": "replace",
-			"effects": [],
-			"triggers": [{
-				"event": TriggerEvents.ON_TURN_END,
-				"condition": {"round_index": {"mod": 2}},
-				"actions": [{"type": TriggerEvents.ACTION_GAIN_BLOCK, "self_stat": "block_power", "self_ratio": 1.0}]
-			}],
-			"duration": -1
-		})
-
-	# 标记：命中玩家时施加易伤 debuff（damage_taken × 1.25，持续 2 回合）
-	if passive_skills.has("mark"):
-		statuses.append({
-			"id": "trait_mark", "name": "标记", "kind": "buff", "stack": "replace",
-			"effects": [],
-			"triggers": [{
-				"event": TriggerEvents.ON_HIT_DEALT,
-				"actions": [{
-					"type": TriggerEvents.ACTION_APPLY_STATUS,
-					"apply_to": "context_target",
-					"status": {
-						"id": "mark_debuff", "name": "易伤", "kind": "debuff", "stack": "replace",
-						"effects": [{"stat": "damage_taken", "type": "multiply", "value": 1.25}],
-						"duration": 2
-					}
-				}]
-			}],
-			"duration": -1
-		})
-
-	if passive_skills.has("curse"):
-		statuses.append({
-			"id": "trait_curse", "name": "诅咒", "kind": "buff", "stack": "replace",
-			"effects": [],
-			"triggers": [{
-				"event": TriggerEvents.ON_HIT_DEALT,
-				"actions": [{
-					"type": TriggerEvents.ACTION_APPLY_STATUS,
-					"apply_to": "context_target",
-					"status": {
-						"id": "curse_debuff", "name": "诅咒", "kind": "debuff", "stack": "replace",
-						"effects": [{"stat": "attack", "type": "multiply", "value": 0.80}],
-						"duration": 3
-					}
-				}]
-			}],
-			"duration": -1
-		})
-
-	if passive_skills.has("abyss_communication"):
-		statuses.append({
-			"id": "trait_abyss_communication", "name": "深渊沟通", "kind": "buff", "stack": "replace",
-			"effects": [],
-			"triggers": [{
-				"event": TriggerEvents.ON_TURN_START,
-				"actions": [
-					{"type": TriggerEvents.ACTION_GAIN_BLOCK, "self_stat": "block_power", "self_ratio": 0.5},
-					{"type": TriggerEvents.ACTION_HEAL, "self_stat": "max_hp", "self_ratio": 0.05}
-				]
-			}],
-			"duration": -1
-		})
-
-	# 法盾：每 3 回合获得 1 层护盾，减伤 50% 持续 1 回合
-	if passive_skills.has("spell_shield"):
-		statuses.append({
-			"id": "trait_spell_shield", "name": "法盾", "kind": "buff", "stack": "replace",
-			"effects": [],
-			"triggers": [{
-				"event": TriggerEvents.ON_TURN_START,
-				"condition": {"round_index": {"mod": 3}},
-				"actions": [{
-					"type": TriggerEvents.ACTION_APPLY_STATUS,
-					"status": {
-						"id": "spell_shield_active", "name": "法盾", "kind": "buff", "stack": "replace",
-						"effects": [{"stat": "damage_taken", "type": "multiply", "value": 0.50}],
-						"duration": 1
-					}
-				}]
-			}],
-			"duration": -1
-		})
-
-	# 充能：每 3 回合充能一次，下次攻击力翻倍
-	if passive_skills.has("charge"):
-		statuses.append({
-			"id": "trait_charge", "name": "充能", "kind": "buff", "stack": "replace",
-			"effects": [],
-			"triggers": [{
-				"event": TriggerEvents.ON_TURN_START,
-				"condition": {"round_index": {"mod": 3}},
-				"actions": [{
-					"type": TriggerEvents.ACTION_APPLY_STATUS,
-					"status": {
-						"id": "charged_up", "name": "充能完毕", "kind": "buff", "stack": "replace",
-						"effects": [{"stat": "attack", "type": "multiply", "value": 2.0}],
-						"duration": 1
-					}
-				}]
-			}],
-			"duration": -1
-		})
-
-	# 阶段：HP 越低攻击越高（30%-60%: ×1.30, <30%: ×1.60）
-	if passive_skills.has("phase"):
-		statuses.append({
-			"id": "trait_phase", "name": "阶段", "kind": "buff", "stack": "replace",
-			"effects": [],
-			"conditional_effects": [
-				{"condition": {"hp_ratio": {"gte": 0.30, "lt": 0.60}}, "effects": [{"stat": "attack", "type": "multiply", "value": 1.30}]},
-				{"condition": {"hp_ratio": {"lt": 0.30}}, "effects": [{"stat": "attack", "type": "multiply", "value": 1.60}]}
-			],
-			"duration": -1
-		})
-
-	if passive_skills.has("tutorial_ramp"):
-		statuses.append({
-			"id": "trait_tutorial_ramp", "name": "考官压力", "kind": "buff", "stack": "replace",
-			"effects": [],
-			"triggers": [{
-				"event": TriggerEvents.ON_HIT_DEALT,
-				"actions": [{
-					"type": TriggerEvents.ACTION_APPLY_STATUS,
-					"status": {
-						"id": "tutorial_ramp_stack",
-						"name": "考官压力",
-						"kind": "buff",
-						"stack": "stack",
-						"effects": [{"stat": "attack", "type": "multiply", "value": 1.10}],
-						"duration": -1
-					}
-				}]
-			}],
-			"duration": -1
-		})
+	for trait_id in passive_skills:
+		var definition := TraitCatalog.status_definition(String(trait_id))
+		if definition.is_empty():
+			continue
+		statuses.append(definition)
 
 	enemy["statuses"] = statuses
 

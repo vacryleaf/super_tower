@@ -2,6 +2,7 @@ extends "res://scripts/tests/test_base.gd"
 
 const DataCatalog = preload("res://scripts/core/data_catalog.gd")
 const Combatant = preload("res://scripts/core/combatant.gd")
+const TraitCatalog = preload("res://scripts/core/trait_catalog.gd")
 
 
 func run() -> void:
@@ -19,6 +20,7 @@ func run() -> void:
 	test_external_runtime_field_parity()
 	test_external_skill_subset_compatibility()
 	test_unified_class_semantics()
+	test_trait_catalog_definitions()
 
 
 func test_state_card_weights() -> void:
@@ -233,3 +235,21 @@ func test_unified_class_semantics() -> void:
 	assert_true(DataCatalog.skill_class_compatible(DataCatalog.SKILLS["po_jun"], "unified"), "legacy warrior skill should be compatible with unified class")
 	assert_true(DataCatalog.equipment_class_compatible(DataCatalog.EQUIPMENT["warrior_training_sword"], "unified"), "legacy warrior equipment should be compatible with unified class")
 	assert_true(not DataCatalog.skill_class_compatible(DataCatalog.SKILLS["enemy_bite"], "unified"), "enemy skill should not be compatible with player class")
+
+
+func test_trait_catalog_definitions() -> void:
+	for trait_id in ["claw", "enrage", "revive", "fortify", "mark", "curse", "abyss_communication", "spell_shield", "charge", "phase", "tutorial_ramp"]:
+		assert_true(not TraitCatalog.status_definition(trait_id).is_empty(), "%s should have a declarative status definition" % trait_id)
+	var enemy := {
+		"name": "特性校验敌人",
+		"hp": 100,
+		"max_hp": 100,
+		"attack": 10,
+		"defense": 2,
+		"passive_skills": ["claw", "mark", "", ""],
+		"statuses": []
+	}
+	Combatant.normalize_enemy(enemy)
+	assert_true(enemy["statuses"].any(func(status: Dictionary): return String(status.get("id", "")) == "trait_claw"), "claw status should come from TraitCatalog")
+	assert_true(enemy["statuses"].any(func(status: Dictionary): return String(status.get("id", "")) == "trait_mark"), "mark status should come from TraitCatalog")
+	assert_true(TraitCatalog.unknown_ids(["claw", "missing_trait"]).has("missing_trait"), "unknown trait IDs should be reported")

@@ -1,6 +1,8 @@
 extends RefCounted
 class_name TraitCatalog
 
+const TriggerEvents = preload("res://scripts/core/trigger_events.gd")
+
 const LABELS := {
 	"swarm": "群袭",
 	"corruption": "腐败",
@@ -70,6 +72,175 @@ const DESCRIPTIONS := {
 	,"tutorial_ramp": "考官：防御：每次成功造成伤害后，后续攻击会更强。"
 	,"tutorial_evade": "考官：闪避：每 2 回合会使用一次重攻击。"
 }
+
+const BASE_STAT_EFFECTS := {
+	"thick_skin": {"stat": "armor", "type": "multiply", "value": 1.20}
+}
+
+const STATUS_DEFINITIONS := {
+	"claw": {
+		"id": "trait_claw", "name": "利爪", "kind": "buff", "stack": "replace",
+		"effects": [{"stat": "attack", "type": "multiply", "value": 1.15}],
+		"duration": -1
+	},
+	"enrage": {
+		"id": "trait_enrage", "name": "激怒", "kind": "buff", "stack": "replace",
+		"effects": [],
+		"conditional_effects": [
+			{"condition": {"hp_ratio": {"lt": 0.5}}, "effects": [{"stat": "attack", "type": "multiply", "value": 1.50}, {"stat": "damage_taken", "type": "multiply", "value": 1.30}]}
+		],
+		"duration": -1
+	},
+	"revive": {
+		"id": "trait_revive", "name": "复苏", "kind": "buff", "stack": "replace",
+		"effects": [],
+		"triggers": [{
+			"event": TriggerEvents.ON_TURN_END,
+			"condition": {"round_index": {"mod": 3}},
+			"actions": [{"type": TriggerEvents.ACTION_HEAL, "self_stat": "max_hp", "self_ratio": 0.05}]
+		}],
+		"duration": -1
+	},
+	"fortify": {
+		"id": "trait_fortify", "name": "固守", "kind": "buff", "stack": "replace",
+		"effects": [],
+		"triggers": [{
+			"event": TriggerEvents.ON_TURN_END,
+			"condition": {"round_index": {"mod": 2}},
+			"actions": [{"type": TriggerEvents.ACTION_GAIN_BLOCK, "self_stat": "block_power", "self_ratio": 1.0}]
+		}],
+		"duration": -1
+	},
+	"mark": {
+		"id": "trait_mark", "name": "标记", "kind": "buff", "stack": "replace",
+		"effects": [],
+		"triggers": [{
+			"event": TriggerEvents.ON_HIT_DEALT,
+			"actions": [{
+				"type": TriggerEvents.ACTION_APPLY_STATUS,
+				"apply_to": "context_target",
+				"status": {
+					"id": "mark_debuff", "name": "易伤", "kind": "debuff", "stack": "replace",
+					"effects": [{"stat": "damage_taken", "type": "multiply", "value": 1.25}],
+					"duration": 2
+				}
+			}]
+		}],
+		"duration": -1
+	},
+	"curse": {
+		"id": "trait_curse", "name": "诅咒", "kind": "buff", "stack": "replace",
+		"effects": [],
+		"triggers": [{
+			"event": TriggerEvents.ON_HIT_DEALT,
+			"actions": [{
+				"type": TriggerEvents.ACTION_APPLY_STATUS,
+				"apply_to": "context_target",
+				"status": {
+					"id": "curse_debuff", "name": "诅咒", "kind": "debuff", "stack": "replace",
+					"effects": [{"stat": "attack", "type": "multiply", "value": 0.80}],
+					"duration": 3
+				}
+			}]
+		}],
+		"duration": -1
+	},
+	"abyss_communication": {
+		"id": "trait_abyss_communication", "name": "深渊沟通", "kind": "buff", "stack": "replace",
+		"effects": [],
+		"triggers": [{
+			"event": TriggerEvents.ON_TURN_START,
+			"actions": [
+				{"type": TriggerEvents.ACTION_GAIN_BLOCK, "self_stat": "block_power", "self_ratio": 0.5},
+				{"type": TriggerEvents.ACTION_HEAL, "self_stat": "max_hp", "self_ratio": 0.05}
+			]
+		}],
+		"duration": -1
+	},
+	"spell_shield": {
+		"id": "trait_spell_shield", "name": "法盾", "kind": "buff", "stack": "replace",
+		"effects": [],
+		"triggers": [{
+			"event": TriggerEvents.ON_TURN_START,
+			"condition": {"round_index": {"mod": 3}},
+			"actions": [{
+				"type": TriggerEvents.ACTION_APPLY_STATUS,
+				"status": {
+					"id": "spell_shield_active", "name": "法盾", "kind": "buff", "stack": "replace",
+					"effects": [{"stat": "damage_taken", "type": "multiply", "value": 0.50}],
+					"duration": 1
+				}
+			}]
+		}],
+		"duration": -1
+	},
+	"charge": {
+		"id": "trait_charge", "name": "充能", "kind": "buff", "stack": "replace",
+		"effects": [],
+		"triggers": [{
+			"event": TriggerEvents.ON_TURN_START,
+			"condition": {"round_index": {"mod": 3}},
+			"actions": [{
+				"type": TriggerEvents.ACTION_APPLY_STATUS,
+				"status": {
+					"id": "charged_up", "name": "充能完毕", "kind": "buff", "stack": "replace",
+					"effects": [{"stat": "attack", "type": "multiply", "value": 2.0}],
+					"duration": 1
+				}
+			}]
+		}],
+		"duration": -1
+	},
+	"phase": {
+		"id": "trait_phase", "name": "阶段", "kind": "buff", "stack": "replace",
+		"effects": [],
+		"conditional_effects": [
+			{"condition": {"hp_ratio": {"gte": 0.30, "lt": 0.60}}, "effects": [{"stat": "attack", "type": "multiply", "value": 1.30}]},
+			{"condition": {"hp_ratio": {"lt": 0.30}}, "effects": [{"stat": "attack", "type": "multiply", "value": 1.60}]}
+		],
+		"duration": -1
+	},
+	"tutorial_ramp": {
+		"id": "trait_tutorial_ramp", "name": "考官压力", "kind": "buff", "stack": "replace",
+		"effects": [],
+		"triggers": [{
+			"event": TriggerEvents.ON_HIT_DEALT,
+			"actions": [{
+				"type": TriggerEvents.ACTION_APPLY_STATUS,
+				"status": {
+					"id": "tutorial_ramp_stack", "name": "考官压力", "kind": "buff", "stack": "stack",
+					"effects": [{"stat": "attack", "type": "multiply", "value": 1.10}],
+					"duration": -1
+				}
+			}]
+		}],
+		"duration": -1
+	}
+}
+
+
+static func status_definition(trait_id: String) -> Dictionary:
+	var raw: Variant = STATUS_DEFINITIONS.get(trait_id, {})
+	if typeof(raw) != TYPE_DICTIONARY:
+		return {}
+	return (raw as Dictionary).duplicate(true)
+
+
+static func base_stat_effect(trait_id: String) -> Dictionary:
+	var raw: Variant = BASE_STAT_EFFECTS.get(trait_id, {})
+	if typeof(raw) != TYPE_DICTIONARY:
+		return {}
+	return (raw as Dictionary).duplicate(true)
+
+
+static func unknown_ids(passive_skills: Array) -> Array[String]:
+	var result: Array[String] = []
+	for trait_id in passive_skills:
+		var normalized_id := String(trait_id)
+		if normalized_id == "" or LABELS.has(normalized_id) or result.has(normalized_id):
+			continue
+		result.append(normalized_id)
+	return result
 
 
 static func labels(passive_skills: Array) -> String:
