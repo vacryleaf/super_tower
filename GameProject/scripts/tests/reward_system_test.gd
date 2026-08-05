@@ -3,6 +3,7 @@ extends "res://scripts/tests/test_base.gd"
 const TestHelpers = preload("res://scripts/tests/test_helpers.gd")
 const DataCatalog = preload("res://scripts/core/data_catalog.gd")
 const CharacterService = preload("res://scripts/core/character_service.gd")
+const RewardService = preload("res://scripts/core/reward_service.gd")
 
 
 func run() -> void:
@@ -18,6 +19,7 @@ func run() -> void:
 	test_boss_grants_tower_coins()
 	test_tower_reward_rules()
 	test_skill_shop_purchase()
+	test_reward_schema_fields()
 
 
 func test_reward_attachment_flow() -> void:
@@ -304,3 +306,23 @@ func test_skill_shop_purchase() -> void:
 	var dup_result: bool = session.buy_common_skill("first_aid")
 	assert_true(not dup_result, "duplicate purchase should fail")
 	session.delete_save()
+
+
+func test_reward_schema_fields() -> void:
+	var reward_service := RewardService.new()
+	var generated_rewards: Array[Dictionary] = []
+	generated_rewards.append_array(reward_service.reward_pool("normal", 1))
+	generated_rewards.append(reward_service.tutorial_reward("unified", 1))
+	generated_rewards.append(reward_service.tower_skill_reward("unified"))
+	generated_rewards.append(reward_service.tower_passive_skill_reward())
+	for reward in generated_rewards:
+		assert_equal(int(reward.get("schema_version", 0)), RewardService.REWARD_SCHEMA_VERSION, "generated reward schema version")
+		assert_true(String(reward.get("source", "")) != "", "generated reward source")
+		assert_true(String(reward.get("target_type", "")) != "", "generated reward target type")
+		assert_true(typeof(reward.get("effect", null)) == TYPE_DICTIONARY, "generated reward effect object")
+	var legacy_reward := {"kind": "attack", "label": "旧格式攻击", "value": 3}
+	var normalized := RewardService.normalize_reward(legacy_reward)
+	assert_equal(String(normalized.get("source", "")), "floor_reward", "legacy reward source migration")
+	assert_equal(String(normalized.get("target_type", "")), "attachment", "legacy reward target migration")
+	var effect: Dictionary = normalized["effect"]
+	assert_equal(String(effect.get("stat", "")), "attack", "legacy reward effect stat migration")

@@ -3,7 +3,90 @@ class_name RewardService
 
 const DataCatalog = preload("res://scripts/core/data_catalog.gd")
 
+const REWARD_SCHEMA_VERSION := 1
+
 var rng := RandomNumberGenerator.new()
+
+
+static func make_reward(kind: String, label: String, source: String, target_type: String, effect: Dictionary = {}, legacy_fields: Dictionary = {}) -> Dictionary:
+	var reward := {
+		"schema_version": REWARD_SCHEMA_VERSION,
+		"kind": kind,
+		"label": label,
+		"source": source,
+		"target_type": target_type,
+		"effect": effect.duplicate(true),
+		"value": effect.get("value", 0)
+	}
+	for field in legacy_fields.keys():
+		reward[String(field)] = legacy_fields[field]
+	return reward
+
+
+static func normalize_reward(reward: Dictionary, default_source: String = "legacy") -> Dictionary:
+	var normalized := reward.duplicate(true)
+	var kind := String(normalized.get("kind", ""))
+	normalized["schema_version"] = maxi(1, int(normalized.get("schema_version", REWARD_SCHEMA_VERSION)))
+	if String(normalized.get("source", "")) == "":
+		normalized["source"] = _legacy_source(kind, default_source)
+	if String(normalized.get("target_type", "")) == "":
+		normalized["target_type"] = _legacy_target_type(kind)
+	if typeof(normalized.get("effect", null)) != TYPE_DICTIONARY:
+		normalized["effect"] = _legacy_effect(normalized)
+	return normalized
+
+
+static func normalize_rewards(rewards: Array[Dictionary], default_source: String = "legacy") -> Array[Dictionary]:
+	var normalized: Array[Dictionary] = []
+	for reward in rewards:
+		normalized.append(normalize_reward(reward, default_source))
+	return normalized
+
+
+static func _legacy_source(kind: String, default_source: String) -> String:
+	if kind == "tutorial_unlock":
+		return "tutorial"
+	if kind.begins_with("tower_"):
+		return "tower_reward"
+	if ["attack", "defense", "hp", "skill_power"].has(kind):
+		return "floor_reward"
+	if kind == "permanent_equipment":
+		return "npc_blacksmith"
+	return default_source
+
+
+static func _legacy_target_type(kind: String) -> String:
+	match kind:
+		"tutorial_unlock":
+			return "player_unlock"
+		"attack", "defense", "hp", "skill_power":
+			return "attachment"
+		"tower_equipment":
+			return "tower_equipment"
+		"tower_consumable":
+			return "tower_consumable"
+		"tower_skill":
+			return "tower_skill"
+		"tower_passive_skill":
+			return "tower_passive_skill"
+		"permanent_equipment":
+			return "permanent_equipment"
+		"heal":
+			return "player"
+	return "player"
+
+
+static func _legacy_effect(reward: Dictionary) -> Dictionary:
+	var kind := String(reward.get("kind", ""))
+	if kind == "tutorial_unlock":
+		return {"unlock_id": String(reward.get("item_id", ""))}
+	if reward.has("item_id"):
+		return {"item_id": String(reward.get("item_id", ""))}
+	if reward.has("skill_id"):
+		return {"skill_id": String(reward.get("skill_id", ""))}
+	if ["attack", "defense", "hp", "skill_power"].has(kind):
+		return {"stat": kind, "value": reward.get("value", 0)}
+	return {"value": reward.get("value", 0)}
 
 
 func tutorial_reward(class_id: String, battle_index: int) -> Dictionary:
@@ -13,7 +96,7 @@ func tutorial_reward(class_id: String, battle_index: int) -> Dictionary:
 		label = "获得装备：%s" % DataCatalog.EQUIPMENT[unlock_id]["name"]
 	else:
 		label = "获得技能：%s" % DataCatalog.SKILLS[unlock_id]["name"]
-	return {"kind": "tutorial_unlock", "label": label, "value": 0, "item_id": unlock_id}
+	return make_reward("tutorial_unlock", label, "tutorial", "player_unlock", {"unlock_id": unlock_id}, {"item_id": unlock_id})
 
 
 func tower_equipment_reward(player: Dictionary, class_id: String) -> Dictionary:
@@ -32,7 +115,7 @@ func tower_equipment_reward(player: Dictionary, class_id: String) -> Dictionary:
 	if candidates.is_empty():
 		return {}
 	var selected_id := String(candidates[rng.randi_range(0, candidates.size() - 1)])
-	return {"kind": "tower_equipment", "label": "塔内装备：%s" % DataCatalog.EQUIPMENT[selected_id]["name"], "item_id": selected_id, "value": 0}
+	return make_reward("tower_equipment", "塔内装备：%s" % DataCatalog.EQUIPMENT[selected_id]["name"], "tower_reward", "tower_equipment", {"item_id": selected_id}, {"item_id": selected_id})
 
 
 func tower_consumable_reward() -> Dictionary:
@@ -42,7 +125,7 @@ func tower_consumable_reward() -> Dictionary:
 	if item_ids.is_empty():
 		return {}
 	var selected_id := String(item_ids[rng.randi_range(0, item_ids.size() - 1)])
-	return {"kind": "tower_consumable", "label": "塔内物品：%s" % DataCatalog.CONSUMABLES[selected_id]["name"], "item_id": selected_id, "value": 0}
+	return make_reward("tower_consumable", "塔内物品：%s" % DataCatalog.CONSUMABLES[selected_id]["name"], "tower_reward", "tower_consumable", {"item_id": selected_id}, {"item_id": selected_id})
 
 
 func tower_skill_reward(class_id: String) -> Dictionary:
@@ -56,7 +139,7 @@ func tower_skill_reward(class_id: String) -> Dictionary:
 	if candidates.is_empty():
 		return {}
 	var selected_id := String(candidates[rng.randi_range(0, candidates.size() - 1)])
-	return {"kind": "tower_skill", "label": "塔内技能：%s" % DataCatalog.SKILLS[selected_id]["name"], "skill_id": selected_id, "value": 0}
+	return make_reward("tower_skill", "塔内技能：%s" % DataCatalog.SKILLS[selected_id]["name"], "tower_reward", "tower_skill", {"skill_id": selected_id}, {"skill_id": selected_id})
 
 
 func tower_passive_skill_reward() -> Dictionary:
@@ -66,7 +149,7 @@ func tower_passive_skill_reward() -> Dictionary:
 	if skill_ids.is_empty():
 		return {}
 	var selected_id := String(skill_ids[rng.randi_range(0, skill_ids.size() - 1)])
-	return {"kind": "tower_passive_skill", "label": "塔内被动：%s" % DataCatalog.PASSIVE_SKILLS[selected_id]["name"], "skill_id": selected_id, "value": 0}
+	return make_reward("tower_passive_skill", "塔内被动：%s" % DataCatalog.PASSIVE_SKILLS[selected_id]["name"], "tower_reward", "tower_passive_skill", {"skill_id": selected_id}, {"skill_id": selected_id})
 
 
 func should_drop(chance: float) -> bool:
@@ -99,11 +182,12 @@ func reward_pool(reward_rank: String, floor_index: int) -> Array[Dictionary]:
 		defense_value = floor_value(3, floor_index)
 		hp_value = floor_value(18, floor_index)
 		skill_power_value = 0.12
+	var source := "floor_reward:%s" % reward_rank
 	return [
-		{"kind": "attack", "label": "%s攻击 +%d" % [prefix, attack_value], "value": attack_value},
-		{"kind": "defense", "label": "%s护甲 +%d" % [prefix, defense_value], "value": defense_value},
-		{"kind": "hp", "label": "%s生命上限 +%d" % [prefix, hp_value], "value": hp_value},
-		{"kind": "skill_power", "label": "%s技能倍率 +%.2f" % [prefix, skill_power_value], "value": skill_power_value}
+		make_reward("attack", "%s攻击 +%d" % [prefix, attack_value], source, "attachment", {"stat": "attack", "value": attack_value}),
+		make_reward("defense", "%s护甲 +%d" % [prefix, defense_value], source, "attachment", {"stat": "defense", "value": defense_value}),
+		make_reward("hp", "%s生命上限 +%d" % [prefix, hp_value], source, "attachment", {"stat": "hp", "value": hp_value}),
+		make_reward("skill_power", "%s技能倍率 +%.2f" % [prefix, skill_power_value], source, "attachment", {"stat": "skill_power", "value": skill_power_value})
 	]
 
 
@@ -185,16 +269,12 @@ func permanent_equipment_reward(player: Dictionary, class_id: String, floor_inde
 			continue
 		candidates.append(String(item_id))
 	if candidates.is_empty():
-		return {"kind": "heal", "label": "永久装备分支：装备已收集完，恢复生命", "value": floor_value(12, floor_index)}
+		var heal_value := floor_value(12, floor_index)
+		return make_reward("heal", "永久装备分支：装备已收集完，恢复生命", "npc_blacksmith", "player", {"stat": "hp", "value": heal_value})
 	rng.randomize()
 	var selected_id := candidates[rng.randi_range(0, candidates.size() - 1)]
 	var item: Dictionary = DataCatalog.EQUIPMENT[selected_id]
-	return {
-		"kind": "permanent_equipment",
-		"label": "永久装备：%s" % item["name"],
-		"item_id": selected_id,
-		"value": 0
-	}
+	return make_reward("permanent_equipment", "永久装备：%s" % item["name"], "npc_blacksmith", "permanent_equipment", {"item_id": selected_id}, {"item_id": selected_id})
 
 
 

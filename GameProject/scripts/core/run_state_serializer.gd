@@ -3,6 +3,7 @@ class_name RunStateSerializer
 
 const DataCatalog = preload("res://scripts/core/data_catalog.gd")
 const Combatant = preload("res://scripts/core/combatant.gd")
+const RewardService = preload("res://scripts/core/reward_service.gd")
 
 
 func save_data(session: RefCounted) -> Dictionary:
@@ -98,8 +99,9 @@ func load_save_data(session: RefCounted, data: Dictionary) -> bool:
 	session.deferred_damage = float(data.get("deferred_damage", 0.0))
 	session.duel_target_index = int(data.get("duel_target_index", -1))
 	session.perfect_deflect = bool(data.get("perfect_deflect", false))
-	session.reward_options = _dictionary_array(data.get("reward_options", []))
-	session.pending_reward = _dictionary(data.get("pending_reward", {}))
+	session.reward_options = RewardService.normalize_rewards(_dictionary_array(data.get("reward_options", [])))
+	var pending_reward := _dictionary(data.get("pending_reward", {}))
+	session.pending_reward = {} if pending_reward.is_empty() else RewardService.normalize_reward(pending_reward)
 	session.reward_targets = _dictionary_array(data.get("reward_targets", []))
 	session.battle_log.clear()
 	session.last_events.clear()

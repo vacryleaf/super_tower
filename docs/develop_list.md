@@ -32,7 +32,7 @@
 
 ### 成长与战斗数据
 
-- [ ] 任务 4｜落地奖励运行时 Schema
+- [x] 任务 4｜落地奖励运行时 Schema
   - 为奖励建立统一的 `source`、`target_type`、`effect`/效果参数字段，同时保留旧存档兼容读取。
   - 更新 `RewardService`、`RewardApplyService`、保存迁移和奖励测试。
   - 将文档状态从“目标字段”更新为当前真实契约。
@@ -113,3 +113,8 @@
 
 - `sh run_tests.sh`：通过，输出 `ALL TESTS PASSED`。
 - 运行时职业、内容分类和旧职业迁移已通过 `DataCatalog` 统一入口区分，并补充统一职业语义测试。
+
+### 2026-08-05 任务 4
+
+- `sh run_tests.sh`：通过，输出 `ALL TESTS PASSED`。
+- 奖励已统一写入 Schema v1 字段，并对旧奖励和 active run 增加归一化兼容；补充奖励字段测试。

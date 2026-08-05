@@ -3,6 +3,7 @@
 状态：已实现。
 
 - `RewardService` 生成奖励；`RewardApplyService` 应用奖励。
+- 奖励使用 Schema v1 的 `schema_version`、`source`、`target_type` 和 `effect` 字段；旧的 `kind`、`value`、`item_id`、`skill_id` 字段保留兼容，`RunStateSerializer` 读取旧 active run 时会补齐新字段。
 - 正式战斗按遭遇等级发放塔币：普通/精英/Boss 使用有效塔层的 `1x/3x/10x` 倍率；一次性物品基础掉落概率为 `20%`，装备掉落概率为普通 `10%`、精英 `50%`、Boss `100%`。
 - Boss 的塔内技能奖励只从技能槽 `3/4` 选择，并可额外提供塔内被动技能；塔内奖励目标同时包含当前塔内装备和技能。
 - `SaveProfile` 保存永久队伍、装备、技能、教程完成、塔币、血瓶等级/剩余次数/种子、图鉴记录和 NPC 解锁 ID。

@@ -11,7 +11,8 @@ func choose_reward(session: Variant, index: int) -> void:
 		return
 	if index < 0 or index >= session.reward_options.size():
 		return
-	var reward: Dictionary = session.reward_options[index]
+	var reward: Dictionary = RewardService.normalize_reward(session.reward_options[index])
+	session.reward_options[index] = reward
 	if RewardService.reward_needs_attachment(reward):
 		session.pending_reward = reward.duplicate(true)
 		session.reward_targets = build_reward_targets(session)
