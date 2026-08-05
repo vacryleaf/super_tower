@@ -44,7 +44,7 @@
 
 ### UI、图鉴与验收
 
-- [ ] 任务 6｜统一资源名称与职业头像映射
+- [x] 任务 6｜统一资源名称与职业头像映射
   - 将 `adrenaline` 在营地和百科显示为“肾上腺素”。
   - 明确 `unified` 头像的资源映射和无资源 fallback，不在 UI 中使用隐式“其他即专注”。
   - 增加 UI 文本冒烟断言并同步物品/技能文档。
@@ -123,3 +123,8 @@
 
 - `sh run_tests.sh`：通过，输出 `ALL TESTS PASSED`。
 - 可声明 Trait 的 status、conditional_effects 和 triggers 已迁移到 `TraitCatalog`，并补充未知 ID 与运行时状态生成测试。
+
+### 2026-08-05 任务 6
+
+- `sh run_tests.sh`：通过，输出 `ALL TESTS PASSED`。
+- 资源名称、统一职业头像兼容映射和缺失资源 fallback 已集中到数据/辅助层，并补充 UI 元数据测试。

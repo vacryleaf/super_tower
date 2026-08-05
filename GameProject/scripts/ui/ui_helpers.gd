@@ -19,8 +19,14 @@ const CATEGORIES := [
 
 
 static func avatar_for(class_key: String) -> Control:
-	var texture := texture_from_png("res://img/%s.png" % class_key)
-	if texture != null:
+	var normalized_class_id := DataCatalog.normalize_class_id(class_key)
+	var asset_ids: Array[String] = [DataCatalog.avatar_asset_for_class(normalized_class_id)]
+	if not asset_ids.has(normalized_class_id):
+		asset_ids.append(normalized_class_id)
+	for asset_id in asset_ids:
+		var texture := texture_from_png("res://img/%s.png" % asset_id)
+		if texture == null:
+			continue
 		var portrait := TextureRect.new()
 		portrait.texture = texture
 		portrait.custom_minimum_size = Vector2(88, 88)
@@ -31,7 +37,7 @@ static func avatar_for(class_key: String) -> Control:
 	var panel := PanelContainer.new()
 	panel.custom_minimum_size = Vector2(88, 88)
 	var label := Label.new()
-	label.text = String(DataCatalog.CLASSES.get(class_key, {}).get("name", class_key))
+	label.text = String(DataCatalog.CLASSES.get(normalized_class_id, {}).get("name", normalized_class_id))
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	label.autowrap_mode = TextServer.AUTOWRAP_OFF

@@ -134,7 +134,7 @@ func _render_classes() -> void:
 	_detail_container.add_child(_label_factory.call("职业", 22))
 	for class_id in DataCatalog.CLASSES.keys():
 		var data: Dictionary = DataCatalog.CLASSES[class_id]
-		var resource_name := "怒气" if data.get("resource", "") == "rage" else "专注"
+		var resource_name := DataCatalog.resource_label(String(data.get("resource", "")))
 		var text := "%s：HP %d，攻击 %d，护甲 %d，格挡 %d，资源：%s" % [
 			data["name"], int(data["max_hp"]), int(data["base_attack"]), int(data["base_defense"]), int(data.get("base_block", 1)), resource_name
 		]

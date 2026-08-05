@@ -77,8 +77,15 @@ const CLASSES := {
 		"base_defense": 1,
 		"base_block": 4,
 		"resource": "adrenaline",
+		"avatar_asset": "warrior",
 		"first_skill": "po_jun"
 	}
+}
+
+const RESOURCE_LABELS := {
+	"adrenaline": "肾上腺素",
+	"rage": "怒气",
+	"focus": "专注"
 }
 
 const SKILLS := {
@@ -221,6 +228,16 @@ static func normalize_class_id(class_id: String) -> String:
 		return class_id
 	# warrior/archer are historical save identifiers; all new runtime data uses unified.
 	return "unified"
+
+
+static func resource_label(resource_id: String) -> String:
+	return String(RESOURCE_LABELS.get(resource_id, resource_id))
+
+
+static func avatar_asset_for_class(class_id: String) -> String:
+	var normalized_class_id := normalize_class_id(class_id)
+	var class_data: Dictionary = CLASSES.get(normalized_class_id, {})
+	return String(class_data.get("avatar_asset", normalized_class_id))
 
 
 static func content_class_id(content: Dictionary) -> String:

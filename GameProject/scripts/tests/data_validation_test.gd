@@ -21,6 +21,7 @@ func run() -> void:
 	test_external_skill_subset_compatibility()
 	test_unified_class_semantics()
 	test_trait_catalog_definitions()
+	test_unified_ui_metadata()
 
 
 func test_state_card_weights() -> void:
@@ -253,3 +254,8 @@ func test_trait_catalog_definitions() -> void:
 	assert_true(enemy["statuses"].any(func(status: Dictionary): return String(status.get("id", "")) == "trait_claw"), "claw status should come from TraitCatalog")
 	assert_true(enemy["statuses"].any(func(status: Dictionary): return String(status.get("id", "")) == "trait_mark"), "mark status should come from TraitCatalog")
 	assert_true(TraitCatalog.unknown_ids(["claw", "missing_trait"]).has("missing_trait"), "unknown trait IDs should be reported")
+
+
+func test_unified_ui_metadata() -> void:
+	assert_equal(DataCatalog.resource_label("adrenaline"), "肾上腺素", "adrenaline resource label")
+	assert_equal(DataCatalog.avatar_asset_for_class("unified"), "warrior", "unified avatar compatibility asset")
