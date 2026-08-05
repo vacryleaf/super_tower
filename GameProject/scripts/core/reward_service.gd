@@ -24,8 +24,7 @@ func tower_equipment_reward(player: Dictionary, class_id: String) -> Dictionary:
 		return {}
 	for item_id in DataCatalog.EQUIPMENT.keys():
 		var item: Dictionary = DataCatalog.EQUIPMENT[item_id]
-		var item_class := String(item.get("class", "common"))
-		if item_class != "common" and item_class != class_id and not (class_id == "unified" and item_class in ["warrior", "archer"]):
+		if not DataCatalog.equipment_class_compatible(item, class_id):
 			continue
 		if player.get("equipment_ids", []).has(item_id) or tower_equipment_ids.has(item_id) or tower_equipment.values().has(item_id):
 			continue
@@ -180,8 +179,7 @@ func permanent_equipment_reward(player: Dictionary, class_id: String, floor_inde
 	var candidates: Array[String] = []
 	for item_id in DataCatalog.EQUIPMENT.keys():
 		var item: Dictionary = DataCatalog.EQUIPMENT[item_id]
-		var item_class := String(item.get("class", "common"))
-		if item_class != "common" and item_class != class_id:
+		if not DataCatalog.equipment_class_compatible(item, class_id):
 			continue
 		if player.get("equipment_ids", []).has(item_id):
 			continue
@@ -204,7 +202,7 @@ func permanent_equipment_reward(player: Dictionary, class_id: String, floor_inde
 func _has_unlocked_all_class_skills(player: Dictionary, class_id: String) -> bool:
 	for skill_id in DataCatalog.SKILLS.keys():
 		var skill: Dictionary = DataCatalog.SKILLS[skill_id]
-		if String(skill.get("class", "")) == class_id:
+		if DataCatalog.skill_class_compatible(skill, class_id):
 			if not player.get("unlocked_skills", []).has(skill_id):
 				return false
 	return true

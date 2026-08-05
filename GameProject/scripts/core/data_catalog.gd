@@ -223,14 +223,47 @@ static func normalize_class_id(class_id: String) -> String:
 	return "unified"
 
 
+static func content_class_id(content: Dictionary) -> String:
+	return String(content.get("content_class", content.get("class", "")))
+
+
+static func runtime_class_id_for_content(content: Dictionary) -> String:
+	var explicit_runtime_class := String(content.get("runtime_class", ""))
+	if explicit_runtime_class != "":
+		return normalize_class_id(explicit_runtime_class)
+	var content_class := content_class_id(content)
+	if content_class in ["common", "unified", "warrior", "archer"]:
+		return "unified"
+	return content_class
+
+
+static func content_class_label(content: Dictionary) -> String:
+	match content_class_id(content):
+		"common":
+			return "通用"
+		"warrior":
+			return "战士内容"
+		"archer":
+			return "弓箭手内容"
+		"enemy":
+			return "敌人"
+		"unified":
+			return "统一职业"
+	return content_class_id(content)
+
+
 static func skill_class_compatible(skill: Dictionary, class_id: String) -> bool:
-	var skill_class := String(skill.get("class", ""))
+	if content_class_id(skill) == "enemy":
+		return false
 	var normalized_class := normalize_class_id(class_id)
-	if skill_class == "common" or skill_class == "unified":
+	return runtime_class_id_for_content(skill) == normalized_class
+
+
+static func equipment_class_compatible(item: Dictionary, class_id: String) -> bool:
+	var content_class := content_class_id(item)
+	if content_class == "common":
 		return true
-	if normalized_class == "unified" and skill_class in ["warrior", "archer"]:
-		return true
-	return skill_class == normalized_class
+	return runtime_class_id_for_content(item) == normalize_class_id(class_id)
 
 
 static func equipment_slot(item_or_slot: Variant) -> String:

@@ -81,10 +81,10 @@ func render(root: Control, class_key: String, roster_player: Dictionary, label_f
 func _skills_by_slot(class_key: String) -> Dictionary:
 	var result: Dictionary = {}
 	for skill_id in DataCatalog.SKILLS.keys():
-		var skill_class := String(DataCatalog.SKILLS[skill_id].get("class", ""))
-		if skill_class != class_key and skill_class != "common":
+		var skill: Dictionary = DataCatalog.SKILLS[skill_id]
+		if not DataCatalog.skill_class_compatible(skill, class_key):
 			continue
-		var slot := int(DataCatalog.SKILLS[skill_id].get("slot", 0))
+		var slot := int(skill.get("slot", 0))
 		if slot < 1 or slot > 4:
 			continue
 		if not result.has(slot):

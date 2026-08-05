@@ -18,6 +18,7 @@ func run() -> void:
 	test_external_enemy_manifest_parity()
 	test_external_runtime_field_parity()
 	test_external_skill_subset_compatibility()
+	test_unified_class_semantics()
 
 
 func test_state_card_weights() -> void:
@@ -222,3 +223,13 @@ func test_external_skill_subset_compatibility() -> void:
 			assert_true(runtime_entry.has(field), "skills.%s.%s should exist in runtime catalog" % [entry_id, field])
 			if runtime_entry.has(field):
 				assert_catalog_value_equal(external_entry[field], runtime_entry[field], "skills.%s.%s subset parity" % [entry_id, field])
+
+
+func test_unified_class_semantics() -> void:
+	assert_equal(DataCatalog.normalize_class_id("warrior"), "unified", "warrior save id should normalize to unified")
+	assert_equal(DataCatalog.normalize_class_id("archer"), "unified", "archer save id should normalize to unified")
+	assert_equal(DataCatalog.runtime_class_id_for_content(DataCatalog.SKILLS["po_jun"]), "unified", "legacy skill content should map to unified runtime class")
+	assert_equal(DataCatalog.runtime_class_id_for_content(DataCatalog.EQUIPMENT["warrior_training_sword"]), "unified", "legacy equipment content should map to unified runtime class")
+	assert_true(DataCatalog.skill_class_compatible(DataCatalog.SKILLS["po_jun"], "unified"), "legacy warrior skill should be compatible with unified class")
+	assert_true(DataCatalog.equipment_class_compatible(DataCatalog.EQUIPMENT["warrior_training_sword"], "unified"), "legacy warrior equipment should be compatible with unified class")
+	assert_true(not DataCatalog.skill_class_compatible(DataCatalog.SKILLS["enemy_bite"], "unified"), "enemy skill should not be compatible with player class")

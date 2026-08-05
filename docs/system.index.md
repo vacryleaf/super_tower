@@ -19,7 +19,7 @@
 - 自动模拟战斗已经删除，不得恢复 `CombatEngine`、`RunSimulator`、`SimulationRewardPolicy` 或 `ChargeSimulator`。
 - 新角色首次进入正式高塔前固定进行 3 场教程；教程不消耗正式第 1 层。正式第 1 层不是教程层。
 - 每个正式楼层固定 10 场：第 1～2、4～5、7～9 场普通，第 3、6 场精英，第 10 场 Boss。
-- 当前运行时采用统一角色；旧职业字段只用于旧存档迁移。
+- 当前运行时采用统一角色；存档中的旧职业 ID 只用于迁移，技能/装备数据中的 `class` 保留为内容分类标签，新 Schema 使用 `runtime_class` 表示运行时职业。
 - 运行时装备槽固定为：`weapon`、`armor`、`accessory`、`offhand`。
 - 新能力优先使用 `actions`、`effects`、`conditional_effects`、`triggers` 和状态服务，不在流程层散落硬编码。
 - 原版和 Mod 内容必须进入同一份规范化运行时数据；内容 ID 必须带命名空间，禁止覆盖原版 ID。
