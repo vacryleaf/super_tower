@@ -15,3 +15,5 @@
 | 全量 | `run_tests.bat` / `run_tests.sh` |
 
 当前验收要求：不得依赖模拟战斗；跨平台核心断言使用 Godot headless；Windows pywinauto 只做桌面 UI 补充验收。`playable_manual_test.gd` 是长时可玩回归脚本，默认入口不执行它，不能将未运行该脚本称为包含长时回归的全量通过。
+
+模块化架构优化处于设计已确认待实现状态。实施中的新增契约测试、服务测试和集成测试必须按 `docs/architecture/logic/modular_architecture_optimization_todo.md` 中的 ARCH 子项逐项接入；在代码和默认入口落地前，不得将计划中的测试写成已执行。

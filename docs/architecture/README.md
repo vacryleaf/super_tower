@@ -10,6 +10,11 @@
 - `logic/`：运行时数据管线、内容校验、Mod 载入流程。
 - `data/`：Schema 注册表、字段规则、Mod manifest。
 
+## 已确认待实现的架构优化
+
+- [模块化架构优化方案](design/modular_architecture_optimization.md)：覆盖内容注册、战斗流程、Run/存档、UI、测试和跨平台边界。
+- [模块化架构优化 TODO](logic/modular_architecture_optimization_todo.md)：以 ARCH 编号拆分为可独立测试、文档回写和单独提交的实施任务。
+
 ## 当前代码映射
 
 `DataCatalog` 是原版数据查询门面；`DataRepository` 读取 `catalog_v1.json`；战斗层只消费规范化字典，不应直接依赖 Mod 文件路径。

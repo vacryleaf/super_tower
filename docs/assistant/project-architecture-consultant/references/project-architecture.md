@@ -34,6 +34,10 @@
 
 敌人行为由 `enemy_action_rules.gd` 决策；UI 只展示状态和派发玩家意图。
 
+## 已确认待实现的模块化优化
+
+当前运行时边界仍以上述实现为准。2026-08-06 已确认一套渐进式模块化优化方案，目标是让 `BattleFlow` 仅负责编排时机，将行动、技能、命中、闪避、伤害和触发拆为可独立测试的模块，并同步建立内容注册、Run/存档、UI 和测试边界。实施顺序和验收以 `docs/architecture/design/modular_architecture_optimization.md`、`docs/architecture/logic/modular_architecture_optimization_todo.md` 和 `docs/develop_list.md` 为准；这些均为设计/计划，不能视为当前已实现行为。
+
 ## 模块边界
 
 | 模块 | 输入 | 输出 | 当前映射 | 不应承担 |

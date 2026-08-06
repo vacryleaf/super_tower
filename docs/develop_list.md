@@ -13,6 +13,31 @@
 
 ## 当前任务
 
+### 模块化架构优化
+
+> 总体方案：`docs/architecture/design/modular_architecture_optimization.md`；细分 TODO：`docs/architecture/logic/modular_architecture_optimization_todo.md`。后续必须按 ARCH 编号顺序执行；每项均需独立测试、文档回写和单独提交。
+
+- [x] 任务 13｜建立模块化架构优化基线
+  - 对应 `ARCH-00`：固化需求、目标模块边界、时机接口、迁移策略和执行协议。
+  - 未修改运行时代码；Markdown 链接检查和 `sh run_tests.sh` 均已通过。
+
+- [ ] 任务 14｜拆分实时战斗流程与效果执行
+  - 对应 `ARCH-01` ～ `ARCH-12`：先建立上下文、时机、模块注册和空流程，再按行动、技能、命中、闪避、伤害、触发、回合和结果逐项迁移。
+  - 每个 ARCH 子项必须保持当前数值和流程兼容，并有单独的服务级或契约测试。
+
+- [ ] 任务 15｜统一内容运行时注册边界
+  - 对应 `ARCH-13` ～ `ARCH-14`：建立 `RuntimeCatalog`，统一原版、外部表、Mod 和图鉴的规范化查询。
+  - 未完成 parity 的外部表必须继续 fallback，禁止改变原版内容权威。
+
+- [ ] 任务 16｜分离 Run、成长与存档边界
+  - 对应 `ARCH-15` ～ `ARCH-16`：建立 RunContext/快照边界，保持教程、楼层、奖励、NPC 和旧存档规则不变。
+
+- [ ] 任务 17｜建立 UI 展示与意图边界
+  - 对应 `ARCH-17`：渐进建立 Screen/Presenter/View 契约；UI 仅展示状态和派发意图。
+
+- [ ] 任务 18｜完成架构诊断、跨平台回归与收尾审计
+  - 对应 `ARCH-18` ～ `ARCH-20`：补齐结构化 Trace、默认测试入口、文档和旧路径审计。
+
 ### 数据契约与迁移
 
 - [x] 任务 1｜修正外部怪物清单并补双向 parity
@@ -158,3 +183,8 @@
 
 - `sh run_tests.sh`：通过，输出 `ALL TESTS PASSED`。
 - `EncyclopediaIndexService` 已生成稳定 ID、本地化键、标签、稀有度、解锁状态和来源字段；百科技能/特性列表改用自动索引，并补充缺失字段测试。
+
+### 2026-08-06 任务 13
+
+- `sh run_tests.sh`：通过，输出 `ALL TESTS PASSED`。
+- 已新增模块化架构优化方案、需求文档和 ARCH-00 ～ ARCH-20 TODO；方案覆盖内容注册、实时战斗、Run/存档、UI、测试和跨平台边界。

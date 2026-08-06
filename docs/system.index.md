@@ -2,7 +2,7 @@
 
 > **唯一开发依据：本目录下的 Markdown。** `docs/system.docx` 是由本索引及其链接内容生成的查看版，不作为开发时的主读取源。
 >
-> 文档版本：2026-08-02  
+> 文档版本：2026-08-06
 > 组织规范：一级为领域，二级为 `design / logic / data`，三级为具体 Schema、图鉴或实体条目；可展示图鉴集中在各领域的 `encyclopedia/`。
 
 ## 1. 局部读取规则
@@ -23,6 +23,7 @@
 - 运行时装备槽固定为：`weapon`、`armor`、`accessory`、`offhand`。
 - 新能力优先使用 `actions`、`effects`、`conditional_effects`、`triggers` 和状态服务，不在流程层散落硬编码。
 - 原版和 Mod 内容必须进入同一份规范化运行时数据；内容 ID 必须带命名空间，禁止覆盖原版 ID。
+- 当前实时路径仍以 `PlaySession -> BattleService -> ActionPipeline / StatusService / TriggerService` 为事实；目标模块化架构尚未实现，必须按架构 TODO 渐进迁移。
 
 ## 3. 领域入口
 
@@ -49,8 +50,15 @@
 - [assistant/README.md](assistant/README.md)：项目架构顾问 Ghost 的入口、使用方式和可迁移资产。
 - [assistant/project-architecture-consultant/SKILL.md](assistant/project-architecture-consultant/SKILL.md)：需求细化、快速问答、模块抽象和知识沉淀工作流。
 - [assistant/requirements/README.md](assistant/requirements/README.md)：需求文档保存约定。
+- [assistant/requirements/2026-08-06-modular-architecture-optimization.md](assistant/requirements/2026-08-06-modular-architecture-optimization.md)：本次模块化架构优化需求。
 
-## 6. 代码权威入口
+## 6. 架构优化计划
+
+- [architecture/design/modular_architecture_optimization.md](architecture/design/modular_architecture_optimization.md)：目标模块边界、迁移策略、跨领域契约和验收标准。
+- [architecture/logic/modular_architecture_optimization_todo.md](architecture/logic/modular_architecture_optimization_todo.md)：ARCH 子任务、独立测试、文档回写和提交协议。
+- [develop_list.md](develop_list.md)：当前宏观开发任务入口。
+
+## 7. 代码权威入口
 
 - 静态数据：`GameProject/scripts/core/data_catalog.gd`、`GameProject/scripts/core/trait_catalog.gd`
 - 外部表：`GameProject/data/catalog_v1.json`、`GameProject/scripts/core/data_repository.gd`
@@ -59,6 +67,6 @@
 - 通用效果：`action_pipeline.gd`、`status_service.gd`、`trigger_service.gd`
 - 内容行为：`enemy_action_rules.gd`、`combat_rules.gd`
 
-## 7. 文档状态
+## 8. 文档状态
 
 本次整理不删除历史内容；旧的散落文件已移动到 `archive/legacy/`，并从当前入口中移除。新内容若尚未有代码支持，必须明确写成“设计已确认待实现”，不得伪装成已实现功能。
