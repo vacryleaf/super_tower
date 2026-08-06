@@ -98,7 +98,7 @@
 - 完成标准：新增 action 的入口不再要求修改 `BattleFlow`。
 - 结果：已完成于 2026-08-06；新增 EffectExecutor、EffectDispatcher 和 SkillEffectModule，当前仅提供路由契约，真实效果仍由旧 BattleService 执行。`sh run_tests.sh` 通过，输出 `ALL TESTS PASSED`。
 
-### [ ] ARCH-06｜抽取无伤害效果执行器
+### [x] ARCH-06｜抽取无伤害效果执行器
 
 - 依赖：ARCH-05。
 - 目标：先迁移 `gain_block`、`gain_dodge`、`heal`、`apply_status`、`modify_armor`、`interrupt`、`clear_debuffs`。
@@ -106,6 +106,7 @@
 - 禁止：不迁移 damage、反击、反伤、召唤和决斗。
 - 针对性测试：`skill_effect_module_test.gd`，覆盖每种 action 的目标、状态变化、日志事件和非法参数。
 - 完成标准：玩家和敌方非伤害 action 不再依赖 `BattleService` 内部 `_execute_action_*` 分支。
+- 结果：已完成于 2026-08-06；格挡、闪避、治疗、状态、护甲、打断和清除 Debuff 已迁移到独立执行器，BattleService 仅保留兼容调度和未迁移的伤害/反击/召唤/决斗分支。`sh run_tests.sh` 通过，输出 `ALL TESTS PASSED`。
 
 ## 5. 命中与伤害阶段
 

@@ -8,4 +8,4 @@
 
 新增行动类型时必须同时更新：Schema 注册、执行器、日志事件、单元测试和图鉴描述；未知 action 会记录错误，不能在某个技能中内联另一个行动解释器。
 
-ARCH-05 已新增 `GameProject/scripts/core/battle/skill/effect_executor.gd`、`effect_dispatcher.gd` 和 `skill_effect_module.gd` 作为新的 action 路由契约。当前真实技能执行仍由 `BattleService` 负责；ARCH-06 起才按子任务逐类迁移无伤害效果，迁移完成前不得把新入口描述为运行时唯一权威。
+ARCH-05 已新增 `GameProject/scripts/core/battle/skill/effect_executor.gd`、`effect_dispatcher.gd` 和 `skill_effect_module.gd` 作为新的 action 路由契约。ARCH-06 已将格挡、闪避、治疗、状态、护甲、打断和清除 Debuff 接入独立执行器；伤害、反击、召唤和决斗仍按后续 ARCH 子任务迁移。

@@ -11,6 +11,7 @@ const BattleModuleRegistryTests = preload("res://scripts/tests/battle_module_reg
 const BattleFlowContractTests = preload("res://scripts/tests/battle_flow_contract_test.gd")
 const ActionIntentTests = preload("res://scripts/tests/action_intent_test.gd")
 const EffectDispatcherTests = preload("res://scripts/tests/effect_dispatcher_test.gd")
+const NonDamageEffectTests = preload("res://scripts/tests/non_damage_effect_test.gd")
 const ModLoaderTests = preload("res://scripts/tests/mod_loader_test.gd")
 
 var failures: Array[String] = []
@@ -43,6 +44,7 @@ func run_all() -> void:
 	_run(BattleFlowContractTests.new())
 	_run(ActionIntentTests.new())
 	_run(EffectDispatcherTests.new())
+	_run(NonDamageEffectTests.new())
 	_run(ModLoaderTests.new())
 
 

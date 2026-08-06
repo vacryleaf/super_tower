@@ -22,14 +22,20 @@ func execute_skill(skill: Dictionary, context: RefCounted) -> RefCounted:
 	if context.has_method("set_skill"):
 		context.call("set_skill", skill)
 	for action in SkillActionService.actions(skill):
-		if not _conditions_met(action, context):
+		var result: RefCounted = execute_action(action, context)
+		if String(result.get("kind")) == BattleStepResult.SKIP:
 			continue
-		if context.has_method("set_action"):
-			context.call("set_action", action)
-		var result: RefCounted = dispatcher.call("dispatch", action, context)
 		if String(result.get("kind")) != BattleStepResult.CONTINUE:
 			return result
 	return BattleStepResult.new(BattleStepResult.CONTINUE)
+
+
+func execute_action(action: Dictionary, context: RefCounted, check_conditions: bool = true) -> RefCounted:
+	if check_conditions and not _conditions_met(action, context):
+		return BattleStepResult.new(BattleStepResult.SKIP)
+	if context.has_method("set_action"):
+		context.call("set_action", action)
+	return dispatcher.call("dispatch", action, context)
 
 
 func _conditions_met(action: Dictionary, context: RefCounted) -> bool:
