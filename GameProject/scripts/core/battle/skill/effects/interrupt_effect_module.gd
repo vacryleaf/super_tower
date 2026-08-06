@@ -11,5 +11,5 @@ func execute(_action: Dictionary, context: RefCounted) -> RefCounted:
 			continue
 		target["interrupted"] = true
 		if is_player_actor:
-			runtime.call("log", "%s：打断 %s 的本回合行动。" % [skill.get("name", context.get("skill_id")), target.get("name", "敌人")])
+			runtime.call("append_battle_log", "%s：打断 %s 的本回合行动。" % [skill.get("name", context.get("skill_id")), target.get("name", "敌人")])
 	return BattleStepResult.new(BattleStepResult.CONTINUE)

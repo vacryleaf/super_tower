@@ -34,5 +34,5 @@ func execute(action: Dictionary, context: RefCounted) -> RefCounted:
 		var old_armor: int = int(target.get("armor", 0))
 		target["armor"] = maxi(0, int(round(float(old_armor) * multiplier)))
 		if old_armor != int(target["armor"]):
-			runtime.call("log", "%s：%s 护甲 %d → %d。" % [skill.get("name", skill_id), target.get("name", "敌人"), old_armor, int(target["armor"])])
+			runtime.call("append_battle_log", "%s：%s 护甲 %d → %d。" % [skill.get("name", skill_id), target.get("name", "敌人"), old_armor, int(target["armor"])])
 	return BattleStepResult.new(BattleStepResult.CONTINUE)

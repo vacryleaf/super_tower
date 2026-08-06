@@ -42,6 +42,6 @@ func _execute_enemy(action: Dictionary, context: RefCounted, runtime: RefCounted
 	if amount <= 0:
 		amount = maxi(1, int(round(float(actor.get("block_power", actor.get("defense", 1))) * float(action.get("multiplier", 1.0)))))
 	Combatant.add_block_amount(actor, amount)
-	runtime.call("log", "%s 使用 %s：获得 %d 点格挡。" % [actor.get("name", "敌人"), skill.get("name", skill_id), amount])
+	runtime.call("append_battle_log", "%s 使用 %s：获得 %d 点格挡。" % [actor.get("name", "敌人"), skill.get("name", skill_id), amount])
 	runtime.call("event", {"kind": "defense", "target": "enemy", "source": actor.get("name", "敌人"), "amount": amount})
 	return BattleStepResult.new(BattleStepResult.CONTINUE)

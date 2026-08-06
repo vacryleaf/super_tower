@@ -130,7 +130,7 @@
 - 完成标准：闪避成功不会进入 damage apply；命中但零伤害仍可进入命中事件。
 - 结果：已完成于 2026-08-06；新增 `DodgeResolutionModule`，接入 BattleFlow 和兼容 `deal_damage_to_target()` 路径，闪避层只在正伤害命中前消耗。`sh run_tests.sh` 通过，输出 `ALL TESTS PASSED`。
 
-### [ ] ARCH-09｜抽取伤害结算模块
+### [x] ARCH-09｜抽取伤害结算模块
 
 - 依赖：ARCH-08。
 - 目标：将原始伤害、充能、暴击、护甲、格挡、抗性、生命和击杀结果集中到 `DamageResolutionModule`。
@@ -138,6 +138,7 @@
 - 禁止：不改变已有数值和日志文案；不修改 AI 权重。
 - 针对性测试：`damage_resolution_test.gd`，覆盖嘲讽、闪避、暴击、护甲、格挡、真实伤害、击杀和决斗清理。
 - 完成标准：`PlaySession` 和 `BattleService` 不再存在第二套伤害主体。
+- 结果：已完成于 2026-08-06；新增 `DamageResolutionModule`，处理状态修正、抗性、护甲、格挡、生命、暗影护甲反伤和裂变，`BattleService.deal_damage_to_target()` 已降为兼容转发。`sh run_tests.sh` 通过，输出 `ALL TESTS PASSED`。
 
 ### [ ] ARCH-10｜建立命中触发与嵌套行动队列
 

@@ -2,6 +2,7 @@ extends RefCounted
 class_name BattleEffectRuntime
 
 const Combatant = preload("res://scripts/core/combatant.gd")
+const CombatRules = preload("res://scripts/core/combat_rules.gd")
 const ModifierPipeline = preload("res://scripts/core/modifier_pipeline.gd")
 const StatusService = preload("res://scripts/core/status_service.gd")
 const TargetResolutionModule = preload("res://scripts/core/battle/decision/target_resolution_module.gd")
@@ -90,9 +91,50 @@ func pending_state_card() -> String:
 	return String(session.get("pending_state_card"))
 
 
-func log(message: String) -> void:
+func append_battle_log(message: String) -> void:
 	session.battle_log.append(message)
 
 
 func event(value: Dictionary) -> void:
 	session.last_events.append(value.duplicate(true))
+
+
+func enemy_units() -> Array[Dictionary]:
+	return session.enemies
+
+
+func round_index() -> int:
+	return int(session.get("round_index"))
+
+
+func ally_guard_damage_multiplier(target: Dictionary) -> float:
+	return CombatRules.ally_guard_damage_multiplier(target, session.enemies)
+
+
+func armor_multiplier_against(attacker: Dictionary) -> float:
+	return CombatRules.armor_multiplier_against(attacker)
+
+
+func shadow_armor_reflect_damage(result: Dictionary) -> int:
+	return CombatRules.shadow_armor_reflect_damage(result)
+
+
+func check_split_after_damage(target: Dictionary) -> void:
+	CombatRules.check_split_after_damage(session.enemies, target, int(session.get("round_index")), session.battle_log)
+
+
+func apply_shadow_armor_reflect(target: Dictionary, attacker: Dictionary, result: Dictionary) -> void:
+	if not bool(target.get("shadow_armor_active", false)):
+		return
+	var reflect_damage: int = shadow_armor_reflect_damage(result)
+	if reflect_damage <= 0:
+		return
+	var attacker_unit: Dictionary = attacker
+	var sync_player: bool = String(attacker.get("side", "")) != "enemy"
+	if sync_player and session.has_method("_player_combatant"):
+		attacker_unit = session.call("_player_combatant")
+	var reflect_result: Dictionary = Combatant.apply_damage(attacker_unit, reflect_damage, "physical")
+	if sync_player and session.has_method("_sync_player_combatant"):
+		session.call("_sync_player_combatant", attacker_unit)
+	if not bool(reflect_result.get("dodged", false)):
+		append_battle_log("暗影护甲：%s 受到 %d 点反伤。" % [String(attacker_unit.get("name", attacker.get("name", ""))), int(reflect_result.get("damage", 0))])
