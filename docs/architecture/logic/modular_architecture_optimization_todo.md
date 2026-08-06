@@ -88,7 +88,7 @@
 - 完成标准：`EnemyActionRules` 只返回意图，不能直接执行效果。
 - 结果：已完成于 2026-08-06；新增 `BattleActionIntent`、玩家/敌方意图适配和目标解析模块，复用现有 `CombatRules`/`EnemyActionRules`，不执行 action。`sh run_tests.sh` 通过，输出 `ALL TESTS PASSED`。
 
-### [ ] ARCH-05｜建立 EffectDispatcher 和技能效果入口
+### [x] ARCH-05｜建立 EffectDispatcher 和技能效果入口
 
 - 依赖：ARCH-04。
 - 目标：将技能 `actions` 的读取、条件判断和执行器路由分开。
@@ -96,6 +96,7 @@
 - 禁止：本项只接入路由和最小执行器，不迁移全部效果。
 - 针对性测试：`effect_dispatcher_test.gd`，覆盖已知 action、未知 action、条件跳过和玩家/敌人共用入口。
 - 完成标准：新增 action 的入口不再要求修改 `BattleFlow`。
+- 结果：已完成于 2026-08-06；新增 EffectExecutor、EffectDispatcher 和 SkillEffectModule，当前仅提供路由契约，真实效果仍由旧 BattleService 执行。`sh run_tests.sh` 通过，输出 `ALL TESTS PASSED`。
 
 ### [ ] ARCH-06｜抽取无伤害效果执行器
 

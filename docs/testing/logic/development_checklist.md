@@ -48,3 +48,8 @@
 
 - `sh run_tests.sh`：通过，输出 `ALL TESTS PASSED`。
 - 已建立 BattleActionIntent、PlayerActionModule、EnemyDecisionModule 和 TargetResolutionModule；未执行 action 或修改战斗状态。
+
+### ARCH-05
+
+- `sh run_tests.sh`：通过，输出 `ALL TESTS PASSED`。
+- 已建立 EffectExecutor、EffectDispatcher 和 SkillEffectModule；条件、未知 action 和停止语义均有测试覆盖。
