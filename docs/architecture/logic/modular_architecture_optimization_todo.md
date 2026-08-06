@@ -46,14 +46,15 @@
 
 ## 3. 流程基础阶段
 
-### [ ] ARCH-01｜建立 BattleContext 与 BattleStepResult 契约
+### [x] ARCH-01｜建立 BattleContext 与 BattleStepResult 契约
 
 - 依赖：ARCH-00。
 - 目标：新增 `BattleContext`、`ActionContext`、`HitContext`、`BattleStepResult`，内部可以包装现有 `BattleState` 和字典。
-- 文件范围：`GameProject/scripts/core/battle/battle_context.gd`、`action_context.gd`、`hit_context.gd`、`battle_step_result.gd`、对应契约测试和战斗文档。
+- 文件范围：`GameProject/scripts/core/battle/battle_context.gd`、`battle_action_context.gd`、`battle_hit_context.gd`、`battle_step_result.gd`、对应契约测试和战斗文档。根目录 `action_context.gd` 保留为旧伤害字典工厂，迁移完成前不得同名覆盖。
 - 禁止：不改变玩家/敌人实际战斗行为，不移动 `BattleService` 逻辑。
 - 针对性测试：`battle_context_contract_test.gd`，覆盖默认值、复制、链路 ID 和结果状态。
 - 完成标准：模块不需要接收完整 `PlaySession` 才能构造上下文。
+- 结果：已完成于 2026-08-06；新增 `BattleContext`、`BattleActionContext`、`BattleHitContext` 和 `BattleStepResult`，并接入默认测试链。`sh run_tests.sh` 通过，输出 `ALL TESTS PASSED`。
 
 ### [ ] ARCH-02｜建立 BattleTiming、模块接口和注册表
 

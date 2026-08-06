@@ -259,6 +259,8 @@ chain_id
 
 模块不再要求接收完整 `PlaySession`，也不能通过任意私有方法修改高塔状态。
 
+当前根目录 `GameProject/scripts/core/action_context.gd` 保留为旧伤害字典工厂。新流程契约使用 `GameProject/scripts/core/battle/battle_action_context.gd`（`BattleActionContext`）与 `battle_hit_context.gd`（`BattleHitContext`），避免在过渡期产生同名类冲突。
+
 ### 4.4 时机模块划分
 
 | 目标模块 | 处理时机 | 责任 | 不处理 |
