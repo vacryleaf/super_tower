@@ -12,6 +12,7 @@
 | ActionIntent/目标解析契约 | `action_intent_test.gd` |
 | 技能 action 分发/条件契约 | `effect_dispatcher_test.gd` |
 | 非伤害效果执行器 | `non_damage_effect_test.gd` |
+| 命中上下文/目标解析契约 | `hit_resolution_test.gd` |
 | 教程/楼层/活动 | `campaign_test.gd` |
 | 奖励和附着 | `reward_system_test.gd` |
 | 存档迁移与序列化 | `persistence_test.gd` |

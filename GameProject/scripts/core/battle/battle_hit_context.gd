@@ -14,6 +14,7 @@ var damage_type: String = "physical"
 var base_damage: int = 0
 var modified_damage: int = 0
 var is_critical: bool = false
+var armor_multiplier: float = 1.0
 var is_dodged: bool = false
 var armor_reduced: int = 0
 var block_absorbed: int = 0

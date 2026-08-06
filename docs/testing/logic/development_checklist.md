@@ -15,7 +15,7 @@
 - [x] 将原版静态表推进到受保护的外部规范化注册表读取；未完成 parity 的表保持运行时 fallback。
 - [x] 为当前图鉴实体补齐本地化键、描述和解锁条件。
 - [x] 建立模块化架构优化基线与实施 TODO；详见 `docs/architecture/logic/modular_architecture_optimization_todo.md` 的 `ARCH-00`。
-- [~] 按 ARCH-01 ～ ARCH-20 逐项完成流程、内容、Run、存档、UI、测试和收尾迁移；当前进行 ARCH-07。
+- [~] 按 ARCH-01 ～ ARCH-20 逐项完成流程、内容、Run、存档、UI、测试和收尾迁移；当前进行 ARCH-08。
 
 每完成一项，运行 `run_tests.bat` 或 `run_tests.sh`，并在本文件记录日期、命令和结果。
 
@@ -58,3 +58,8 @@
 
 - `sh run_tests.sh`：通过，输出 `ALL TESTS PASSED`。
 - 已迁移格挡、闪避、治疗、状态、护甲、打断和清除 Debuff 执行器，并覆盖玩家/敌方 action 入口。
+
+### ARCH-07
+
+- `sh run_tests.sh`：通过，输出 `ALL TESTS PASSED`。
+- 已建立 HitResolutionModule、BattleHitContext 转换和命中上下文测试；本项未改变闪避或伤害结算。

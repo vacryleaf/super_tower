@@ -59,13 +59,13 @@ func resolve_enemy_action_targets(
 	if target_mode == SkillActionService.TARGET_ALL_ENEMIES or target_mode == SkillActionService.TARGET_ADJACENT:
 		for index in range(player_side.size()):
 			if _is_alive(player_side[index]):
-				result.append(_target("player", index, player_side[index]))
+				result.append(_target("player" if index == 0 else "ally", index, player_side[index]))
 		return result
 	var selected_index: int = requested_index
 	if selected_index < 0 or selected_index >= player_side.size() or not _is_alive(player_side[selected_index]):
 		selected_index = _first_alive_index(player_side)
 	if selected_index >= 0:
-		result.append(_target("player", selected_index, player_side[selected_index]))
+		result.append(_target("player" if selected_index == 0 else "ally", selected_index, player_side[selected_index]))
 	return result
 
 

@@ -82,7 +82,7 @@ func test_action_target_modes_return_structured_targets() -> void:
 	var ally_target: Array[Dictionary] = resolver.resolve_player_action_targets(player, enemies, allies, SkillActionService.TARGET_ALLY_SELECTED, 0)
 	assert_equal(ally_target[0]["side"], "ally", "ally targeting should return an ally")
 	var enemy_targets: Array[Dictionary] = resolver.resolve_enemy_action_targets(player, allies, SkillActionService.TARGET_SELECTED, 1)
-	assert_equal(enemy_targets[0]["side"], "player", "enemy selected targeting should use player-side units")
+	assert_equal(enemy_targets[0]["side"], "ally", "enemy selected targeting should preserve ally side semantics")
 	assert_equal(enemy_targets[0]["index"], 1, "enemy selected targeting should preserve the requested player-side index")
 	var self_enemy_targets: Array[Dictionary] = resolver.resolve_enemy_action_targets(player, allies, SkillActionService.TARGET_SELF, 0)
 	assert_true(self_enemy_targets.is_empty(), "enemy self effects should not target the player side")

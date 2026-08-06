@@ -15,6 +15,8 @@
 
 2026-08-06 起，技能 `actions` 中的非伤害效果通过 `battle/skill/effects/` 下的执行器处理；伤害类 action 仍在后续命中/伤害任务中迁移，当前行为保持兼容。
 
+命中入口已通过 `HitResolutionModule` 统一构造 `BattleHitContext`；该阶段只负责目标有效性和上下文，不提前修改生命、格挡或闪避层。
+
 ## 敌方行动
 
 `EnemyActionRules` 根据被动能力、行为权重、生命/状态和可用技能决定行动；敌方与玩家共享行动、伤害、状态和触发器结算入口。

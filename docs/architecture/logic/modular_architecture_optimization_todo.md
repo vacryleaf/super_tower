@@ -110,7 +110,7 @@
 
 ## 5. 命中与伤害阶段
 
-### [ ] ARCH-07｜抽取 HitContext 和目标/命中流程
+### [x] ARCH-07｜抽取 HitContext 和目标/命中流程
 
 - 依赖：ARCH-05。
 - 目标：建立一次命中的上下文和统一命中入口。
@@ -118,6 +118,7 @@
 - 禁止：不改变伤害数值，不处理状态触发。
 - 针对性测试：`hit_resolution_test.gd`，覆盖单目标、多段、目标死亡和目标被召唤/移除。
 - 完成标准：所有伤害效果使用同一个 HitContext 创建入口。
+- 结果：已完成于 2026-08-06；新增 `HitResolutionModule`、ActionContext 到 BattleHitContext 的转换和 BattleService 兼容入口，命中模块只解析目标并构造上下文，不修改伤害状态。`sh run_tests.sh` 通过，输出 `ALL TESTS PASSED`。
 
 ### [ ] ARCH-08｜抽取闪避模块
 

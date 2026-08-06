@@ -14,6 +14,7 @@ const ModifierPipeline = preload("res://scripts/core/modifier_pipeline.gd")
 const SkillActionService = preload("res://scripts/core/skill_action_service.gd")
 const CharacterService = preload("res://scripts/core/character_service.gd")
 const BattleFlow = preload("res://scripts/core/battle/battle_flow.gd")
+const HitResolutionModule = preload("res://scripts/core/battle/hit/hit_resolution_module.gd")
 const BattleEffectContext = preload("res://scripts/core/battle/skill/battle_effect_context.gd")
 const BattleEffectRuntime = preload("res://scripts/core/battle/skill/battle_effect_runtime.gd")
 const BattleStepResult = preload("res://scripts/core/battle/battle_step_result.gd")
@@ -41,11 +42,13 @@ var character_service := CharacterService.new()
 var battle_flow := BattleFlow.new()
 var effect_dispatcher: RefCounted
 var skill_effect_module: RefCounted
+var hit_resolution_module: RefCounted
 
 
 func _init() -> void:
 	effect_dispatcher = EffectDispatcher.new()
 	skill_effect_module = SkillEffectModule.new(effect_dispatcher)
+	hit_resolution_module = HitResolutionModule.new()
 	effect_dispatcher.register(SkillActionService.ACTION_MODIFY_ARMOR, ModifyArmorEffectModule.new())
 	effect_dispatcher.register(SkillActionService.ACTION_APPLY_STATUS, ApplyStatusEffectModule.new())
 	effect_dispatcher.register(SkillActionService.ACTION_GAIN_BLOCK, GainBlockEffectModule.new())
@@ -53,6 +56,16 @@ func _init() -> void:
 	effect_dispatcher.register(SkillActionService.ACTION_INTERRUPT, InterruptEffectModule.new())
 	effect_dispatcher.register(SkillActionService.ACTION_CLEAR_DEBUFFS, ClearDebuffsEffectModule.new())
 	effect_dispatcher.register(SkillActionService.ACTION_HEAL, HealEffectModule.new())
+
+
+func create_hit_context(
+	action_context: Dictionary,
+	source_actor: Dictionary,
+	target_actor: Dictionary,
+	parent_action_id: String = "",
+	chain_id: String = ""
+) -> RefCounted:
+	return hit_resolution_module.call("create_hit_context", action_context, source_actor, target_actor, parent_action_id, chain_id)
 
 
 func dispatch_battle_timing(timing: String, context: RefCounted) -> RefCounted:
