@@ -15,6 +15,7 @@ const SkillActionService = preload("res://scripts/core/skill_action_service.gd")
 const CharacterService = preload("res://scripts/core/character_service.gd")
 const BattleFlow = preload("res://scripts/core/battle/battle_flow.gd")
 const HitResolutionModule = preload("res://scripts/core/battle/hit/hit_resolution_module.gd")
+const DodgeResolutionModule = preload("res://scripts/core/battle/hit/dodge_resolution_module.gd")
 const BattleEffectContext = preload("res://scripts/core/battle/skill/battle_effect_context.gd")
 const BattleEffectRuntime = preload("res://scripts/core/battle/skill/battle_effect_runtime.gd")
 const BattleStepResult = preload("res://scripts/core/battle/battle_step_result.gd")
@@ -43,12 +44,15 @@ var battle_flow := BattleFlow.new()
 var effect_dispatcher: RefCounted
 var skill_effect_module: RefCounted
 var hit_resolution_module: RefCounted
+var dodge_resolution_module: RefCounted
 
 
 func _init() -> void:
 	effect_dispatcher = EffectDispatcher.new()
 	skill_effect_module = SkillEffectModule.new(effect_dispatcher)
 	hit_resolution_module = HitResolutionModule.new()
+	dodge_resolution_module = DodgeResolutionModule.new()
+	battle_flow.register_module(dodge_resolution_module)
 	effect_dispatcher.register(SkillActionService.ACTION_MODIFY_ARMOR, ModifyArmorEffectModule.new())
 	effect_dispatcher.register(SkillActionService.ACTION_APPLY_STATUS, ApplyStatusEffectModule.new())
 	effect_dispatcher.register(SkillActionService.ACTION_GAIN_BLOCK, GainBlockEffectModule.new())
@@ -778,11 +782,37 @@ func deal_damage_to_target(
 	var armor_multiplier := CombatRules.armor_multiplier_against(attacker)
 	if action_armor_multiplier >= 0.0:
 		armor_multiplier *= clampf(action_armor_multiplier, 0.0, 1.0)
-	var result := Combatant.apply_damage(target, marked_damage, damage_type, armor_multiplier)
+	var dodge_action: Dictionary = {
+		"source": "damage",
+		"damage_type": damage_type,
+		"base_damage": marked_damage,
+		"final_damage": marked_damage,
+		"armor_multiplier": armor_multiplier
+	}
+	var hit_context: RefCounted = hit_resolution_module.call("create_hit_context", dodge_action, attacker, target)
+	dodge_resolution_module.call("resolve", hit_context)
+	if bool(hit_context.get("is_dodged")):
+		return _dodged_damage_result(target, marked_damage)
+	var result := Combatant.apply_damage(target, marked_damage, damage_type, armor_multiplier, false)
 	_apply_shadow_armor_reflect(session, target, attacker, result)
 	if String(target.get("side", "")) == "enemy" and int(result.get("damage", 0)) > 0:
 		CombatRules.check_split_after_damage(session.enemies, target, session.round_index, session.battle_log)
 	return result
+
+
+func _dodged_damage_result(target: Dictionary, raw_damage: int) -> Dictionary:
+	var block_value: int = int(target.get("block", 0))
+	return {
+		"dodged": true,
+		"raw_damage": maxi(0, raw_damage),
+		"damage_before_block": 0,
+		"armor_reduced": 0,
+		"block_before": block_value,
+		"block_absorbed": 0,
+		"block_after": block_value,
+		"block_broken": false,
+		"damage": 0
+	}
 
 
 func _apply_shadow_armor_reflect(session: RefCounted, target: Dictionary, attacker: Dictionary, result: Dictionary) -> void:

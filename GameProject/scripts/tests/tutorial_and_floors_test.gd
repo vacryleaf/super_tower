@@ -13,6 +13,7 @@ const ActionIntentTests = preload("res://scripts/tests/action_intent_test.gd")
 const EffectDispatcherTests = preload("res://scripts/tests/effect_dispatcher_test.gd")
 const NonDamageEffectTests = preload("res://scripts/tests/non_damage_effect_test.gd")
 const HitResolutionTests = preload("res://scripts/tests/hit_resolution_test.gd")
+const DodgeResolutionTests = preload("res://scripts/tests/dodge_resolution_test.gd")
 const ModLoaderTests = preload("res://scripts/tests/mod_loader_test.gd")
 
 var failures: Array[String] = []
@@ -47,6 +48,7 @@ func run_all() -> void:
 	_run(EffectDispatcherTests.new())
 	_run(NonDamageEffectTests.new())
 	_run(HitResolutionTests.new())
+	_run(DodgeResolutionTests.new())
 	_run(ModLoaderTests.new())
 
 

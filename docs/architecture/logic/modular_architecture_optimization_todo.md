@@ -120,7 +120,7 @@
 - 完成标准：所有伤害效果使用同一个 HitContext 创建入口。
 - 结果：已完成于 2026-08-06；新增 `HitResolutionModule`、ActionContext 到 BattleHitContext 的转换和 BattleService 兼容入口，命中模块只解析目标并构造上下文，不修改伤害状态。`sh run_tests.sh` 通过，输出 `ALL TESTS PASSED`。
 
-### [ ] ARCH-08｜抽取闪避模块
+### [x] ARCH-08｜抽取闪避模块
 
 - 依赖：ARCH-07。
 - 目标：将闪避判定、躲避层消耗和 `dodge` 时机从伤害实现中分离。
@@ -128,6 +128,7 @@
 - 禁止：不修改护甲、格挡和 HP 计算。
 - 针对性测试：`dodge_resolution_test.gd`，覆盖闪避成功、躲避层消耗、无层数、敌方闪避和 `on_dodge`。
 - 完成标准：闪避成功不会进入 damage apply；命中但零伤害仍可进入命中事件。
+- 结果：已完成于 2026-08-06；新增 `DodgeResolutionModule`，接入 BattleFlow 和兼容 `deal_damage_to_target()` 路径，闪避层只在正伤害命中前消耗。`sh run_tests.sh` 通过，输出 `ALL TESTS PASSED`。
 
 ### [ ] ARCH-09｜抽取伤害结算模块
 

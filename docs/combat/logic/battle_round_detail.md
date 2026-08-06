@@ -13,9 +13,11 @@
 - 躲避：获得闪避层；下一次符合条件的攻击消耗闪避层。
 - 技能：检查槽位、解锁、资源、冷却和目标，再按技能定义中的 `actions` 顺序执行。
 
-2026-08-06 起，技能 `actions` 中的非伤害效果通过 `battle/skill/effects/` 下的执行器处理；伤害类 action 仍在后续命中/伤害任务中迁移，当前行为保持兼容。
+2026-08-06 起，技能 `actions` 中的非伤害效果通过 `battle/skill/effects/` 下的执行器处理；命中前的闪避判定通过 `DodgeResolutionModule` 处理；伤害类 action 的完整数值结算仍在后续任务中迁移。
 
 命中入口已通过 `HitResolutionModule` 统一构造 `BattleHitContext`；该阶段只负责目标有效性和上下文，不提前修改生命、格挡或闪避层。
+
+`DodgeResolutionModule` 只在有效正伤害到达命中前阶段时消耗一层躲避；闪避成功会跳过后续 damage apply。
 
 ## 敌方行动
 

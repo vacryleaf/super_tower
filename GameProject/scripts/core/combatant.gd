@@ -183,7 +183,7 @@ static func are_hostile(a: Dictionary, b: Dictionary) -> bool:
 	return String(a.get("side", "")) != String(b.get("side", ""))
 
 
-static func apply_damage(combatant: Dictionary, raw_damage: int, damage_type: String = "physical", armor_multiplier: float = 1.0) -> Dictionary:
+static func apply_damage(combatant: Dictionary, raw_damage: int, damage_type: String = "physical", armor_multiplier: float = 1.0, allow_dodge: bool = true) -> Dictionary:
 	var result := {
 		"dodged": false,
 		"raw_damage": maxi(0, raw_damage),
@@ -197,7 +197,7 @@ static func apply_damage(combatant: Dictionary, raw_damage: int, damage_type: St
 	}
 	if raw_damage <= 0:
 		return result
-	if int(combatant.get("dodge_layers", 0)) > 0:
+	if allow_dodge and int(combatant.get("dodge_layers", 0)) > 0:
 		combatant["dodge_layers"] = int(combatant.get("dodge_layers", 0)) - 1
 		result["dodged"] = true
 		return result

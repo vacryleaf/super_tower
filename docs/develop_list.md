@@ -24,7 +24,7 @@
 - [~] 任务 14｜拆分实时战斗流程与效果执行
   - 对应 `ARCH-01` ～ `ARCH-12`：先建立上下文、时机、模块注册和空流程，再按行动、技能、命中、闪避、伤害、触发、回合和结果逐项迁移。
   - 每个 ARCH 子项必须保持当前数值和流程兼容，并有单独的服务级或契约测试。
-  - 已完成 `ARCH-01` ～ `ARCH-07`；下一个子项为 `ARCH-08`，抽取闪避模块。
+  - 已完成 `ARCH-01` ～ `ARCH-08`；下一个子项为 `ARCH-09`，抽取伤害结算模块。
 
 - [ ] 任务 15｜统一内容运行时注册边界
   - 对应 `ARCH-13` ～ `ARCH-14`：建立 `RuntimeCatalog`，统一原版、外部表、Mod 和图鉴的规范化查询。
@@ -224,3 +224,8 @@
 
 - `sh run_tests.sh`：通过，输出 `ALL TESTS PASSED`。
 - 已新增统一 HitResolutionModule 和 BattleHitContext 转换入口，覆盖玩家/敌方目标、嘲讽、盟友索引和空目标错误。
+
+### 2026-08-06 ARCH-08
+
+- `sh run_tests.sh`：通过，输出 `ALL TESTS PASSED`。
+- 已将闪避判定和躲避层消耗迁移到 DodgeResolutionModule，并接入 BattleFlow 与兼容伤害入口；护甲、格挡和 HP 结算保持独立。

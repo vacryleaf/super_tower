@@ -33,8 +33,8 @@ func _init(
 	context_id = id if id != "" else _new_context_id()
 	parent_action_id = parent_id
 	chain_id = inherited_chain_id if inherited_chain_id != "" else context_id
-	source_actor = initial_source_actor.duplicate(true)
-	target_actor = initial_target_actor.duplicate(true)
+	source_actor = initial_source_actor
+	target_actor = initial_target_actor
 	source = initial_source
 
 
