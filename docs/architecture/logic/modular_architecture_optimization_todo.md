@@ -78,7 +78,7 @@
 
 ## 4. 行动与技能阶段
 
-### [ ] ARCH-04｜统一 ActionIntent 与目标解析
+### [x] ARCH-04｜统一 ActionIntent 与目标解析
 
 - 依赖：ARCH-03。
 - 目标：把玩家输入和敌人决策都转换为统一行动意图，集中处理目标存活、嘲讽和索引兼容。
@@ -86,6 +86,7 @@
 - 禁止：不执行 action，不修改 HP。
 - 针对性测试：`action_intent_test.gd`，覆盖玩家/敌人、无目标、死亡目标、嘲讽和非法技能。
 - 完成标准：`EnemyActionRules` 只返回意图，不能直接执行效果。
+- 结果：已完成于 2026-08-06；新增 `BattleActionIntent`、玩家/敌方意图适配和目标解析模块，复用现有 `CombatRules`/`EnemyActionRules`，不执行 action。`sh run_tests.sh` 通过，输出 `ALL TESTS PASSED`。
 
 ### [ ] ARCH-05｜建立 EffectDispatcher 和技能效果入口
 

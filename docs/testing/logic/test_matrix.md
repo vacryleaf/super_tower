@@ -9,6 +9,7 @@
 | 战斗上下文/流程结果契约 | `battle_context_contract_test.gd` |
 | 战斗时机/模块注册契约 | `battle_module_registry_test.gd` |
 | BattleFlow 流程契约 | `battle_flow_contract_test.gd` |
+| ActionIntent/目标解析契约 | `action_intent_test.gd` |
 | 教程/楼层/活动 | `campaign_test.gd` |
 | 奖励和附着 | `reward_system_test.gd` |
 | 存档迁移与序列化 | `persistence_test.gd` |
