@@ -7,6 +7,7 @@ const PersistenceTests = preload("res://scripts/tests/persistence_test.gd")
 const CampaignTests = preload("res://scripts/tests/campaign_test.gd")
 const BattleServiceTests = preload("res://scripts/tests/battle_service_test.gd")
 const BattleContextContractTests = preload("res://scripts/tests/battle_context_contract_test.gd")
+const BattleModuleRegistryTests = preload("res://scripts/tests/battle_module_registry_test.gd")
 const ModLoaderTests = preload("res://scripts/tests/mod_loader_test.gd")
 
 var failures: Array[String] = []
@@ -35,6 +36,7 @@ func run_all() -> void:
 	_run(CampaignTests.new())
 	_run(BattleServiceTests.new())
 	_run(BattleContextContractTests.new())
+	_run(BattleModuleRegistryTests.new())
 	_run(ModLoaderTests.new())
 
 

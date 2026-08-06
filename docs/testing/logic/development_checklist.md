@@ -15,7 +15,7 @@
 - [x] 将原版静态表推进到受保护的外部规范化注册表读取；未完成 parity 的表保持运行时 fallback。
 - [x] 为当前图鉴实体补齐本地化键、描述和解锁条件。
 - [x] 建立模块化架构优化基线与实施 TODO；详见 `docs/architecture/logic/modular_architecture_optimization_todo.md` 的 `ARCH-00`。
-- [~] 按 ARCH-01 ～ ARCH-20 逐项完成流程、内容、Run、存档、UI、测试和收尾迁移；当前进行 ARCH-01。
+- [~] 按 ARCH-01 ～ ARCH-20 逐项完成流程、内容、Run、存档、UI、测试和收尾迁移；当前进行 ARCH-03。
 
 每完成一项，运行 `run_tests.bat` 或 `run_tests.sh`，并在本文件记录日期、命令和结果。
 
@@ -33,3 +33,8 @@
 
 - `sh run_tests.sh`：通过，输出 `ALL TESTS PASSED`。
 - 已建立 BattleContext、BattleActionContext、BattleHitContext、BattleStepResult 和契约测试；根目录旧 `ActionContext` 保持兼容。
+
+### ARCH-02
+
+- `sh run_tests.sh`：通过，输出 `ALL TESTS PASSED`。
+- 已建立 BattleTiming、BattleModule、BattleModuleRegistry 和注册顺序/停止语义测试。

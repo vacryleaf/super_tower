@@ -7,6 +7,7 @@
 | 数据字段/parity | `data_validation_test.gd` |
 | 实时战斗机制 | `combat_mechanics_test.gd` |
 | 战斗上下文/流程结果契约 | `battle_context_contract_test.gd` |
+| 战斗时机/模块注册契约 | `battle_module_registry_test.gd` |
 | 教程/楼层/活动 | `campaign_test.gd` |
 | 奖励和附着 | `reward_system_test.gd` |
 | 存档迁移与序列化 | `persistence_test.gd` |

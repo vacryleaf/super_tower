@@ -24,7 +24,7 @@
 - [~] 任务 14｜拆分实时战斗流程与效果执行
   - 对应 `ARCH-01` ～ `ARCH-12`：先建立上下文、时机、模块注册和空流程，再按行动、技能、命中、闪避、伤害、触发、回合和结果逐项迁移。
   - 每个 ARCH 子项必须保持当前数值和流程兼容，并有单独的服务级或契约测试。
-  - 已完成 `ARCH-01`；下一个子项为 `ARCH-02`，建立 BattleTiming、模块接口和注册表。
+  - 已完成 `ARCH-01`、`ARCH-02`；下一个子项为 `ARCH-03`，建立 BattleFlow 空流程和兼容入口。
 
 - [ ] 任务 15｜统一内容运行时注册边界
   - 对应 `ARCH-13` ～ `ARCH-14`：建立 `RuntimeCatalog`，统一原版、外部表、Mod 和图鉴的规范化查询。
@@ -194,3 +194,8 @@
 
 - `sh run_tests.sh`：通过，输出 `ALL TESTS PASSED`。
 - 已新增不依赖完整 `PlaySession` 的 Battle/Action/Hit 上下文和流程结果契约，并接入默认 headless 测试入口。
+
+### 2026-08-06 ARCH-02
+
+- `sh run_tests.sh`：通过，输出 `ALL TESTS PASSED`。
+- 已新增稳定 BattleTiming、BattleModule 接口和按优先级/注册顺序执行的 BattleModuleRegistry，并覆盖停止语义。

@@ -56,7 +56,7 @@
 - 完成标准：模块不需要接收完整 `PlaySession` 才能构造上下文。
 - 结果：已完成于 2026-08-06；新增 `BattleContext`、`BattleActionContext`、`BattleHitContext` 和 `BattleStepResult`，并接入默认测试链。`sh run_tests.sh` 通过，输出 `ALL TESTS PASSED`。
 
-### [ ] ARCH-02｜建立 BattleTiming、模块接口和注册表
+### [x] ARCH-02｜建立 BattleTiming、模块接口和注册表
 
 - 依赖：ARCH-01。
 - 目标：定义稳定时机、`BattleModule` 接口和按优先级排序的 `BattleModuleRegistry`。
@@ -64,6 +64,7 @@
 - 禁止：不执行真实伤害，不引入技能 ID 分支。
 - 针对性测试：`battle_module_registry_test.gd`，覆盖注册、优先级、同优先级稳定顺序、未知时机和取消结果。
 - 完成标准：同一时机的调用顺序由显式优先级决定。
+- 结果：已完成于 2026-08-06；新增 `BattleTiming`、`BattleModule` 和 `BattleModuleRegistry`，并接入默认测试链。`sh run_tests.sh` 通过，输出 `ALL TESTS PASSED`。
 
 ### [ ] ARCH-03｜建立 BattleFlow 空流程和兼容入口
 
