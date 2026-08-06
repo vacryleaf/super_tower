@@ -66,7 +66,7 @@
 - 完成标准：同一时机的调用顺序由显式优先级决定。
 - 结果：已完成于 2026-08-06；新增 `BattleTiming`、`BattleModule` 和 `BattleModuleRegistry`，并接入默认测试链。`sh run_tests.sh` 通过，输出 `ALL TESTS PASSED`。
 
-### [ ] ARCH-03｜建立 BattleFlow 空流程和兼容入口
+### [x] ARCH-03｜建立 BattleFlow 空流程和兼容入口
 
 - 依赖：ARCH-02。
 - 目标：新增只负责时机串联的 `BattleFlow`，让 `BattleService` 保持兼容门面。
@@ -74,6 +74,7 @@
 - 禁止：不迁移伤害或技能实现，不改变胜负和奖励。
 - 针对性测试：`battle_flow_contract_test.gd`，覆盖战斗开始、单回合、行动取消和战斗结束顺序。
 - 完成标准：`BattleFlow` 本身不包含技能、特性、伤害数值和 UI 分支。
+- 结果：已完成于 2026-08-06；新增空流程和 `BattleService.dispatch_battle_timing()` 兼容入口，真实战斗仍由旧路径执行。`sh run_tests.sh` 通过，输出 `ALL TESTS PASSED`。
 
 ## 4. 行动与技能阶段
 

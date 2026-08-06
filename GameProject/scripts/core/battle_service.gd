@@ -13,8 +13,14 @@ const CombatRules = preload("res://scripts/core/combat_rules.gd")
 const ModifierPipeline = preload("res://scripts/core/modifier_pipeline.gd")
 const SkillActionService = preload("res://scripts/core/skill_action_service.gd")
 const CharacterService = preload("res://scripts/core/character_service.gd")
+const BattleFlow = preload("res://scripts/core/battle/battle_flow.gd")
 
 var character_service := CharacterService.new()
+var battle_flow := BattleFlow.new()
+
+
+func dispatch_battle_timing(timing: String, context: RefCounted) -> RefCounted:
+	return battle_flow.dispatch_timing(timing, context)
 
 
 func player_attack(session: RefCounted, target_index: int) -> void:

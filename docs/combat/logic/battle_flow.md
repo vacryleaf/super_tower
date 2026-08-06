@@ -14,3 +14,5 @@ PlaySession._start_current_battle() 创建遭遇并初始化 BattleState
 ```
 
 调用关系：`PlaySession` 管理战斗生命周期；`BattleService` 编排实时行动；`CombatRules` 提供共享规则；`EnemyActionRules` 决策敌人；`SkillActionService` 读取技能动作；`ActionPipeline` 处理行动修正；`StatusService` 和 `TriggerService` 处理状态与事件。
+
+2026-08-06 已新增 `GameProject/scripts/core/battle/battle_flow.gd` 作为时机串联骨架，并由 `BattleService.dispatch_battle_timing()` 提供兼容入口。当前真实战斗仍使用原有 `PlaySession -> BattleService` 路径；在 ARCH-04 及后续任务完成前，不得把空骨架描述为完整运行时权威。
