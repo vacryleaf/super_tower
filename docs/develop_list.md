@@ -24,7 +24,7 @@
 - [~] 任务 14｜拆分实时战斗流程与效果执行
   - 对应 `ARCH-01` ～ `ARCH-12`：先建立上下文、时机、模块注册和空流程，再按行动、技能、命中、闪避、伤害、触发、回合和结果逐项迁移。
   - 每个 ARCH 子项必须保持当前数值和流程兼容，并有单独的服务级或契约测试。
-  - 已完成 `ARCH-01` ～ `ARCH-10`；下一个子项为 `ARCH-11`，抽取回合生命周期和行动顺序。
+  - 已完成 `ARCH-01` ～ `ARCH-11`；下一个子项为 `ARCH-12`，抽取战斗结果和 Run 层回调。
 
 - [ ] 任务 15｜统一内容运行时注册边界
   - 对应 `ARCH-13` ～ `ARCH-14`：建立 `RuntimeCatalog`，统一原版、外部表、Mod 和图鉴的规范化查询。
@@ -239,3 +239,8 @@
 
 - `sh run_tests.sh`：通过，输出 `ALL TESTS PASSED`。
 - 已新增 BattleActionQueue 与 TriggerDispatchModule；TriggerService 降级为纯事件筛选器，额外伤害、反伤、反击和持续伤害经嵌套行动队列进入统一命中/伤害流程，并带父链深度与递归保护。
+
+### 2026-08-07 ARCH-11
+
+- `sh run_tests.sh`：通过，输出 `ALL TESTS PASSED`。
+- 已新增 TurnOrderModule 与 RoundLifecycleModule；玩家回合开始、冷却、状态 tick、每回合效果、回合收尾、状态 Buff 抽取和先手判定从 PlaySession/BattleService 迁入模块，`_begin_player_turn()` 降为薄适配，新增 `round_lifecycle_test.gd` 覆盖教程/正式战斗、冷却、状态到期、先手、死亡单位和回合结束。

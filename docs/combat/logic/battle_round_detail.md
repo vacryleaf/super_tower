@@ -2,6 +2,10 @@
 
 状态：已实现。
 
+## 回合生命周期
+
+2026-08-07 起，回合时机由 `battle/lifecycle/` 下的模块统一管理：`RoundLifecycleModule` 负责玩家回合开始（回合数推进、冷却、状态 tick、每回合效果、格挡/行动标记重置、状态 Buff 抽取）、回合收尾（回合结束触发、死亡判定、回合结束特性结算）和先手判定；`TurnOrderModule` 负责按敏捷计算行动顺序、定位玩家位置和格式化调试文本。`PlaySession._begin_player_turn()` 与 `BattleService` 的回合收尾段只保留薄适配转发，不再直接实现回合时机。
+
 ## 战斗开始
 
 `PlaySession._start_current_battle()` 创建玩家、敌人和盟友 Combatant；应用装备、被动能力、群落能力、塔层倍率和战前状态；按敏捷生成本回合行动顺序，处理战斗开始事件和先手行动。

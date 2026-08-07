@@ -23,6 +23,8 @@ const BattleState = preload("res://scripts/core/battle_state.gd")
 const ActionSource = preload("res://scripts/core/action_source.gd")
 const ActionContext = preload("res://scripts/core/action_context.gd")
 const ActionPipeline = preload("res://scripts/core/action_pipeline.gd")
+const TurnOrderModule = preload("res://scripts/core/battle/lifecycle/turn_order_module.gd")
+const RoundLifecycleModule = preload("res://scripts/core/battle/lifecycle/round_lifecycle_module.gd")
 
 const MAX_CHARGES := 5
 const BATTLE_LOG_LIMIT := 200
@@ -43,6 +45,8 @@ var run_state_serializer := RunStateSerializer.new()
 var enemy_rules := EnemyActionRules.new()
 var status_service := StatusService.new()
 var rng := RandomNumberGenerator.new()
+var turn_order := TurnOrderModule.new()
+var round_lifecycle := RoundLifecycleModule.new(null, null, turn_order)
 
 var battle_state := BattleState.new()
 var scene_skill_sources: Array[Dictionary] = []
@@ -480,7 +484,7 @@ func _start_current_battle() -> void:
 	message = _battle_title()
 	_debug_log("battle_start %s floor=%d battle=%d enemies=%d" % [String(current_encounter.get("name", current_encounter.get("id", "战斗"))), floor_index, battle_index, enemies.size()])
 	_fire_battle_start_triggers()
-	if _has_first_strike():
+	if round_lifecycle.has_first_strike(enemies):
 		_enemy_attack(enemies[0], 0, true)
 	_begin_player_turn()
 
@@ -508,72 +512,7 @@ func effective_tower_level() -> int:
 	return floor_index + tower_bonus
 
 func _begin_player_turn() -> void:
-	round_index += 1
-	has_acted = false
-	perfect_deflect = false
-	ai_turn_stage = "after_player_pending"
-	_tick_skill_cooldowns()
-	player_block = 0
-	pending_state_card = _draw_state_buff()
-	var corruption_damage := CombatRules.resolve_corruption(player)
-	if corruption_damage > 0:
-		battle_log.append("腐败结算：受到 %d 点真实伤害。" % corruption_damage)
-	if int(player["hp"]) <= 0:
-		_on_defeat()
-		return
-	status_service.tick_statuses(player)
-	_process_tick_effects(player)
-	status_service.fire_trigger(player, TriggerEvents.ON_TURN_START, {"battle_log": battle_log, "session": self, "not_attacked_last_turn": not attacked_this_turn})
-	for enemy in enemies:
-		if int(enemy["hp"]) <= 0:
-			continue
-		CombatRules.tick_enemy_cooldowns(enemy)
-		status_service.tick_statuses(enemy)
-		_process_tick_effects(enemy)
-		status_service.fire_trigger(enemy, TriggerEvents.ON_TURN_START, {"battle_log": battle_log, "session": self, "round_index": round_index})
-	for ally in allies:
-		if int(ally["hp"]) <= 0 or String(ally.get("controlled_by", "")) != "ai":
-			continue
-		status_service.tick_statuses(ally)
-		_process_tick_effects(ally)
-		status_service.fire_trigger(ally, TriggerEvents.ON_TURN_START, {"battle_log": battle_log, "session": self, "round_index": round_index})
-	attacked_this_turn = false
-	var action_order := CombatRules.action_order(player, enemies, allies, status_service, round_index)
-	var player_position := -1
-	for index in range(action_order.size()):
-		if String(action_order[index].get("type", "")) == "player":
-			player_position = index
-			break
-	if player_position > 0:
-		# 敏捷较高的敌方单位先行动；之后仍保留玩家的一次手动行动。
-		_enemy_turn(true)
-		if int(player["hp"]) <= 0:
-			_on_defeat()
-			return
-	var charged_label := _random_ready_charge()
-	message = "你的回合。状态 Buff：%s" % _state_name(pending_state_card)
-	if charged_label != "":
-		message += " 随机充能：%s。" % charged_label
-	var player_hint := String(current_encounter.get("player_hint", ""))
-	if player_hint != "":
-		message += " " + player_hint
-	_debug_log("turn_start round=%d energy=%d hp=%d/%d block=%d action_order=%s" % [round_index, energy, int(player.get("hp", 0)), int(player.get("max_hp", player.get("base_max_hp", 0))), player_block, _action_order_debug_text(action_order)])
-
-
-func _draw_state_buff() -> String:
-	if is_tutorial():
-		var tutorial_cards := ["critical", "perfect_guard", "read"]
-		return String(tutorial_cards[clampi(battle_index - 1, 0, tutorial_cards.size() - 1)])
-	return state_buffs.draw_state_buff(self)
-
-
-func _action_order_debug_text(action_order: Array[Dictionary]) -> String:
-	var labels: Array[String] = []
-	for entry in action_order:
-		var actor_type := String(entry.get("type", ""))
-		var unit: Dictionary = entry.get("unit", {})
-		labels.append("%s:%s" % [actor_type, String(unit.get("name", actor_type))])
-	return ",".join(labels)
+	round_lifecycle.begin_player_turn(self)
 
 
 func _fire_battle_start_triggers() -> void:
@@ -1229,54 +1168,6 @@ func _can_act() -> bool:
 	return true
 
 
-func _tick_skill_cooldowns() -> void:
-	var cd_reduction := int(status_service.resolve_stat(player, 0.0, StatusService.STAT_COOLDOWN))
-	var expired: Array[String] = []
-	for skill_id in skill_cooldowns.keys():
-		var remaining := int(skill_cooldowns[skill_id]) - 1 - cd_reduction
-		if remaining <= 0:
-			expired.append(skill_id)
-		else:
-			skill_cooldowns[skill_id] = remaining
-	for skill_id in expired:
-		skill_cooldowns.erase(skill_id)
-
-
-func _process_tick_effects(target: Dictionary) -> void:
-	if not target.has("statuses"):
-		return
-	for status in target.get("statuses", []):
-		for tick in status.get("tick_effects", []):
-			var tick_stat := String(tick.get("stat", "hp"))
-			var tick_type := String(tick.get("type", "percent"))
-			var tick_value := float(tick.get("value", 0.0))
-			if tick_stat == "hp":
-				if tick_type == "percent":
-					var amount := maxi(1, int(round(float(target["max_hp"]) * abs(tick_value))))
-					if tick_value > 0.0:
-						amount = maxi(1, int(ceil(status_service.resolve_stat(target, float(amount), StatusService.STAT_HEAL))))
-						target["hp"] = mini(int(target["max_hp"]), int(target["hp"]) + amount)
-						battle_log.append("%s：每回合恢复 %d 点 HP。" % [String(status.get("name", "")), amount])
-					elif tick_value < 0.0:
-						target["hp"] = maxi(1, int(target["hp"]) - amount)
-						battle_log.append("%s：每回合失去 %d 点 HP。" % [String(status.get("name", "")), amount])
-				elif tick_type == "flat":
-					if tick_value > 0.0:
-						var resolved_tick: int = maxi(1, int(ceil(status_service.resolve_stat(target, abs(tick_value), StatusService.STAT_HEAL))))
-						target["hp"] = mini(int(target["max_hp"]), int(target["hp"]) + resolved_tick)
-					elif tick_value < 0.0:
-						target["hp"] = maxi(1, int(target["hp"]) + int(tick_value))
-			elif tick_stat == "energy" and tick_type == "flat":
-				energy = mini(DataCatalog.ENERGY_MAX, energy + int(tick_value))
-	# 延迟伤害结算
-	if target == player and deferred_damage > 0.0:
-		var deferred_tick := maxi(1, int(round(deferred_damage / 3.0)))
-		deferred_tick = mini(deferred_tick, int(deferred_damage))
-		deferred_damage -= float(deferred_tick)
-		target["hp"] = maxi(1, int(target["hp"]) - deferred_tick)
-		battle_log.append("延迟伤害结算：受到 %d 点延迟伤害。" % deferred_tick)
-
-
 func _valid_target(target_index: int) -> int:
 	return CombatRules.valid_target(enemies, target_index)
 
@@ -1365,14 +1256,6 @@ func _ai_units() -> Array[Dictionary]:
 
 func _opposing_units_alive() -> int:
 	return CombatRules.alive_count(_opposing_units(player))
-
-
-func _has_first_strike() -> bool:
-	return enemy_rules.has_first_strike(enemies)
-
-
-func _state_name(card_id: String) -> String:
-	return state_buffs.state_name(card_id)
 
 
 func _save_data() -> Dictionary:

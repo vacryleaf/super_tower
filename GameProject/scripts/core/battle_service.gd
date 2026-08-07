@@ -567,12 +567,8 @@ func end_turn(session: RefCounted) -> void:
 
 
 func enemy_turn(session: RefCounted, before_player: bool = false) -> void:
-	var action_order := CombatRules.action_order(session.player, session.enemies, session.allies, session.status_service, session.round_index)
-	var player_position := -1
-	for order_index in range(action_order.size()):
-		if String(action_order[order_index].get("type", "")) == "player":
-			player_position = order_index
-			break
+	var action_order: Array[Dictionary] = session.turn_order.compute_order(session)
+	var player_position: int = session.turn_order.find_player_position(action_order)
 	if before_player or player_position == 0:
 		session._clear_enemy_blocks()
 		session._clear_enemy_taunts()
@@ -581,7 +577,7 @@ func enemy_turn(session: RefCounted, before_player: bool = false) -> void:
 		var actor_type := String(entry.get("type", ""))
 		if actor_type == "player":
 			continue
-		var is_before_player := player_position >= 0 and order_index < player_position
+		var is_before_player: bool = player_position >= 0 and order_index < player_position
 		if is_before_player != before_player:
 			continue
 		var actor: Dictionary = entry.get("unit", {})
@@ -599,23 +595,8 @@ func enemy_turn(session: RefCounted, before_player: bool = false) -> void:
 		session.ai_turn_stage = "after_player_pending"
 		return
 
-	for enemy in session.enemies:
-		if int(enemy["hp"]) <= 0:
-			continue
-		session.status_service.fire_trigger(enemy, TriggerEvents.ON_TURN_END, {"battle_log": session.battle_log, "session": session, "round_index": session.round_index})
-	for ally in session.allies:
-		if int(ally["hp"]) <= 0 or String(ally.get("controlled_by", "")) != "ai":
-			continue
-		session.status_service.fire_trigger(ally, TriggerEvents.ON_TURN_END, {"battle_log": session.battle_log, "session": session, "round_index": session.round_index})
-	if int(session.player["hp"]) <= 0:
-		session.ai_turn_stage = "complete"
-		session._on_defeat()
-		return
-
-	# 回合结束特性结算：corrode 腐蚀玩家护甲，support 治疗友军
-	CombatRules.apply_end_round_traits(session.player, session.enemies, session.round_index, session.status_service, session.battle_log)
-	CombatRules.apply_arena_effects(session.player, session.enemies, session.round_index, session.status_service, session.allies, session.battle_log, session.scene_skill_sources)
-	session.ai_turn_stage = "complete"
+	# 回合收尾：回合结束触发、死亡判定与回合结束特性结算统一由生命周期模块处理
+	session.round_lifecycle.end_round(session)
 
 
 func resolve_enemy_action(session: RefCounted, enemy: Dictionary, enemy_index: int) -> void:
@@ -772,12 +753,6 @@ func deal_damage_to_target(
 ) -> Dictionary:
 	var runtime := BattleEffectRuntime.new(session)
 	return damage_resolution_module.call("resolve", target, raw_damage, damage_type, runtime, attacker, action_armor_multiplier)
-
-
-# 回合结束时处理 corrode（腐蚀）和 support（辅助）特性效果，委托给 CombatRules 统一处理
-func _apply_end_round_traits(session: RefCounted) -> void:
-	CombatRules.apply_end_round_traits(session.player, session.enemies, session.round_index, session.status_service, session.battle_log)
-	CombatRules.apply_arena_effects(session.player, session.enemies, session.round_index, session.status_service, session.allies, session.battle_log, session.scene_skill_sources)
 
 
 func _build_buff_effects(skill: Dictionary, skill_id: String, is_player_actor: bool, session: RefCounted) -> Array[Dictionary]:

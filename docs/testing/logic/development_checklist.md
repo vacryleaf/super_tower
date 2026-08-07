@@ -78,3 +78,8 @@
 
 - `sh run_tests.sh`：通过，输出 `ALL TESTS PASSED`。
 - 已建立 TriggerDispatchModule 与 BattleActionQueue；TriggerService 降级为纯筛选器，伤害类触发动作经嵌套行动队列进入统一命中流程，并带父链深度与递归保护。
+
+### ARCH-11
+
+- `sh run_tests.sh`：通过，输出 `ALL TESTS PASSED`。
+- 已建立 TurnOrderModule 与 RoundLifecycleModule；回合开始、冷却、状态 tick、每回合效果、回合收尾、状态 Buff 抽取和先手判定迁入模块，PlaySession 回合入口降为薄适配；新增 `round_lifecycle_test.gd`。

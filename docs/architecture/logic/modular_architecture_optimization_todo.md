@@ -1,6 +1,6 @@
 # 模块化架构优化 TODO
 
-状态：ARCH-00 ～ ARCH-10 已完成，ARCH-11 ～ ARCH-20 待执行。
+状态：ARCH-00 ～ ARCH-11 已完成，ARCH-12 ～ ARCH-20 待执行。
 
 方案：`docs/architecture/design/modular_architecture_optimization.md`
 
@@ -152,7 +152,7 @@
 
 ## 6. 回合与战斗结果阶段
 
-### [ ] ARCH-11｜抽取回合生命周期和行动顺序
+### [x] ARCH-11｜抽取回合生命周期和行动顺序
 
 - 依赖：ARCH-03、ARCH-10。
 - 目标：将回合开始/结束、冷却、状态 tick、资源重置、先手和行动顺序从 `PlaySession` 迁入模块。
@@ -160,6 +160,7 @@
 - 禁止：不迁移奖励、存档、楼层推进。
 - 针对性测试：`round_lifecycle_test.gd`，覆盖教程/正式战斗、冷却、状态到期、先手、死亡单位和回合结束。
 - 完成标准：`PlaySession` 不再直接实现战斗回合时机。
+- 结果：已完成于 2026-08-07；新增 `TurnOrderModule`（行动顺序计算/玩家定位/调试文本）和 `RoundLifecycleModule`（回合开始、冷却、状态 tick、每回合效果、回合收尾、状态 Buff 抽取与先手判定），`PlaySession._begin_player_turn()` 降为一行薄适配，`BattleService` 的回合收尾段改调 `round_lifecycle.end_round()`。`sh run_tests.sh` 通过，输出 `ALL TESTS PASSED`。
 
 ### [ ] ARCH-12｜抽取战斗结果和 Run 层回调
 
