@@ -1,6 +1,6 @@
 # 模块化架构优化 TODO
 
-状态：ARCH-00 ～ ARCH-12 已完成，ARCH-13 ～ ARCH-20 待执行。
+状态：ARCH-00 ～ ARCH-13 已完成，ARCH-14 ～ ARCH-20 待执行。
 
 方案：`docs/architecture/design/modular_architecture_optimization.md`
 
@@ -174,7 +174,7 @@
 
 ## 7. 内容与运行时边界阶段
 
-### [ ] ARCH-13｜建立 RuntimeCatalog 查询门面
+### [x] ARCH-13｜建立 RuntimeCatalog 查询门面
 
 - 依赖：ARCH-00；不依赖战斗拆分，可独立实施。
 - 目标：统一 `DataCatalog`、`DataRepository`、`CatalogMigrationService` 和 Mod 注册表的查询出口。
@@ -182,6 +182,7 @@
 - 禁止：不切换未完成 parity 的外部表，不删除 `DataCatalog`。
 - 针对性测试：`runtime_catalog_test.gd`，覆盖原版、完整外部表、部分表 fallback、Mod 命名空间和缺失 ID。
 - 完成标准：调用方只通过 `RuntimeCatalog` 查询规范化数据，且 fallback 结果与当前实现一致。
+- 结果：已完成于 2026-08-07；新增 `ContentTableAdapter`（表名 → DataCatalog 运行时表：state_cards/classes/skills/weapons/monsters/items，怪物数组和装备+消耗品已字典化）和 `RuntimeCatalog` 查询门面（`entry/has/table/resolved_table/runtime_table/external_table/table_status/can_use_external/parity_report/mod_content_table/load_mods/register_mod/active_mod_ids`）。查询优先级为 Mod 内容 > 已迁移的完整外部表 > 运行时表；`state_cards` 走外部表，`classes`/`skills` 因 parity 未完整继续 fallback 运行时表，行为与现状一致。新增 `runtime_catalog_test.gd` 覆盖原版查询、完整外部表、部分表 fallback、Mod 命名空间（fixture.good）和缺失 ID。`sh run_tests.sh` 通过，输出 `ALL TESTS PASSED`。调用方迁移（Combatant/Encounter/Reward/Encyclopedia）由 ARCH-14 负责。
 
 ### [ ] ARCH-14｜建立内容引用与注册边界
 

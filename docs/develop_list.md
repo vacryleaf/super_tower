@@ -26,9 +26,10 @@
   - 每个 ARCH 子项必须保持当前数值和流程兼容，并有单独的服务级或契约测试。
   - 已完成 `ARCH-01` ～ `ARCH-12`；下一个子项为 `ARCH-13`，建立 RuntimeCatalog 查询门面。
 
-- [ ] 任务 15｜统一内容运行时注册边界
+- [~] 任务 15｜统一内容运行时注册边界
   - 对应 `ARCH-13` ～ `ARCH-14`：建立 `RuntimeCatalog`，统一原版、外部表、Mod 和图鉴的规范化查询。
   - 未完成 parity 的外部表必须继续 fallback，禁止改变原版内容权威。
+  - 已完成 `ARCH-13`，RuntimeCatalog 门面与 `runtime_catalog_test.gd` 已落地；下一个子项为 `ARCH-14`，接入 Combatant/Encounter/Reward/Encyclopedia 调用方。
 
 - [ ] 任务 16｜分离 Run、成长与存档边界
   - 对应 `ARCH-15` ～ `ARCH-16`：建立 RunContext/快照边界，保持教程、楼层、奖励、NPC 和旧存档规则不变。
@@ -249,3 +250,8 @@
 
 - `sh run_tests.sh`：通过，输出 `ALL TESTS PASSED`。
 - 已新增 BattleResult 纯数据类与 BattleResultModule（judge 判定玩家死亡→defeat、敌人全灭→victory、未结束→null）；PlaySession 的胜负回调改经 `battle_result.build_*` 生成结果后传给 RunProgressService（新增可选 result 参数，行为不变），奖励、存档和下一场仍由 Run 层处理；新增 `battle_result_boundary_test.gd` 覆盖胜利/失败判定、未结束、正式/教程失败、重复结算幂等和快照不变性。
+
+### 2026-08-07 ARCH-13
+
+- `sh run_tests.sh`：通过，输出 `ALL TESTS PASSED`。
+- 已新增 ContentTableAdapter（表名 → DataCatalog 运行时表，怪物数组与装备+消耗品已字典化）与 RuntimeCatalog 查询门面（mod > 完整外部表 > 运行时表，未完成 parity 继续 fallback）；`state_cards` 走外部表，`classes`/`skills` 保持 fallback；新增 `runtime_catalog_test.gd` 覆盖原版、外部表、fallback、Mod 命名空间和缺失 ID。
