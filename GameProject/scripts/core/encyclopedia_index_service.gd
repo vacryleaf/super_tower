@@ -1,11 +1,18 @@
 extends RefCounted
 class_name EncyclopediaIndexService
 
-const DataCatalog = preload("res://scripts/core/data_catalog.gd")
+const RuntimeCatalog = preload("res://scripts/core/runtime_catalog.gd")
 const TraitCatalog = preload("res://scripts/core/trait_catalog.gd")
 
 const INDEX_SCHEMA_VERSION := 1
 const DOMAINS := ["skills", "weapons", "items", "monsters", "traits"]
+
+var catalog: RuntimeCatalog = RuntimeCatalog.new()
+
+
+func _init(catalog_instance: RuntimeCatalog = null) -> void:
+	if catalog_instance != null:
+		catalog = catalog_instance
 
 
 func build_index(extra_content: Dictionary = {}) -> Dictionary:
@@ -16,21 +23,29 @@ func build_index(extra_content: Dictionary = {}) -> Dictionary:
 		"monsters": {},
 		"traits": {}
 	}
-	for skill_id in DataCatalog.SKILLS.keys():
-		index["skills"][String(skill_id)] = _entry("skill", String(skill_id), DataCatalog.SKILLS[skill_id], "DataCatalog.SKILLS")
-	for skill_id in DataCatalog.INNATE_SKILLS.keys():
+	var skills := catalog.runtime_table("skills")
+	for skill_id in skills.keys():
+		index["skills"][String(skill_id)] = _entry("skill", String(skill_id), skills[skill_id], "DataCatalog.SKILLS")
+	var innate_skills := catalog.innate_skills_table()
+	for skill_id in innate_skills.keys():
 		var normalized_id := String(skill_id)
 		if not index["skills"].has(normalized_id):
-			index["skills"][normalized_id] = _entry("skill", normalized_id, DataCatalog.INNATE_SKILLS[skill_id], "DataCatalog.INNATE_SKILLS")
-	for weapon_id in DataCatalog.WEAPON_PROFILES.keys():
-		index["weapons"][String(weapon_id)] = _entry("weapon", String(weapon_id), DataCatalog.WEAPON_PROFILES[weapon_id], "DataCatalog.WEAPON_PROFILES")
-	for item_id in DataCatalog.CONSUMABLES.keys():
-		index["items"][String(item_id)] = _entry("item", String(item_id), DataCatalog.CONSUMABLES[item_id], "DataCatalog.CONSUMABLES")
-	for item_id in DataCatalog.EQUIPMENT.keys():
+			index["skills"][normalized_id] = _entry("skill", normalized_id, innate_skills[skill_id], "DataCatalog.INNATE_SKILLS")
+	var weapons := catalog.runtime_table("weapons")
+	for weapon_id in weapons.keys():
+		index["weapons"][String(weapon_id)] = _entry("weapon", String(weapon_id), weapons[weapon_id], "DataCatalog.WEAPON_PROFILES")
+	var consumables := catalog.runtime_table("consumables")
+	for item_id in consumables.keys():
+		index["items"][String(item_id)] = _entry("item", String(item_id), consumables[item_id], "DataCatalog.CONSUMABLES")
+	var equipment := catalog.runtime_table("equipment")
+	for item_id in equipment.keys():
 		var normalized_item_id := String(item_id)
 		if not index["items"].has(normalized_item_id):
-			index["items"][normalized_item_id] = _entry("item", normalized_item_id, DataCatalog.EQUIPMENT[item_id], "DataCatalog.EQUIPMENT")
-	for unit in DataCatalog.NORMAL_UNITS + DataCatalog.ELITE_UNITS + DataCatalog.BOSS_UNITS:
+			index["items"][normalized_item_id] = _entry("item", normalized_item_id, equipment[item_id], "DataCatalog.EQUIPMENT")
+	var all_units: Array[Dictionary] = catalog.monster_units("normal")
+	all_units.append_array(catalog.monster_units("elite"))
+	all_units.append_array(catalog.monster_units("boss"))
+	for unit in all_units:
 		var monster_id := String(unit.get("id", ""))
 		if monster_id != "":
 			index["monsters"][monster_id] = _entry("monster", monster_id, unit, "DataCatalog.MONSTERS")

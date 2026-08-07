@@ -1,11 +1,18 @@
 extends RefCounted
 class_name EncounterService
 
-const DataCatalog = preload("res://scripts/core/data_catalog.gd")
+const RuntimeCatalog = preload("res://scripts/core/runtime_catalog.gd")
+
+var catalog: RuntimeCatalog = RuntimeCatalog.new()
+
+
+func _init(catalog_instance: RuntimeCatalog = null) -> void:
+	if catalog_instance != null:
+		catalog = catalog_instance
 
 
 func select_floor_group_id(rng: Variant = null) -> String:
-	var group_ids := DataCatalog.monster_group_ids()
+	var group_ids := catalog.monster_group_ids()
 	if group_ids.is_empty():
 		return ""
 	if rng != null and rng is RandomNumberGenerator:
@@ -16,7 +23,7 @@ func select_floor_group_id(rng: Variant = null) -> String:
 
 func generate_encounter(tower_floor: int, battle_index: int, floor_group_id: String = "") -> Dictionary:
 	var group_id := floor_group_id if floor_group_id != "" else select_floor_group_id()
-	var battle_type := DataCatalog.get_floor_battle_type(battle_index)
+	var battle_type := catalog.get_floor_battle_type(battle_index)
 	var encounter: Dictionary
 	if battle_type == "normal":
 		encounter = normal_encounter(tower_floor, battle_index, group_id)
@@ -25,7 +32,7 @@ func generate_encounter(tower_floor: int, battle_index: int, floor_group_id: Str
 	else:
 		encounter = boss_encounter(tower_floor, group_id)
 	encounter["group_id"] = group_id
-	encounter["group_name"] = DataCatalog.monster_group_name(group_id)
+	encounter["group_name"] = catalog.monster_group_name(group_id)
 	return apply_battle_pressure(encounter, battle_index)
 
 
@@ -65,7 +72,9 @@ func elite_encounter(tower_floor: int, battle_index: int, group_id: String) -> D
 func boss_encounter(tower_floor: int, group_id: String) -> Dictionary:
 	var boss_unit := _group_unit(group_id, "boss", tower_floor)
 	if boss_unit.is_empty():
-		boss_unit = DataCatalog.BOSS_UNITS[tower_floor % DataCatalog.BOSS_UNITS.size()]
+		var boss_units := catalog.monster_units("boss")
+		if not boss_units.is_empty():
+			boss_unit = boss_units[tower_floor % boss_units.size()]
 	if tower_floor >= 7 and tower_floor % 2 == 1:
 		var units: Array[Dictionary] = [
 			prepare_unit(boss_unit, "boss", 0.82)
@@ -77,8 +86,9 @@ func boss_encounter(tower_floor: int, group_id: String) -> Dictionary:
 
 func formation_from_units(id: String, battle_type: String, indexes: Array[int], scales: Array[float]) -> Dictionary:
 	var units: Array[Dictionary] = []
+	var normal_units := catalog.monster_units("normal")
 	for i in indexes.size():
-		units.append(prepare_unit(DataCatalog.NORMAL_UNITS[indexes[i] % DataCatalog.NORMAL_UNITS.size()], "normal", scales[i]))
+		units.append(prepare_unit(normal_units[indexes[i] % normal_units.size()], "normal", scales[i]))
 	return formation(id, battle_type, units)
 
 
@@ -125,14 +135,14 @@ func low_unit(unit_name: String, scale: float, passive_skills: Array) -> Diction
 
 
 func _group_unit(group_id: String, rank: String, index: int) -> Dictionary:
-	var units := DataCatalog.monster_group_units(group_id, rank)
+	var units := catalog.monster_group_units(group_id, rank)
 	if units.is_empty():
 		return {}
 	return units[index % units.size()]
 
 
 func _group_squad(group_id: String, count: int, scales: Array[float]) -> Array[Dictionary]:
-	var units: Array[Dictionary] = DataCatalog.monster_group_units(group_id, "normal")
+	var units: Array[Dictionary] = catalog.monster_group_units(group_id, "normal")
 	var result: Array[Dictionary] = []
 	for i in range(count):
 		var scale := scales[i]
@@ -144,8 +154,8 @@ func _group_squad(group_id: String, count: int, scales: Array[float]) -> Array[D
 
 
 func _group_low_unit(group_id: String, scale: float) -> Dictionary:
-	var group_name := DataCatalog.monster_group_name(group_id)
-	var passive_skills := DataCatalog.monster_group_minion_passive_skills(group_id)
+	var group_name := catalog.monster_group_name(group_id)
+	var passive_skills := catalog.monster_group_minion_passive_skills(group_id)
 	return low_unit("%s杂兵" % group_name, scale, passive_skills)
 
 

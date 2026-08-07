@@ -29,7 +29,7 @@
 - [~] 任务 15｜统一内容运行时注册边界
   - 对应 `ARCH-13` ～ `ARCH-14`：建立 `RuntimeCatalog`，统一原版、外部表、Mod 和图鉴的规范化查询。
   - 未完成 parity 的外部表必须继续 fallback，禁止改变原版内容权威。
-  - 已完成 `ARCH-13`，RuntimeCatalog 门面与 `runtime_catalog_test.gd` 已落地；下一个子项为 `ARCH-14`，接入 Combatant/Encounter/Reward/Encyclopedia 调用方。
+  - 已完成 `ARCH-13` ～ `ARCH-14`，RuntimeCatalog 门面与三个调用方（Encounter/Reward/Encyclopedia）已接入；下一个子项为 `ARCH-15`，建立 RunContext 与存档快照边界。
 
 - [ ] 任务 16｜分离 Run、成长与存档边界
   - 对应 `ARCH-15` ～ `ARCH-16`：建立 RunContext/快照边界，保持教程、楼层、奖励、NPC 和旧存档规则不变。
@@ -255,3 +255,8 @@
 
 - `sh run_tests.sh`：通过，输出 `ALL TESTS PASSED`。
 - 已新增 ContentTableAdapter（表名 → DataCatalog 运行时表，怪物数组与装备+消耗品已字典化）与 RuntimeCatalog 查询门面（mod > 完整外部表 > 运行时表，未完成 parity 继续 fallback）；`state_cards` 走外部表，`classes`/`skills` 保持 fallback；新增 `runtime_catalog_test.gd` 覆盖原版、外部表、fallback、Mod 命名空间和缺失 ID。
+
+### 2026-08-07 ARCH-14
+
+- `sh run_tests.sh`：通过，输出 `ALL TESTS PASSED`。
+- 已扩展 ContentTableAdapter（`equipment`/`consumables`/`passive_skills`/`innate_skills`）与 RuntimeCatalog（`monster_units`/`monster_group*`/`get_floor_battle_type`/`tutorial_unlock_ids`/`skill_class_compatible`/`equipment_class_compatible`/`innate_skills_table`）；EncounterService、RewardService、EncyclopediaIndexService 注入可选 catalog（无参构造兼容），遭遇单位、塔内奖励、教程解锁和图鉴索引统一走 catalog；新增 `content_registry_integration_test.gd` 接入默认入口，覆盖技能/装备/怪物一致性、遭遇生成、奖励引用和图鉴一致性。

@@ -2,10 +2,17 @@ extends RefCounted
 class_name RewardService
 
 const DataCatalog = preload("res://scripts/core/data_catalog.gd")
+const RuntimeCatalog = preload("res://scripts/core/runtime_catalog.gd")
 
 const REWARD_SCHEMA_VERSION := 1
 
 var rng := RandomNumberGenerator.new()
+var catalog: RuntimeCatalog = RuntimeCatalog.new()
+
+
+func _init(catalog_instance: RuntimeCatalog = null) -> void:
+	if catalog_instance != null:
+		catalog = catalog_instance
 
 
 static func make_reward(kind: String, label: String, source: String, target_type: String, effect: Dictionary = {}, legacy_fields: Dictionary = {}) -> Dictionary:
@@ -90,12 +97,15 @@ static func _legacy_effect(reward: Dictionary) -> Dictionary:
 
 
 func tutorial_reward(class_id: String, battle_index: int) -> Dictionary:
-	var unlock_id: String = DataCatalog.TUTORIAL_UNLOCKS[class_id][battle_index - 1]
+	var unlock_ids := catalog.tutorial_unlock_ids(class_id)
+	if battle_index - 1 >= unlock_ids.size():
+		return {}
+	var unlock_id: String = unlock_ids[battle_index - 1]
 	var label := ""
-	if DataCatalog.EQUIPMENT.has(unlock_id):
-		label = "获得装备：%s" % DataCatalog.EQUIPMENT[unlock_id]["name"]
+	if catalog.has("equipment", unlock_id):
+		label = "获得装备：%s" % catalog.entry("equipment", unlock_id)["name"]
 	else:
-		label = "获得技能：%s" % DataCatalog.SKILLS[unlock_id]["name"]
+		label = "获得技能：%s" % catalog.entry("skills", unlock_id)["name"]
 	return make_reward("tutorial_unlock", label, "tutorial", "player_unlock", {"unlock_id": unlock_id}, {"item_id": unlock_id})
 
 
@@ -105,9 +115,10 @@ func tower_equipment_reward(player: Dictionary, class_id: String) -> Dictionary:
 	var tower_equipment_ids: Array = player.get("tower_equipment_ids", [])
 	if tower_equipment_ids.size() >= DataCatalog.TOWER_EQUIPMENT_SLOTS:
 		return {}
-	for item_id in DataCatalog.EQUIPMENT.keys():
-		var item: Dictionary = DataCatalog.EQUIPMENT[item_id]
-		if not DataCatalog.equipment_class_compatible(item, class_id):
+	var equipment := catalog.runtime_table("equipment")
+	for item_id in equipment.keys():
+		var item: Dictionary = equipment[item_id]
+		if not catalog.equipment_class_compatible(item, class_id):
 			continue
 		if player.get("equipment_ids", []).has(item_id) or tower_equipment_ids.has(item_id) or tower_equipment.values().has(item_id):
 			continue
@@ -115,41 +126,44 @@ func tower_equipment_reward(player: Dictionary, class_id: String) -> Dictionary:
 	if candidates.is_empty():
 		return {}
 	var selected_id := String(candidates[rng.randi_range(0, candidates.size() - 1)])
-	return make_reward("tower_equipment", "塔内装备：%s" % DataCatalog.EQUIPMENT[selected_id]["name"], "tower_reward", "tower_equipment", {"item_id": selected_id}, {"item_id": selected_id})
+	return make_reward("tower_equipment", "塔内装备：%s" % equipment[selected_id]["name"], "tower_reward", "tower_equipment", {"item_id": selected_id}, {"item_id": selected_id})
 
 
 func tower_consumable_reward() -> Dictionary:
 	var item_ids: Array[String] = []
-	for item_id in DataCatalog.CONSUMABLES.keys():
+	var consumables := catalog.runtime_table("consumables")
+	for item_id in consumables.keys():
 		item_ids.append(String(item_id))
 	if item_ids.is_empty():
 		return {}
 	var selected_id := String(item_ids[rng.randi_range(0, item_ids.size() - 1)])
-	return make_reward("tower_consumable", "塔内物品：%s" % DataCatalog.CONSUMABLES[selected_id]["name"], "tower_reward", "tower_consumable", {"item_id": selected_id}, {"item_id": selected_id})
+	return make_reward("tower_consumable", "塔内物品：%s" % consumables[selected_id]["name"], "tower_reward", "tower_consumable", {"item_id": selected_id}, {"item_id": selected_id})
 
 
 func tower_skill_reward(class_id: String) -> Dictionary:
 	var candidates: Array[String] = []
-	for skill_id in DataCatalog.SKILLS.keys():
-		var skill: Dictionary = DataCatalog.SKILLS[skill_id]
+	var skills := catalog.runtime_table("skills")
+	for skill_id in skills.keys():
+		var skill: Dictionary = skills[skill_id]
 		var slot := int(skill.get("slot", 0))
-		if slot < 3 or slot > 4 or not DataCatalog.skill_class_compatible(skill, class_id):
+		if slot < 3 or slot > 4 or not catalog.skill_class_compatible(skill, class_id):
 			continue
 		candidates.append(String(skill_id))
 	if candidates.is_empty():
 		return {}
 	var selected_id := String(candidates[rng.randi_range(0, candidates.size() - 1)])
-	return make_reward("tower_skill", "塔内技能：%s" % DataCatalog.SKILLS[selected_id]["name"], "tower_reward", "tower_skill", {"skill_id": selected_id}, {"skill_id": selected_id})
+	return make_reward("tower_skill", "塔内技能：%s" % skills[selected_id]["name"], "tower_reward", "tower_skill", {"skill_id": selected_id}, {"skill_id": selected_id})
 
 
 func tower_passive_skill_reward() -> Dictionary:
 	var skill_ids: Array[String] = []
-	for skill_id in DataCatalog.PASSIVE_SKILLS.keys():
+	var passive_skills := catalog.runtime_table("passive_skills")
+	for skill_id in passive_skills.keys():
 		skill_ids.append(String(skill_id))
 	if skill_ids.is_empty():
 		return {}
 	var selected_id := String(skill_ids[rng.randi_range(0, skill_ids.size() - 1)])
-	return make_reward("tower_passive_skill", "塔内被动：%s" % DataCatalog.PASSIVE_SKILLS[selected_id]["name"], "tower_reward", "tower_passive_skill", {"skill_id": selected_id}, {"skill_id": selected_id})
+	return make_reward("tower_passive_skill", "塔内被动：%s" % passive_skills[selected_id]["name"], "tower_reward", "tower_passive_skill", {"skill_id": selected_id}, {"skill_id": selected_id})
 
 
 func should_drop(chance: float) -> bool:
@@ -261,9 +275,10 @@ static func remove_matching_reward(rewards: Array[Dictionary], target: Dictionar
 
 func permanent_equipment_reward(player: Dictionary, class_id: String, floor_index: int) -> Dictionary:
 	var candidates: Array[String] = []
-	for item_id in DataCatalog.EQUIPMENT.keys():
-		var item: Dictionary = DataCatalog.EQUIPMENT[item_id]
-		if not DataCatalog.equipment_class_compatible(item, class_id):
+	var equipment := catalog.runtime_table("equipment")
+	for item_id in equipment.keys():
+		var item: Dictionary = equipment[item_id]
+		if not catalog.equipment_class_compatible(item, class_id):
 			continue
 		if player.get("equipment_ids", []).has(item_id):
 			continue
@@ -273,16 +288,17 @@ func permanent_equipment_reward(player: Dictionary, class_id: String, floor_inde
 		return make_reward("heal", "永久装备分支：装备已收集完，恢复生命", "npc_blacksmith", "player", {"stat": "hp", "value": heal_value})
 	rng.randomize()
 	var selected_id := candidates[rng.randi_range(0, candidates.size() - 1)]
-	var item: Dictionary = DataCatalog.EQUIPMENT[selected_id]
+	var item: Dictionary = equipment[selected_id]
 	return make_reward("permanent_equipment", "永久装备：%s" % item["name"], "npc_blacksmith", "permanent_equipment", {"item_id": selected_id}, {"item_id": selected_id})
 
 
 
 
 func _has_unlocked_all_class_skills(player: Dictionary, class_id: String) -> bool:
-	for skill_id in DataCatalog.SKILLS.keys():
-		var skill: Dictionary = DataCatalog.SKILLS[skill_id]
-		if DataCatalog.skill_class_compatible(skill, class_id):
+	var skills := catalog.runtime_table("skills")
+	for skill_id in skills.keys():
+		var skill: Dictionary = skills[skill_id]
+		if catalog.skill_class_compatible(skill, class_id):
 			if not player.get("unlocked_skills", []).has(skill_id):
 				return false
 	return true

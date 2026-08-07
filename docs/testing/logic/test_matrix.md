@@ -19,6 +19,7 @@
 | 回合生命周期与行动顺序 | `round_lifecycle_test.gd` |
 | 战斗结果/Run 层回调 | `battle_result_boundary_test.gd` |
 | 内容运行时查询门面 | `runtime_catalog_test.gd` |
+| 内容注册边界 | `content_registry_integration_test.gd` |
 | 教程/楼层/活动 | `campaign_test.gd` |
 | 奖励和附着 | `reward_system_test.gd` |
 | 存档迁移与序列化 | `persistence_test.gd` |
@@ -29,4 +30,4 @@
 
 当前验收要求：不得依赖模拟战斗；跨平台核心断言使用 Godot headless；Windows pywinauto 只做桌面 UI 补充验收。`playable_manual_test.gd` 是长时可玩回归脚本，默认入口不执行它，不能将未运行该脚本称为包含长时回归的全量通过。
 
-模块化架构优化按 `docs/architecture/logic/modular_architecture_optimization_todo.md` 的 ARCH 子项逐项实施（ARCH-00 ～ ARCH-13 已完成）。实施中的新增契约测试、服务测试和集成测试必须接入默认入口 `tutorial_and_floors_test.gd`；计划中的测试在代码和默认入口落地前不得写成已执行。
+模块化架构优化按 `docs/architecture/logic/modular_architecture_optimization_todo.md` 的 ARCH 子项逐项实施（ARCH-00 ～ ARCH-14 已完成）。实施中的新增契约测试、服务测试和集成测试必须接入默认入口 `tutorial_and_floors_test.gd`；计划中的测试在代码和默认入口落地前不得写成已执行。

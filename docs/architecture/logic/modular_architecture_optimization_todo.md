@@ -1,6 +1,6 @@
 # 模块化架构优化 TODO
 
-状态：ARCH-00 ～ ARCH-13 已完成，ARCH-14 ～ ARCH-20 待执行。
+状态：ARCH-00 ～ ARCH-14 已完成，ARCH-15 ～ ARCH-20 待执行。
 
 方案：`docs/architecture/design/modular_architecture_optimization.md`
 
@@ -184,7 +184,7 @@
 - 完成标准：调用方只通过 `RuntimeCatalog` 查询规范化数据，且 fallback 结果与当前实现一致。
 - 结果：已完成于 2026-08-07；新增 `ContentTableAdapter`（表名 → DataCatalog 运行时表：state_cards/classes/skills/weapons/monsters/items，怪物数组和装备+消耗品已字典化）和 `RuntimeCatalog` 查询门面（`entry/has/table/resolved_table/runtime_table/external_table/table_status/can_use_external/parity_report/mod_content_table/load_mods/register_mod/active_mod_ids`）。查询优先级为 Mod 内容 > 已迁移的完整外部表 > 运行时表；`state_cards` 走外部表，`classes`/`skills` 因 parity 未完整继续 fallback 运行时表，行为与现状一致。新增 `runtime_catalog_test.gd` 覆盖原版查询、完整外部表、部分表 fallback、Mod 命名空间（fixture.good）和缺失 ID。`sh run_tests.sh` 通过，输出 `ALL TESTS PASSED`。调用方迁移（Combatant/Encounter/Reward/Encyclopedia）由 ARCH-14 负责。
 
-### [ ] ARCH-14｜建立内容引用与注册边界
+### [x] ARCH-14｜建立内容引用与注册边界
 
 - 依赖：ARCH-13。
 - 目标：让 `Combatant`、Encounter、Reward、Encyclopedia 使用统一注册内容，并明确 Schema/Mod/图鉴的引用关系。
@@ -192,6 +192,7 @@
 - 禁止：不改变内容数值和解锁规则。
 - 针对性测试：`content_registry_integration_test.gd`，覆盖技能、装备、怪物、奖励、特性和图鉴一致性。
 - 完成标准：同一稳定 ID 在运行时和图鉴中来自同一规范化入口。
+- 结果：已完成于 2026-08-07；`ContentTableAdapter` 扩展 `equipment`/`consumables`/`passive_skills`/`innate_skills` 表，`RuntimeCatalog` 新增 `monster_units`/`monster_group*`/`get_floor_battle_type`/`tutorial_unlock_ids`/`skill_class_compatible`/`equipment_class_compatible`/`innate_skills_table`。`EncounterService`、`RewardService`、`EncyclopediaIndexService` 注入可选 `catalog_instance`（无参构造保持兼容），原版数据查询统一走 catalog：遭遇单位经 `monster_units(rank)`、塔内奖励经 `runtime_table(...)`（Mod 内容不进塔内奖励池）、教程奖励经 `tutorial_unlock_ids()` 并加越界保护、图鉴索引经 `resolved_table(...)`。新增 `content_registry_integration_test.gd` 并接入默认入口，覆盖技能/装备/怪物一致性、遭遇生成、奖励引用和图鉴一致性；`sh run_tests.sh` 通过，输出 `ALL TESTS PASSED`。`combatant.gd` 实际无内容表查询，本次未改动。
 
 ## 8. Run、存档与 UI 阶段
 

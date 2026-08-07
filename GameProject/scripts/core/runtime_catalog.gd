@@ -3,6 +3,7 @@ class_name RuntimeCatalog
 
 const CatalogMigrationService = preload("res://scripts/core/catalog_migration_service.gd")
 const ContentTableAdapter = preload("res://scripts/core/content_table_adapter.gd")
+const DataCatalog = preload("res://scripts/core/data_catalog.gd")
 const ModLoader = preload("res://scripts/core/mod_loader.gd")
 
 # 表名 → Mod 内容领域；只有这些表支持 Mod 扩展内容。
@@ -104,3 +105,68 @@ func _mod_entry(table_name: String, entry_id: String) -> Dictionary:
 	if not mod_table.has(entry_id):
 		return {}
 	return (mod_table[entry_id] as Dictionary).duplicate(true)
+
+
+# 按 rank 返回有序怪物单位数组（normal/elite/boss），条目与 monsters 表同源。
+func monster_units(rank: String) -> Array[Dictionary]:
+	var units: Array
+	match rank:
+		"normal":
+			units = DataCatalog.NORMAL_UNITS
+		"elite":
+			units = DataCatalog.ELITE_UNITS
+		"boss":
+			units = DataCatalog.BOSS_UNITS
+	var result: Array[Dictionary] = []
+	for unit in units:
+		if typeof(unit) == TYPE_DICTIONARY:
+			result.append((unit as Dictionary).duplicate(true))
+	return result
+
+
+func monster_group_ids() -> Array[String]:
+	return DataCatalog.monster_group_ids()
+
+
+func monster_group(group_id: String) -> Dictionary:
+	return DataCatalog.monster_group(group_id)
+
+
+func monster_group_name(group_id: String) -> String:
+	return DataCatalog.monster_group_name(group_id)
+
+
+func monster_group_minion_passive_skills(group_id: String) -> Array:
+	return DataCatalog.monster_group_minion_passive_skills(group_id)
+
+
+# 群组单位经 monsters 表查询，保证运行时与图鉴同源。
+func monster_group_units(group_id: String, rank: String) -> Array[Dictionary]:
+	var group := monster_group(group_id)
+	var ids: Array = group.get("%s_units" % rank, [])
+	var units: Array[Dictionary] = []
+	for unit_id in ids:
+		var unit := entry("monsters", String(unit_id))
+		if not unit.is_empty():
+			units.append(unit)
+	return units
+
+
+func get_floor_battle_type(index: int) -> String:
+	return DataCatalog.get_floor_battle_type(index)
+
+
+func tutorial_unlock_ids(class_id: String) -> Array:
+	return DataCatalog.TUTORIAL_UNLOCKS.get(class_id, [])
+
+
+func skill_class_compatible(skill: Dictionary, class_id: String) -> bool:
+	return DataCatalog.skill_class_compatible(skill, class_id)
+
+
+func equipment_class_compatible(item: Dictionary, class_id: String) -> bool:
+	return DataCatalog.equipment_class_compatible(item, class_id)
+
+
+func innate_skills_table() -> Dictionary:
+	return DataCatalog.INNATE_SKILLS.duplicate(true)

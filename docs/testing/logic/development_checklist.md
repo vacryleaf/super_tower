@@ -93,3 +93,8 @@
 
 - `sh run_tests.sh`：通过，输出 `ALL TESTS PASSED`。
 - 已建立 ContentTableAdapter 与 RuntimeCatalog 查询门面（Mod 内容 > 完整外部表 > 运行时表，parity 未完整继续 fallback）；`state_cards` 走外部表，`classes`/`skills` 保持运行时表；新增 `runtime_catalog_test.gd`，覆盖原版、外部表、fallback、Mod 命名空间和缺失 ID。
+
+### ARCH-14
+
+- `sh run_tests.sh`：通过，输出 `ALL TESTS PASSED`。
+- 已扩展 ContentTableAdapter（`equipment`/`consumables`/`passive_skills`/`innate_skills`）与 RuntimeCatalog 系列内容查询接口；EncounterService/RewardService/EncyclopediaIndexService 注入可选 `catalog_instance`（无参构造兼容），遭遇单位、塔内奖励（仅运行时表，Mod 不进塔内奖励池）、教程解锁（带越界保护）和图鉴索引统一走 catalog；新增 `content_registry_integration_test.gd` 并接入默认入口，覆盖技能/装备/怪物一致性、遭遇生成、奖励引用和图鉴一致性。
