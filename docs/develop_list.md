@@ -31,9 +31,9 @@
   - 未完成 parity 的外部表必须继续 fallback，禁止改变原版内容权威。
   - 已完成 `ARCH-13` ～ `ARCH-14`，RuntimeCatalog 门面与三个调用方（Encounter/Reward/Encyclopedia）已接入。
 
-- [~] 任务 16｜分离 Run、成长与存档边界
+- [x] 任务 16｜分离 Run、成长与存档边界
   - 对应 `ARCH-15` ～ `ARCH-16`：建立 RunContext/快照边界，保持教程、楼层、奖励、NPC 和旧存档规则不变。
-  - 已完成 `ARCH-15`，RunContext/RunStateSnapshot 与存档快照边界已落地；下一个子项为 `ARCH-16`，建立成长与奖励协调边界。
+  - 已完成 `ARCH-15` ～ `ARCH-16`：RunContext/RunStateSnapshot 与存档快照边界落地，RunProgressService/RewardApplyService 建立成长与奖励协调边界。
 
 - [ ] 任务 17｜建立 UI 展示与意图边界
   - 对应 `ARCH-17`：渐进建立 Screen/Presenter/View 契约；UI 仅展示状态和派发意图。
@@ -266,3 +266,8 @@
 
 - `sh run_tests.sh`：通过，输出 `ALL TESTS PASSED`。
 - 已新增 RunContext（Run 层状态容器，capture/apply_data 含旧存档迁移与楼层组历史恢复）与 RunStateSnapshot（run/battle 字段切分的纯数据快照，磁盘格式与 version=4 不变）；RunStateSerializer 重写为委托 RunContext+RunStateSnapshot，保存输出保持扁平字段；SaveProfile 新增 `read_active_run/write_active_run` 支持 Run 层独立读写；新增 `run_context_persistence_test.gd` 接入默认入口，覆盖独立往返、字段切分、旧存档迁移、缺失默认值、中断恢复、SaveProfile 独立读写和 PlaySession 存档被 RunContext 独立恢复。
+
+### 2026-08-07 ARCH-16
+
+- `sh run_tests.sh`：通过，输出 `ALL TESTS PASSED`。
+- 已将 RunProgressService 重写为 Run 层协调边界：`on_victory/on_defeat/advance_after_reward/apply_limited_post_battle_recovery/post_reward_heal_amount` 作为权威路径；胜利侧不再调用 PlaySession 私有方法，改经 `reward_apply.build_reward_options` 与 `run_progress.advance_after_reward` 公开端口，图鉴、塔币、Boss NPC 解锁与塔通关记录迁移为本服务私有实现（与旧方法等价）；RewardApplyService 的奖励选择/附着目标不再调用 `_advance_after_reward`/`_target_label`，改调 `run_progress` 端口与新增 `target_label`。新增 `run_progress_boundary_test.gd` 接入默认入口，覆盖胜利（普通/Boss/通关/教程）、失败（正式/教程）、奖励选择（附着/直接生效）、楼层推进、塔通关、教程收尾和私有 API 依赖扫描。

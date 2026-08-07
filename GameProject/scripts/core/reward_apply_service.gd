@@ -18,7 +18,7 @@ func choose_reward(session: Variant, index: int) -> void:
 		session.reward_targets = build_reward_targets(session)
 		if session.reward_targets.is_empty():
 			session.message = "没有可附着目标，奖励已跳过。"
-			session._advance_after_reward()
+			session.run_progress.advance_after_reward(session)
 			return
 		session.phase = "reward_target"
 		session.message = "选择「%s」要附着到的装备或技能。" % RewardService.short_label(session.pending_reward)
@@ -39,7 +39,24 @@ func choose_reward(session: Variant, index: int) -> void:
 		"tower_passive_skill":
 			apply_tower_passive_skill(session, reward)
 	session.character.recalculate_player_stats(session.player, false)
-	session._advance_after_reward()
+	session.run_progress.advance_after_reward(session)
+
+
+# 与 PlaySession._target_label 等价：只读 DataCatalog 输出可展示的目标名称，
+# 不依赖会话内部状态，供附着选择后的消息回显使用。
+func target_label(target: Dictionary) -> String:
+	var target_type := String(target.get("type", ""))
+	var target_id := String(target.get("id", ""))
+	if target_type == "equipment" and DataCatalog.EQUIPMENT.has(target_id):
+		var item: Dictionary = DataCatalog.EQUIPMENT[target_id]
+		return "装备：%s" % item["name"]
+	if target_type == "skill" and DataCatalog.SKILLS.has(target_id):
+		var skill: Dictionary = DataCatalog.SKILLS[target_id]
+		return "技能：%s" % skill["name"]
+	if target_type == "consumable" and DataCatalog.CONSUMABLES.has(target_id):
+		var consumable: Dictionary = DataCatalog.CONSUMABLES[target_id]
+		return "消耗品：%s" % consumable["name"]
+	return target_id
 
 
 func choose_reward_target(session: Variant, index: int) -> void:
@@ -53,11 +70,11 @@ func choose_reward_target(session: Variant, index: int) -> void:
 	session.character.recalculate_player_stats(session.player, false)
 	session.message = "%s 已附着到 %s。" % [
 		RewardService.short_label(session.pending_reward),
-		session._target_label(target)
+		target_label(target)
 	]
 	session.pending_reward = {}
 	session.reward_targets.clear()
-	session._advance_after_reward()
+	session.run_progress.advance_after_reward(session)
 
 
 func build_reward_options(session: Variant) -> void:

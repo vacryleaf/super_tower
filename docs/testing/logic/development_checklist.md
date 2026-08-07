@@ -103,3 +103,8 @@
 
 - `sh run_tests.sh`：通过，输出 `ALL TESTS PASSED`。
 - 已新增 RunContext（Run 层状态容器，`capture/capture_from_session/apply_data`，含旧存档迁移与楼层组历史恢复）与 RunStateSnapshot（run/battle 字段切分快照，磁盘 active_run 格式与 version=4 不变）；RunStateSerializer 重写为委托 RunContext+RunStateSnapshot，save_data 输出保持扁平字段、load_save_data 保留版本检查、NPC 解锁副作用和战斗状态归一化；SaveProfile 新增 `read_active_run/write_active_run`；新增 `run_context_persistence_test.gd` 并接入默认入口，覆盖独立往返、字段切分、旧存档迁移、缺失默认值、中断恢复、SaveProfile 独立读写和 PlaySession 存档被 RunContext 独立恢复。
+
+### ARCH-16
+
+- `sh run_tests.sh`：通过，输出 `ALL TESTS PASSED`。
+- 已将 RunProgressService 重写为 Run 层协调边界（胜利/失败/奖励后推进/战后恢复/恢复量作为权威路径）；胜利侧改经 `reward_apply.build_reward_options` 与 `run_progress.advance_after_reward` 公开端口，图鉴、塔币、Boss NPC 解锁与塔通关记录迁移为本服务私有实现（与 PlaySession 旧方法等价）；RewardApplyService 改调 `run_progress.advance_after_reward`，新增 `target_label` 替代 `_target_label`；新增 `run_progress_boundary_test.gd` 并接入默认入口，覆盖胜利（普通/Boss/通关/教程）、失败（正式/教程）、奖励选择（附着/直接生效）、楼层推进、塔通关、教程收尾和私有 API 依赖扫描。

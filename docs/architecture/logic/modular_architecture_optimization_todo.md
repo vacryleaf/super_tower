@@ -1,6 +1,6 @@
 # 模块化架构优化 TODO
 
-状态：ARCH-00 ～ ARCH-15 已完成，ARCH-16 ～ ARCH-20 待执行。
+状态：ARCH-00 ～ ARCH-16 已完成，ARCH-17 ～ ARCH-20 待执行。
 
 方案：`docs/architecture/design/modular_architecture_optimization.md`
 
@@ -206,7 +206,7 @@
 - 完成标准：Battle 层不直接读写 Profile，Run 层可以独立恢复快照。
 - 结果：已完成于 2026-08-07；新增 `RunContext`（Run 层状态容器，`capture/capture_from_session/apply_data`，含旧存档迁移与楼层组历史恢复）与 `RunStateSnapshot`（run/battle 字段切分的纯数据快照，`to_dict/from_dict`，磁盘 active_run 格式与 version=4 不变）。`RunStateSerializer` 重写为委托 RunContext+RunStateSnapshot：save_data 输出保持扁平字段，load_save_data 保留版本检查、NPC 解锁副作用、战斗状态归一化与 charge 效果恢复；新增 `SaveProfile.read_active_run/write_active_run` 支持 Run 层独立读写 active_run（Profile 格式不变）。新增 `run_context_persistence_test.gd` 并接入默认入口，覆盖独立往返（不依赖 PlaySession）、run/battle 字段切分、旧存档迁移（legacy class_id、楼层组历史、tutorial 推断）、缺失默认值、中断恢复、SaveProfile 独立读写和 PlaySession 存档被 RunContext 独立恢复；`sh run_tests.sh` 通过，输出 `ALL TESTS PASSED`。BattleService/BattleState 本就未直接读写 Profile，完成标准已满足。
 
-### [ ] ARCH-16｜建立成长与奖励协调边界
+### [x] ARCH-16｜建立成长与奖励协调边界
 
 - 依赖：ARCH-15。
 - 目标：明确遭遇、奖励、永久成长、NPC 解锁和战斗结果之间的单向调用关系。
@@ -214,6 +214,7 @@
 - 禁止：不调整奖励数值和楼层规则。
 - 针对性测试：`run_progress_boundary_test.gd`，覆盖战斗结果、奖励选择、附着目标、楼层推进和存档回写。
 - 完成标准：成长服务不反向调用命中/技能私有方法。
+- 结果：已完成于 2026-08-07；`RunProgressService` 重写为 Run 层协调边界：`on_victory/on_defeat/advance_after_reward/apply_limited_post_battle_recovery/post_reward_heal_amount` 作为权威路径，胜利侧不再调用 PlaySession 私有方法，改经公开服务端口（`reward_apply.build_reward_options` 构建奖励、`run_progress.advance_after_reward` 推进），图鉴、塔币、Boss NPC 解锁与塔通关记录迁移为本服务私有实现（与旧方法等价）。`RewardApplyService` 的 `choose_reward`/`choose_reward_target` 不再调用 `session._advance_after_reward()`，改调 `session.run_progress.advance_after_reward(session)`；新增静态 `target_label` 替代 `_target_label`。新增 `run_progress_boundary_test.gd` 并接入默认入口，覆盖胜利（普通/Boss/通关/教程）、失败（正式/教程）、奖励选择（附着/直接生效）、楼层推进、塔通关、教程收尾和私有 API 依赖扫描（源码不引用 `battle_service`/`play_session`/`combat_engine` 及命中/技能私有方法）。`sh run_tests.sh` 通过，输出 `ALL TESTS PASSED`。奖励数值与楼层规则未调整，PlaySession 旧私有方法保留兼容（ARCH-20 统一清理），完成标准已满足。
 
 ### [ ] ARCH-17｜建立 UI Screen/Presenter/View 契约
 
