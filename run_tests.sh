@@ -12,8 +12,6 @@ elif command -v godot4 >/dev/null 2>&1; then
     GODOT=godot4
 elif [ -x "/Applications/Godot.app/Contents/MacOS/Godot" ]; then
     GODOT=/Applications/Godot.app/Contents/MacOS/Godot
-elif [ -x "/Applications/Godot.app/Contents/MacOS/Godot" ]; then
-    GODOT=/Applications/Godot.app/Contents/MacOS/Godot
 else
     echo "Godot executable was not found."
     echo "Checked: GODOT_BIN, PATH: godot, PATH: godot4, /Applications/Godot.app/Contents/MacOS/Godot"

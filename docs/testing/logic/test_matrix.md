@@ -30,8 +30,11 @@
 | UI 点击冒烟 | `ui_click_smoke_test.gd` |
 | 长时可玩回归（非默认） | `playable_manual_test.gd` |
 | Mod manifest/注册 | `mod_loader_test.gd` |
-| 全量 | `run_tests.bat` / `run_tests.sh` |
+| 架构契约/服务套件聚合（默认） | `tutorial_and_floors_test.gd` |
+| 全量（默认入口） | `run_tests.bat` / `run_tests.sh` |
 
 当前验收要求：不得依赖模拟战斗；跨平台核心断言使用 Godot headless；Windows pywinauto 只做桌面 UI 补充验收。`playable_manual_test.gd` 是长时可玩回归脚本，默认入口不执行它，不能将未运行该脚本称为包含长时回归的全量通过。
 
-模块化架构优化按 `docs/architecture/logic/modular_architecture_optimization_todo.md` 的 ARCH 子项逐项实施（ARCH-00 ～ ARCH-18 已完成）。实施中的新增契约测试、服务测试和集成测试必须接入默认入口 `tutorial_and_floors_test.gd`；计划中的测试在代码和默认入口落地前不得写成已执行。
+默认入口由 `run_tests.sh` 与 `run_tests.bat` 组成，两套入口的测试集合和失败判定必须保持一致：依次执行 `tutorial_and_floors_test.gd`（聚合 25 个契约/服务/集成套件）、`pre_run_ui_smoke_test.gd`、`ui_click_smoke_test.gd`；任一脚本出现 `Failed to load script`、`Compilation failed` 或 `SCRIPT ERROR` 即判失败。新增契约测试、服务测试和集成测试必须接入 `tutorial_and_floors_test.gd`；计划中的测试在代码和默认入口落地前不得写成已执行。
+
+模块化架构优化按 `docs/architecture/logic/modular_architecture_optimization_todo.md` 的 ARCH 子项逐项实施（ARCH-00 ～ ARCH-19 已完成）。实施中的新增契约测试、服务测试和集成测试必须接入默认入口 `tutorial_and_floors_test.gd`；计划中的测试在代码和默认入口落地前不得写成已执行。

@@ -1,6 +1,6 @@
 # 模块化架构优化 TODO
 
-状态：ARCH-00 ～ ARCH-18 已完成，ARCH-19 ～ ARCH-20 待执行。
+状态：ARCH-00 ～ ARCH-19 已完成，ARCH-20 待执行。
 
 方案：`docs/architecture/design/modular_architecture_optimization.md`
 
@@ -238,7 +238,7 @@
 - 完成标准：测试可以用事件顺序断言流程，不依赖 UI 文案。
 - 结果：已完成于 2026-08-07；新增 `BattleTrace` 纯事件记录器（`record` 事件含 seq/kind/timing/context_id/actor/target/result/error/error_code/parent_seq/depth，`begin_span/end_span` 维护嵌套链路，`update_result` 回填结果，`errors/by_kind/sequence_of_*` 查询辅助，`set_enabled(false)` 后全部 no-op）与 `BattleTraceLogger` 日志适配（绑定 `log(message)` sink，`flush` 整批输出，静态格式化）；`BattleFlow` 接入 `set_trace`，`dispatch_timing` 对每个时机记录进入与结果事件，嵌套行动队列以 span 记录链路；新增 `battle_trace_assert.gd` 测试基类（`assert_event_kinds/timings/field/parented`）与 `battle_trace_test.gd` 并接入默认入口，覆盖时机顺序、结果与错误字段、嵌套链路、关闭 trace、日志格式与 flush、禁用跳过 sink；新增诊断文档 `docs/architecture/logic/battle_trace.md`；`sh run_tests.sh` 连续 5 轮通过，输出 `ALL TESTS PASSED`。
 
-### [ ] ARCH-19｜补齐架构契约测试入口和跨平台回归
+### [x] ARCH-19｜补齐架构契约测试入口和跨平台回归
 
 - 依赖：ARCH-01 至 ARCH-18 中已完成的任务。
 - 目标：将所有契约测试接入默认 headless 入口，保持 Windows/macOS 入口一致。
@@ -246,6 +246,7 @@
 - 禁止：不把 `playable_manual_test.gd` 伪装成默认全量测试。
 - 针对性测试：逐个新测试脚本；完整 `sh run_tests.sh`；Windows 使用 `run_tests.bat`。
 - 完成标准：两套入口测试集合和失败判定一致，脚本加载错误会失败。
+- 结果：已完成于 2026-08-07；`tutorial_and_floors_test.gd` 已聚合全部 25 个契约/服务/集成套件（ARCH-01 ～ ARCH-18 新增测试均已接入）；`run_tests.sh` 与 `run_tests.bat` 执行同一测试集合（聚合套件 + `pre_run_ui_smoke_test.gd` + `ui_click_smoke_test.gd`）且失败判定一致（`Failed to load script`/`Compilation failed`/`SCRIPT ERROR` 即失败）；修复 `run_tests.sh` 重复的 Godot.app 探测分支；`playable_manual_test.gd` 保持非默认入口；测试矩阵补充默认入口组成与一致性要求；`sh run_tests.sh` 通过，输出 `ALL TESTS PASSED`。
 
 ### [ ] ARCH-20｜删除重复兼容逻辑并完成文档审计
 
