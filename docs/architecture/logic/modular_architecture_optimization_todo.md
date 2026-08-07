@@ -1,6 +1,6 @@
 # 模块化架构优化 TODO
 
-状态：ARCH-00 已完成，ARCH-01 ～ ARCH-20 待执行。
+状态：ARCH-00 ～ ARCH-10 已完成，ARCH-11 ～ ARCH-20 待执行。
 
 方案：`docs/architecture/design/modular_architecture_optimization.md`
 
@@ -140,7 +140,7 @@
 - 完成标准：`PlaySession` 和 `BattleService` 不再存在第二套伤害主体。
 - 结果：已完成于 2026-08-06；新增 `DamageResolutionModule`，处理状态修正、抗性、护甲、格挡、生命、暗影护甲反伤和裂变，`BattleService.deal_damage_to_target()` 已降为兼容转发。`sh run_tests.sh` 通过，输出 `ALL TESTS PASSED`。
 
-### [ ] ARCH-10｜建立命中触发与嵌套行动队列
+### [x] ARCH-10｜建立命中触发与嵌套行动队列
 
 - 依赖：ARCH-09。
 - 目标：让 `TriggerService` 负责筛选条件，由统一队列提交额外伤害、反击、反伤和计数器动作。
@@ -148,6 +148,7 @@
 - 禁止：不新增触发事件语义，不改变现有触发顺序。
 - 针对性测试：`trigger_chain_test.gd`，覆盖额外伤害、反伤、反击、嵌套来源、父链 ID 和递归保护。
 - 完成标准：`TriggerService` 不直接修改 HP，不直接绕过 `BattleFlow` 的命中流程。
+- 结果：已完成于 2026-08-07；新增 `BattleActionQueue`（父链深度与最大 10 层递归保护）和 `TriggerDispatchModule`（触发动作统一执行器），`TriggerService` 降级为纯筛选器，伤害类触发动作经嵌套行动队列调用 `session.deal_damage()` 进入统一命中流程。`sh run_tests.sh` 通过，输出 `ALL TESTS PASSED`。
 
 ## 6. 回合与战斗结果阶段
 

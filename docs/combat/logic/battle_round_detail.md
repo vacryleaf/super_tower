@@ -25,6 +25,8 @@
 
 ## 结算
 
-伤害结算由 `DamageResolutionModule` 处理状态修正、抗性、护甲、格挡、生命、反伤和裂变；`BattleService.deal_damage()` 与 `deal_damage_to_target()` 仅作为兼容转发入口。闪避先由 `DodgeResolutionModule` 处理，命中触发和击杀触发将在后续任务继续迁移。战斗胜负后由 `RewardService` 和 `PlaySession` 处理奖励、存档和下一场。
+伤害结算由 `DamageResolutionModule` 处理状态修正、抗性、护甲、格挡、生命、反伤和裂变；`BattleService.deal_damage()` 与 `deal_damage_to_target()` 仅作为兼容转发入口。闪避先由 `DodgeResolutionModule` 处理。
+
+命中后的触发事件由 `TriggerService` 筛选，动作统一交给 `TriggerDispatchModule` 执行。触发器产生的额外伤害、反击、反伤和持续伤害会创建新的伤害上下文，经 `BattleActionQueue` 嵌套行动队列重新进入统一命中流程；队列按父链 ID 继承深度并限制最大 10 层，防止无限递归。治疗、格挡、闪避、状态施加和计数器动作仍由分发模块按原语义执行。战斗胜负后由 `RewardService` 和 `PlaySession` 处理奖励、存档和下一场。
 
 技能后续效果、状态变化和触发节点必须由技能库的 `actions`、状态的 `effects/conditional_effects/tick_effects` 与 `triggers` 字段声明；流程服务只负责解释这些定义，不在 UI 中硬编码技能效果。

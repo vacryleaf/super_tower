@@ -15,6 +15,7 @@
 | 命中上下文/目标解析契约 | `hit_resolution_test.gd` |
 | 闪避解析契约 | `dodge_resolution_test.gd` |
 | 伤害结算模块 | `damage_resolution_test.gd` |
+| 命中触发与嵌套行动队列 | `trigger_chain_test.gd` |
 | 教程/楼层/活动 | `campaign_test.gd` |
 | 奖励和附着 | `reward_system_test.gd` |
 | 存档迁移与序列化 | `persistence_test.gd` |
@@ -25,4 +26,4 @@
 
 当前验收要求：不得依赖模拟战斗；跨平台核心断言使用 Godot headless；Windows pywinauto 只做桌面 UI 补充验收。`playable_manual_test.gd` 是长时可玩回归脚本，默认入口不执行它，不能将未运行该脚本称为包含长时回归的全量通过。
 
-模块化架构优化处于设计已确认待实现状态。实施中的新增契约测试、服务测试和集成测试必须按 `docs/architecture/logic/modular_architecture_optimization_todo.md` 中的 ARCH 子项逐项接入；在代码和默认入口落地前，不得将计划中的测试写成已执行。
+模块化架构优化按 `docs/architecture/logic/modular_architecture_optimization_todo.md` 的 ARCH 子项逐项实施（ARCH-00 ～ ARCH-10 已完成）。实施中的新增契约测试、服务测试和集成测试必须接入默认入口 `tutorial_and_floors_test.gd`；计划中的测试在代码和默认入口落地前不得写成已执行。

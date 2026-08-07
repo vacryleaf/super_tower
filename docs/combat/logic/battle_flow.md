@@ -22,3 +22,5 @@ ARCH-04 已新增 `battle/decision/` 下的 ActionIntent、玩家/敌方决策�
 ARCH-07 已新增 `battle/hit/hit_resolution_module.gd`，将兼容 `ActionContext` 转换为 `BattleHitContext`；目标 side、目标索引、伤害类型和链路字段在命中上下文中统一保存，闪避和伤害仍由后续模块处理。
 
 ARCH-08、ARCH-09 已依次接入 DodgeResolutionModule 与 DamageResolutionModule。当前 `BattleService` 仍负责兼容调用、日志和触发器，但护甲、格挡、抗性、生命和反伤的主体规则已移入 `battle/hit/`。
+
+ARCH-10 已新增 `battle/trigger/trigger_dispatch_module.gd` 与 `battle/trigger/battle_action_queue.gd`：`TriggerService` 只做事件与条件筛选，触发动作由 `TriggerDispatchModule` 统一执行；伤害类触发动作进入 `BattleActionQueue` 嵌套行动队列后调用 `session.deal_damage()`，重新经过统一命中与伤害流程，并带父链深度与递归保护。
