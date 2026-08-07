@@ -1,0 +1,3 @@
+interface:
+  display_name: "测试验收 Tester"
+  short_description: "运行 Godot headless 测试、补充用例、输出验收结论"

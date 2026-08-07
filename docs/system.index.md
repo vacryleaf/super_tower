@@ -45,12 +45,13 @@
 - [system.docx](system.docx)：面向用户查看的 Word 汇总版；源内容仍以本索引链接的 Markdown 为准。
 - [archive/legacy/README.md](archive/legacy/README.md)：旧文件迁移说明，不参与当前规则判断。
 
-## 5. 架构顾问资产
+## 5. 角色与需求资产
 
-- [assistant/README.md](assistant/README.md)：项目架构顾问 Ghost 的入口、使用方式和可迁移资产。
-- [assistant/project-architecture-consultant/SKILL.md](assistant/project-architecture-consultant/SKILL.md)：需求细化、快速问答、模块抽象和知识沉淀工作流。
-- [assistant/requirements/README.md](assistant/requirements/README.md)：需求文档保存约定。
-- [assistant/requirements/2026-08-06-modular-architecture-optimization.md](assistant/requirements/2026-08-06-modular-architecture-optimization.md)：本次模块化架构优化需求。
+- [.role/README.md](../.role/README.md)：项目级角色体系与主调度（dispatcher）路由规范。
+- [.role/architect/SKILL.md](../.role/architect/SKILL.md)：项目架构顾问 architect（Ghost）完整工作流：需求细化、快速问答、模块抽象和知识沉淀。
+- [architecture/project-architecture.md](architecture/project-architecture.md)：当前项目架构地图与硬约束（architect 的参考资料）。
+- [requirements/README.md](requirements/README.md)：需求文档保存约定。
+- [requirements/2026-08-06-modular-architecture-optimization.md](requirements/2026-08-06-modular-architecture-optimization.md)：本次模块化架构优化需求。
 
 ## 6. 架构优化计划
 

@@ -1,0 +1,3 @@
+interface:
+  display_name: "开发实现 Developer"
+  short_description: "按数据驱动架构实现战斗/UI/数据/测试改动"

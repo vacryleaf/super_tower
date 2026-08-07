@@ -84,6 +84,8 @@ battle_end
 
 保存稳定 ID、版本和规范化快照；不保存节点、Callable、绝对路径或不可序列化对象。战斗结果以 DTO/字典传回 Run 层，战斗模块不直接写奖励或 Profile。
 
+ARCH-15（2026-08-07）已落地：新增 `RunContext`（Run 层状态容器）与 `RunStateSnapshot`（run/battle 字段切分的纯数据快照），`RunStateSerializer` 委托二者完成保存与恢复，磁盘 `active_run` 格式与 version=4 不变；`SaveProfile` 新增 `read_active_run/write_active_run` 让 Run 层可独立读写快照，Battle 层不直接读写 Profile。旧存档迁移（legacy class_id、楼层组历史、tutorial 推断）保留在 RunContext。
+
 ## 5. 架构影响
 
 | 层 | 主要当前文件 | 目标变化 |

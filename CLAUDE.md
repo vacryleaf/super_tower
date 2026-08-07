@@ -1,42 +1,21 @@
-# Project Architecture Rules
+# Claude 项目指令
 
-## 重要：不要读取图片，不要读取读片，不要读取图片
+## 角色
 
-## 跨平台要求：必须兼容 Windows 和 macOS
+@.role/README.md
 
-用户同时在 Windows 和 macOS 环境工作；每次改动都必须兼容这两个系统，避免写死平台专用路径、命令、大小写假设或换行依赖。
+- 默认角色为项目**主调度（dispatcher）**：先分析指令应使用哪个角色，再决定由主代理直接处理或开启子任务并指定角色执行。
+- 项目角色契约见 `.role/<role>/SKILL.md`（继承全局同名角色并叠加本项目特定契约）；通用 / 跨项目任务使用全局角色（`~/.role/`）。
 
-涉及路径、启动脚本、测试命令、文件名大小写或外部工具时，优先选择 Windows/macOS 都可用的写法；如果必须使用平台分支，需要明确说明。
+## 重要限制
 
-## 核心原则：严格遵循现有架构设计
+- 永远使用中文回答，思考也是中文。
+- 不要读取图片、截图或图像资源，除非用户明确要求。
+- 不要覆盖或回退用户已有改动。
+- 不要引入无关重构、格式化或元数据变更。
+- 用户同时在 Windows 和 macOS 环境工作；每次改动都必须兼容这两个系统，避免写死平台专用路径、命令、大小写假设或换行依赖。
+- 当前运行时只有实时战斗路径：`PlaySession -> BattleService -> ActionPipeline / StatusService / TriggerService`；自动模拟战斗已经删除，不得恢复 `CombatEngine`、`RunSimulator`、`SimulationRewardPolicy` 或 `ChargeSimulator`。
 
-所有功能实现必须遵循项目已有的架构模式和设计约定，不得自行发明新的架构范式。
+## 完成通知
 
-**实现新功能前，必须先确认架构方案：**
-- 拒绝硬编码，任何功能都应在现有架构层次中找到正确的位置
-- 先分析功能属于哪个架构层次（数据定义/状态转换/行为决策/战斗流程/状态服务），再决定在哪实现
-- 在开始编码前，明确回答"这个功能应该放在哪个文件、哪个方法中，为什么"
-- 如果功能跨越多个层次，必须梳理清楚每层的职责边界
-
-### 架构层次
-
-本项目采用数据驱动的战斗系统，层次如下：
-
-1. **数据定义层** (`data_catalog.gd`, `trait_catalog.gd`) — 定义所有静态数据
-2. **状态转换层** (`combatant.gd`) — 将特性/装备等数据转换为运行时 status 字典
-3. **行为决策层** (`enemy_action_rules.gd`) — 根据特性和状态决定敌人行为
-4. **战斗流程层** (`combat_engine.gd` 模拟 / `battle_service.gd` 实时) — 战斗主循环
-5. **状态服务层** (`status_service.gd`, `trigger_service.gd`) — 通用状态解析和触发器
-
-### 实现新特性的规则
-
-- 优先使用现有的 **status/trigger 系统**（effects、conditional_effects、triggers）而非硬编码
-- 需要行为修改的特性在 `enemy_action_rules.gd` 中实现，而非在战斗引擎中分散处理
-- `combat_engine.gd`（模拟）和 `battle_service.gd`（实时）必须保持行为一致
-- 所有特性效果通过 `_apply_trait_statuses()` 或 `_apply_end_round_traits()` 统一入口
-
-### 代码风格
-
-- 写注释说明代码意图和逻辑
-- 不引入不必要的抽象
-- Godot 4.5 类型系统：`:=` 必须能从右侧直接推断类型，否则使用显式类型标注
+- 任务完成或产生关键结果时，最后一步使用 `notify send fs "${comment}"` 通知到飞书群（fs 为 notify 的 webhook title，对应飞书-self 群）。${comment} 用一句话概括本次结果，纯中文。

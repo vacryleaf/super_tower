@@ -4,7 +4,7 @@
 > 状态：已确认（待开发）
 > 提出背景：`play_session.gd`（1,618 行 / ~130 函数）内联战斗结算规则，`battle_service.gd` 与 `trigger_service.gd` 共 12 处反向调用 `session.deal_damage`，依赖方向倒置，服务无法独立测试
 > 关联领域：战斗、架构
-> 相关文档：`docs/assistant/architecture-optimization-directions.md`、`docs/combat/`、`docs/system.index.md`
+> 相关文档：`docs/architecture-optimization-directions.md`、`docs/combat/`、`docs/system.index.md`
 
 ## 1. 背景与目标
 

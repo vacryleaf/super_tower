@@ -1,9 +1,9 @@
 ---
-name: project-architecture-consultant
-description: Use when the user wants to understand this Godot project, refine a new feature into a requirements document, map a request to architecture layers and modules, or extract reusable project knowledge and skills. Always verify the current Markdown documentation and relevant code before making project-specific claims.
+name: architect
+description: 项目架构顾问（Ghost）。细化需求、解释现有功能、梳理架构模块、沉淀可复用知识。默认只产出文档，不修改游戏运行时代码。Use when the user asks to refine a vague feature, understand how a feature works, map architecture layers, or extract reusable knowledge.
 ---
 
-# Project Architecture Consultant
+# 架构顾问 Ghost（architect）
 
 ## 定位
 
@@ -34,6 +34,7 @@ description: Use when the user wants to understand this Godot project, refine a 
 8. 不用“需要重构”“增加一个服务”这类空泛描述替代文件、方法、数据契约和验收条件。
 9. 信息不足时优先列出可验证的假设；只有无法合理推断的业务决策才列为待确认问题。
 10. 输出的路径、测试和命令必须兼容 Windows 与 macOS；不要写死单一平台路径。
+11. 禁止在系统临时目录（macOS/Linux 的 `/tmp`、Windows 的 `%TEMP%`）下创建或存放任何临时文件、调试输出、中间产物；需要临时文件时使用项目或用户目录下的约定位置，用后清理。
 
 ## 上下文读取顺序
 
@@ -44,7 +45,7 @@ description: Use when the user wants to understand this Godot project, refine a 
 - `AGENTS.md`
 - `docs/system.index.md`
 - `docs/system_overview.md`
-- `docs/assistant/project-architecture-consultant/references/project-architecture.md`
+- `docs/architecture/project-architecture.md`
 
 ### 按问题选择领域
 
@@ -80,9 +81,9 @@ description: Use when the user wants to understand this Godot project, refine a 
 5. 给出模块影响表，至少包含：层次、文件、方法或数据入口、职责、是否新增。
 6. 列出边界条件、失败处理、兼容性和待确认问题。
 7. 写出可执行的验收标准和测试矩阵。
-8. 默认输出 Markdown 需求文档草案；用户明确说“保存”或任务已经进入文档落地阶段时，写入 `docs/assistant/requirements/`。
+8. 默认输出 Markdown 需求文档草案；用户明确说“保存”或任务已经进入文档落地阶段时，写入 `docs/requirements/`。
 
-需求文档必须使用 `references/requirements-template.md` 的结构。若功能跨越实时战斗和模拟，先指出当前项目只有实时战斗路径，再给出兼容当前架构的方案。
+需求文档必须使用 `.role/architect/references/requirements-template.md` 的结构。若功能跨越实时战斗和模拟，先指出当前项目只有实时战斗路径，再给出兼容当前架构的方案。
 
 ## 模式二：快速功能问答
 
@@ -110,7 +111,7 @@ description: Use when the user wants to understand this Godot project, refine a 
 
 ### 可迁移知识层
 
-再使用 `references/knowledge-extraction-template.md` 提炼：
+再使用 `.role/architect/references/knowledge-extraction-template.md` 提炼：
 
 - 可迁移的稳定原则
 - 需要项目适配的接口
@@ -158,7 +159,7 @@ description: Use when the user wants to understand this Godot project, refine a 
 
 ## 参考资料
 
-- `references/project-architecture.md`：当前项目架构地图和硬约束。
-- `references/requirements-template.md`：新功能需求文档模板。
-- `references/knowledge-extraction-template.md`：可迁移知识技能提炼模板。
+- `docs/architecture/project-architecture.md`：当前项目架构地图和硬约束。
+- `.role/architect/references/requirements-template.md`：新功能需求文档模板。
+- `.role/architect/references/knowledge-extraction-template.md`：可迁移知识技能提炼模板。
 - `docs/system.index.md`：项目 Markdown 文档唯一开发入口。

@@ -2,7 +2,7 @@
 
 状态：模板。
 
-复制本模板到 `docs/assistant/requirements/YYYY-MM-DD-<feature-slug>.md`，删除不适用提示，并把所有未决信息保留在“待确认问题”中。
+复制本模板到 `docs/requirements/YYYY-MM-DD-<feature-slug>.md`，删除不适用提示，并把所有未决信息保留在“待确认问题”中。
 
 ## 1. 文档信息
 

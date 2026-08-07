@@ -4,7 +4,7 @@
 
 版本：2026-08-06
 
-关联需求：`docs/assistant/requirements/2026-08-06-modular-architecture-optimization.md`
+关联需求：`docs/requirements/2026-08-06-modular-architecture-optimization.md`
 
 执行清单：`docs/architecture/logic/modular_architecture_optimization_todo.md`
 

@@ -1,0 +1,3 @@
+interface:
+  display_name: "主调度 Dispatcher"
+  short_description: "分析指令并路由到项目级角色，开启子任务分派执行"

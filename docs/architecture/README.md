@@ -6,6 +6,9 @@
 
 ## 二级目录
 
+- [project-architecture.md](project-architecture.md)：当前项目架构地图与硬约束（运行时管线、层次边界、禁止事项）。
+
+
 - `design/`：数据驱动原则、扩展边界、Mod 包设计。
 - `logic/`：运行时数据管线、内容校验、Mod 载入流程。
 - `data/`：Schema 注册表、字段规则、Mod manifest。

@@ -24,7 +24,7 @@ description: Use when the user wants to understand an existing software project,
 ## 建立项目上下文
 
 1. 查找并读取适用范围内的 `AGENTS.md` 或项目说明。
-2. 如果仓库存在 `docs/assistant/project-architecture-consultant/references/project-architecture.md`，优先读取它作为项目适配知识；它只用于加速定位，仍需验证关键结论。
+2. 如果目标仓库存在项目架构地图（例如本仓库的 `docs/architecture/project-architecture.md`），优先读取它作为项目适配知识；它只用于加速定位，仍需验证关键结论。
 3. 找到项目的文档索引、架构总览、领域 README、测试入口和构建入口。
 4. 只按问题读取相关文档和代码，不无目的加载整个仓库。
 5. 建立以下最小事实地图：
