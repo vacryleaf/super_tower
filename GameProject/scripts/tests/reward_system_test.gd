@@ -35,7 +35,7 @@ func test_reward_attachment_flow() -> void:
 			session.choose_reward(0)
 	session.phase = "reward"
 	session.current_encounter = {"type": "normal"}
-	session._build_reward_options()
+	session.reward_apply.build_reward_options(session)
 	session.choose_reward(0)
 	assert_equal(session.phase, "reward_target", "normal reward should request attachment target")
 	assert_true(session.reward_targets.size() > 0, "reward target list should not be empty")
@@ -59,22 +59,22 @@ func test_random_reward_pool_counts() -> void:
 			session.choose_reward(0)
 	session.phase = "reward"
 	session.current_encounter = {"type": "normal"}
-	session._build_reward_options()
+	session.reward_apply.build_reward_options(session)
 	assert_true(session.reward_options.size() >= 3, "normal rewards should include at least three random options")
 	var random_option_count := 0
 	for reward in session.reward_options:
 		if ["attack", "defense", "hp", "skill_power"].has(String(reward.get("kind", ""))):
 			random_option_count += 1
-	assert_true(session._reward_pool("normal").size() > random_option_count, "normal reward pool should be larger than shown random options")
+	assert_true(session.rewards.reward_pool("normal", session.floor_index).size() > random_option_count, "normal reward pool should be larger than shown random options")
 	assert_true(TestHelpers.has_core_growth_reward(session.reward_options), "normal rewards should include at least one core growth option")
 
 	session.current_encounter = {"type": "elite"}
-	session._build_reward_options()
+	session.reward_apply.build_reward_options(session)
 	assert_true(session.reward_options.size() >= 4, "elite rewards should include at least four random options")
 	assert_true(TestHelpers.has_core_growth_reward(session.reward_options), "elite rewards should include at least one core growth option")
 
 	session.current_encounter = {"type": "boss"}
-	session._build_reward_options()
+	session.reward_apply.build_reward_options(session)
 	assert_true(session.reward_options.size() >= 5, "boss rewards should include core, skill and equipment options")
 	assert_true(TestHelpers.has_core_growth_reward(session.reward_options), "boss rewards should include at least one core growth option")
 	assert_true(session.reward_options.any(func(reward: Dictionary): return String(reward.get("kind", "")) == "tower_skill"), "boss rewards should include a tower skill")
@@ -102,7 +102,7 @@ func test_boss_tower_equipment_reward() -> void:
 			session.choose_reward(0)
 	session.phase = "reward"
 	session.current_encounter = {"type": "boss"}
-	session._build_reward_options()
+	session.reward_apply.build_reward_options(session)
 	var equipment_index := -1
 	for i in range(session.reward_options.size()):
 		if String(session.reward_options[i].get("kind", "")) == "tower_equipment":
@@ -128,7 +128,7 @@ func test_reward_options_do_not_include_charge_rewards() -> void:
 	for encounter_type in ["normal", "elite", "boss"]:
 		session.phase = "reward"
 		session.current_encounter = {"type": encounter_type}
-		session._build_reward_options()
+		session.reward_apply.build_reward_options(session)
 		for reward in session.reward_options:
 			assert_true(not String(reward.get("kind", "")).begins_with("charge_"), "%s rewards should not include charge kinds" % encounter_type)
 
@@ -268,11 +268,11 @@ func test_tower_reward_rules() -> void:
 	session.floor_index = 4
 	session.tower_bonus = 0
 	session.current_encounter = {"type": "normal", "units": [{}]}
-	assert_equal(session._tower_coin_reward(), 4, "normal reward should equal one times effective tower level")
+	assert_equal(session.run_progress._tower_coin_reward(session), 4, "normal reward should equal one times effective tower level")
 	session.current_encounter = {"type": "elite", "units": [{}]}
-	assert_equal(session._tower_coin_reward(), 12, "elite reward should equal three times effective tower level")
+	assert_equal(session.run_progress._tower_coin_reward(session), 12, "elite reward should equal three times effective tower level")
 	session.current_encounter = {"type": "boss", "units": [{}]}
-	assert_equal(session._tower_coin_reward(), 40, "boss reward should equal ten times effective tower level")
+	assert_equal(session.run_progress._tower_coin_reward(session), 40, "boss reward should equal ten times effective tower level")
 	assert_equal(DataCatalog.TOWER_CONSUMABLE_DROP_CHANCE, 0.20, "tower consumable drop chance should be twenty percent")
 	assert_equal(DataCatalog.TOWER_EQUIPMENT_DROP_CHANCES["normal"], 0.10, "normal equipment drop chance should be ten percent")
 	assert_equal(DataCatalog.TOWER_EQUIPMENT_DROP_CHANCES["elite"], 0.50, "elite equipment drop chance should be fifty percent")
@@ -293,7 +293,7 @@ func test_skill_shop_purchase() -> void:
 	session.tower_coins = 30
 	session.floor_index = 5
 	session.current_encounter = {"type": "boss", "units": [{"id": "test_boss"}]}
-	session._unlock_boss_npc(5)
+	session.run_progress._unlock_boss_npc(session, 5)
 	assert_true(session.end_run_to_camp(), "tutorial should return to camp before shop purchase")
 	assert_true(session.is_shop_unlocked() == false, "merchant gate should be separate from mage")
 	assert_true(session.is_npc_unlocked("mage"), "mage should be unlocked at floor five boss")

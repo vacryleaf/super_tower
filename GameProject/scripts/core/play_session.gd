@@ -743,54 +743,6 @@ func _on_defeat() -> void:
 	run_progress.on_defeat(self, result)
 
 
-func _unlock_next_class_skill() -> void:
-	character.unlock_next_skill(player)
-
-
-func _unlock_enemies_in_bestiary() -> void:
-	var profile := save_profile.read_profile(Callable(self, "_persistent_player_snapshot"))
-	var bestiary: Dictionary = profile.get("bestiary", {})
-	for unit in current_encounter.get("units", []):
-		var enemy_id := String(unit.get("id", unit.get("name", "")))
-		if enemy_id == "":
-			continue
-		if not bestiary.has(enemy_id):
-			bestiary[enemy_id] = {"defeated_count": 0}
-		bestiary[enemy_id]["defeated_count"] = int(bestiary[enemy_id]["defeated_count"]) + 1
-	profile["bestiary"] = bestiary
-	save_profile.write_profile(profile)
-
-
-func _tower_coin_reward() -> int:
-	var rank := String(current_encounter.get("type", "normal"))
-	var multiplier := int(DataCatalog.TOWER_COIN_MULTIPLIERS.get(rank, 0))
-	var defeated_units := maxi(1, current_encounter.get("units", []).size())
-	return multiplier * effective_tower_level() * defeated_units
-
-
-func _unlock_boss_npc(boss_floor: int) -> void:
-	for npc_id in DataCatalog.NPCS.keys():
-		var npc: Dictionary = DataCatalog.NPCS[npc_id]
-		if int(npc.get("unlock_boss_floor", 0)) != boss_floor or npc_unlocks.has(String(npc_id)):
-			continue
-		npc_unlocks.append(String(npc_id))
-		_sync_profile_now()
-
-
-func _record_tower_completion() -> void:
-	if cleared_tower_bonuses.has(tower_bonus):
-		return
-	cleared_tower_bonuses.append(tower_bonus)
-	tower_seeds += 1
-	max_tower_bonus = maxi(max_tower_bonus, mini(DataCatalog.MAX_TOWER_BONUS, tower_bonus + 1))
-	player["blood_potion_seed"] = int(player.get("blood_potion_seed", 0)) + 1
-	player["blood_potion_uses"] = int(player.get("blood_potion_uses", 0)) + 1
-	if int(player.get("passive_skill_slots", 0)) <= 0:
-		player["passive_skill_slots"] = 1
-		character.unlock_passive_skill(player, "iron_will", true)
-	_sync_profile_now()
-
-
 func _record_group_encounter(group_id: String) -> void:
 	if group_id == "" or floor_index <= 0:
 		return
@@ -808,28 +760,6 @@ func _record_group_encounter(group_id: String) -> void:
 func _ensure_encountered_groups_by_floor() -> void:
 	while encountered_groups_by_floor.size() < floor_index:
 		encountered_groups_by_floor.append([])
-
-
-func _current_floor_group_count() -> int:
-	if floor_index <= 0 or encountered_groups_by_floor.size() < floor_index:
-		return 0
-	return (encountered_groups_by_floor[floor_index - 1] as Array).size()
-
-
-func _restore_legacy_group_history(legacy_count: int) -> void:
-	if legacy_count <= 0 or floor_group_id == "" or floor_index <= 0:
-		return
-	_ensure_encountered_groups_by_floor()
-	var current_floor_groups: Array = encountered_groups_by_floor[floor_index - 1]
-	if not current_floor_groups.is_empty():
-		return
-	var remaining_count := legacy_count
-	while remaining_count > 0:
-		current_floor_groups.append(floor_group_id)
-		remaining_count -= 1
-	encountered_groups_by_floor[floor_index - 1] = current_floor_groups
-	floor_encounter_count = current_floor_groups.size()
-	_unlock_npc_upgrades_for_current_floor(current_floor_groups.size())
 
 
 func _unlock_npc_upgrades_for_current_floor(group_count: int) -> void:
@@ -987,61 +917,9 @@ func _roster_has_empty_skill_slot(class_player: Dictionary) -> bool:
 	return class_player.get("equipped_skills", []).size() < 4
 
 
-func _build_reward_options() -> void:
-	reward_apply.build_reward_options(self)
-
-
-func _random_reward_options(reward_rank: String, count: int) -> Array[Dictionary]:
-	return rewards.random_options(reward_rank, count, floor_index)
-
-
-func _reward_pool(reward_rank: String) -> Array[Dictionary]:
-	return rewards.reward_pool(reward_rank, floor_index)
-
-
-func _sample_rewards(pool: Array[Dictionary], count: int) -> Array[Dictionary]:
-	return rewards.sample_rewards(pool, count)
-
-
-func _sample_rewards_with_core(pool: Array[Dictionary], count: int) -> Array[Dictionary]:
-	return rewards.sample_rewards_with_core(pool, count)
-
-
-func _is_core_growth_reward(reward: Dictionary) -> bool:
-	return RewardService.is_core_growth_reward(reward)
-
-
 func _debug_log(message: String) -> void:
 	if debug_mode and debug_logger != null and debug_logger.has_method("log"):
 		debug_logger.log(message)
-
-
-func _remove_matching_reward(rewards: Array[Dictionary], target: Dictionary) -> void:
-	RewardService.remove_matching_reward(rewards, target)
-
-
-func _advance_after_reward() -> void:
-	run_progress.advance_after_reward(self)
-
-
-func _apply_tutorial_unlock() -> void:
-	reward_apply.apply_tutorial_unlock(self)
-
-
-func _unlock_next_skill() -> void:
-	reward_apply.unlock_next_skill(self)
-
-
-func _reward_needs_attachment(reward: Dictionary) -> bool:
-	return RewardService.reward_needs_attachment(reward)
-
-
-func _is_charge_reward(reward: Dictionary) -> bool:
-	return RewardService.is_charge_reward(reward)
-
-
-func _build_reward_targets() -> Array[Dictionary]:
-	return reward_apply.build_reward_targets(self)
 
 
 func _reward_short_label(reward: Dictionary) -> String:
@@ -1145,14 +1023,6 @@ func _empty_charge_values() -> Dictionary:
 
 func _floor_value(base: int) -> int:
 	return RewardService.floor_value(base, floor_index)
-
-
-func _apply_limited_post_battle_recovery() -> void:
-	run_progress.apply_limited_post_battle_recovery(self)
-
-
-func _post_reward_heal_amount() -> int:
-	return run_progress.post_reward_heal_amount(self)
 
 
 func _modified_value(base: int, tag: String) -> int:

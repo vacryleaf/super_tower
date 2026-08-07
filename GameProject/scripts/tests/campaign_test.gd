@@ -122,7 +122,7 @@ func test_tower_bonus_range_and_seed_progression() -> void:
 	session.player["passive_skill_slots"] = 0
 	for tower_bonus in range(0, 7):
 		session.tower_bonus = tower_bonus
-		session._record_tower_completion()
+		session.run_progress._record_tower_completion(session)
 	assert_equal(session.tower_seeds, 7, "each tower difficulty should provide one seed on first clear")
 	assert_equal(session.max_tower_bonus, 6, "all seven clears should unlock through plus six")
 	assert_equal(session.player["blood_potion_uses"], 10, "seven seeds should increase blood potion uses from three to ten")
@@ -130,14 +130,14 @@ func test_tower_bonus_range_and_seed_progression() -> void:
 	session.start_new_game("warrior")
 	session.phase = "npc_shop"
 	session.tower_coins = 60
-	session._unlock_boss_npc(1)
+	session.run_progress._unlock_boss_npc(session, 1)
 	assert_true(session.is_npc_unlocked("merchant"), "floor one boss should unlock the merchant")
 	assert_true(session.buy_tower_consumable("minor_heal"), "merchant should sell tower consumables")
 	assert_true(not session.tower_stash.is_empty(), "merchant purchase should enter the tower stash")
-	session._unlock_boss_npc(3)
+	session.run_progress._unlock_boss_npc(session, 3)
 	assert_true(session.is_npc_unlocked("blacksmith"), "floor three boss should unlock the blacksmith")
 	assert_true(session.buy_permanent_equipment("warrior", "common_moon_ring"), "blacksmith should sell permanent equipment")
-	session._unlock_boss_npc(5)
+	session.run_progress._unlock_boss_npc(session, 5)
 	assert_true(session.is_npc_unlocked("mage"), "floor five boss should unlock the mage")
 	assert_true(session.buy_common_skill("first_aid"), "mage should sell permanent skills")
 	session.tutorial_active = false
@@ -166,15 +166,15 @@ func test_tower_bonus_range_and_seed_progression() -> void:
 	session.tower_seeds = 0
 	session.player["blood_potion_uses"] = 3
 	session.player["passive_skill_slots"] = 0
-	session._record_tower_completion()
+	session.run_progress._record_tower_completion(session)
 	assert_equal(session.tower_seeds, 1, "first difficulty clear should provide one seed")
 	assert_equal(session.max_tower_bonus, 1, "first difficulty clear should unlock the next tower bonus")
 	assert_equal(session.player["blood_potion_uses"], 4, "each seed should add one blood potion use")
 	assert_equal(session.player["passive_skill_slots"], 1, "first tower completion should unlock the first passive slot")
-	session._record_tower_completion()
+	session.run_progress._record_tower_completion(session)
 	assert_equal(session.tower_seeds, 1, "reclearing one difficulty should not provide another seed")
 	session.tower_bonus = 1
-	session._record_tower_completion()
+	session.run_progress._record_tower_completion(session)
 	assert_equal(session.tower_seeds, 2, "clearing a second difficulty should provide another seed")
 	session.delete_save()
 

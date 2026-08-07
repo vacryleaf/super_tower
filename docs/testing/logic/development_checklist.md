@@ -118,6 +118,11 @@
 - `sh run_tests.sh`：通过，输出 `ALL TESTS PASSED`。
 - 已补齐默认 headless 测试入口：`tutorial_and_floors_test.gd` 聚合 25 个契约/服务/集成套件（含 ARCH-01 ～ ARCH-18 新增的全部测试），`run_tests.sh` 与 `run_tests.bat` 执行同一测试集合（聚合套件 + `pre_run_ui_smoke_test.gd` + `ui_click_smoke_test.gd`）和同一失败判定（`Failed to load script`/`Compilation failed`/`SCRIPT ERROR` 即失败）；修复 `run_tests.sh` 重复的 Godot.app 探测分支；`playable_manual_test.gd` 保持非默认；测试矩阵补充默认入口组成与一致性要求。
 
+### ARCH-20
+
+- `sh run_tests.sh`：通过，输出 `ALL TESTS PASSED`。
+- 已删除 `PlaySession` 中 22 个已迁移/无引用的私有方法（奖励构建/采样、战后恢复、图鉴/塔币/Boss NPC/塔通关、楼层组历史等），权威统一到 `RewardApplyService`/`RunProgressService`/`RunContext`；`reward_system_test`/`persistence_test`/`campaign_test` 中 21 处旧私有调用改为等价服务端口；删除 4 个已删除脚本的残留 `.uid` 文件；旧路径源码与文档引用搜索无残留（仅保留“禁止恢复”说明）；更新开发清单、测试矩阵和 TODO。
+
 - `sh run_tests.sh`：通过，连续 10 轮输出 `ALL TESTS PASSED`。
 - 已新增 `UiIntent` 意图门面（10 个意图，全部转发到 session 公开方法，未绑定 no-op）；`main.gd` 战斗/奖励回调改经 `ui_intent` 派发并随 session 重建重新绑定；新增 `ui_contract_test.gd` 并接入默认入口，源码扫描断言 UI 不计算伤害、不选敌人 AI 行动、不直读 Mod 文件，`main.gd` 不直接调用 session 战斗/奖励方法；FakeSession 验证转发与 unbound no-op；`pre_run_ui_smoke_test.gd` 与 `ui_click_smoke_test.gd` 保持通过；另修复 ARCH-16 遗留 `test_choose_reward_direct_apply_advances` 偶发失败（固定 rat 群组避免随机 first_strike 干扰）。
 

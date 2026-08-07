@@ -1,6 +1,6 @@
 # 模块化架构优化 TODO
 
-状态：ARCH-00 ～ ARCH-19 已完成，ARCH-20 待执行。
+状态：ARCH-00 ～ ARCH-20 全部完成。
 
 方案：`docs/architecture/design/modular_architecture_optimization.md`
 
@@ -248,7 +248,7 @@
 - 完成标准：两套入口测试集合和失败判定一致，脚本加载错误会失败。
 - 结果：已完成于 2026-08-07；`tutorial_and_floors_test.gd` 已聚合全部 25 个契约/服务/集成套件（ARCH-01 ～ ARCH-18 新增测试均已接入）；`run_tests.sh` 与 `run_tests.bat` 执行同一测试集合（聚合套件 + `pre_run_ui_smoke_test.gd` + `ui_click_smoke_test.gd`）且失败判定一致（`Failed to load script`/`Compilation failed`/`SCRIPT ERROR` 即失败）；修复 `run_tests.sh` 重复的 Godot.app 探测分支；`playable_manual_test.gd` 保持非默认入口；测试矩阵补充默认入口组成与一致性要求；`sh run_tests.sh` 通过，输出 `ALL TESTS PASSED`。
 
-### [ ] ARCH-20｜删除重复兼容逻辑并完成文档审计
+### [x] ARCH-20｜删除重复兼容逻辑并完成文档审计
 
 - 依赖：ARCH-04 至 ARCH-19。
 - 目标：删除已迁移的重复方法，更新所有当前实现/设计状态，确认无旧路径残留。
@@ -256,6 +256,7 @@
 - 禁止：不顺手改无关业务规则。
 - 针对性测试：全量测试、架构边界搜索、旧入口引用搜索和文档链接检查。
 - 完成标准：代码、文档、TODO 和 `docs/develop_list.md` 的状态一致。
+- 结果：已完成于 2026-08-07；删除 `PlaySession` 中 22 个已迁移/无引用的私有方法（`_build_reward_options`/`_random_reward_options`/`_reward_pool`/`_sample_rewards`/`_sample_rewards_with_core`/`_is_core_growth_reward`/`_remove_matching_reward`/`_advance_after_reward`/`_apply_tutorial_unlock`/`_unlock_next_skill`/`_reward_needs_attachment`/`_is_charge_reward`/`_build_reward_targets`/`_apply_limited_post_battle_recovery`/`_post_reward_heal_amount`/`_unlock_next_class_skill`/`_unlock_enemies_in_bestiary`/`_tower_coin_reward`/`_unlock_boss_npc`/`_record_tower_completion`/`_current_floor_group_count`/`_restore_legacy_group_history`），奖励/成长/楼层组权威统一到 `RewardApplyService`/`RunProgressService`/`RunContext`；同步将 `reward_system_test`/`persistence_test`/`campaign_test` 中 21 处旧私有调用改为等价服务端口；删除已删除脚本的残留 `.uid` 文件（`combat_engine`/`run_simulator`/`simulation_reward_policy`/`charge_simulator`），旧路径源码与文档引用搜索无残留（仅保留“禁止恢复”说明）；更新开发清单、测试矩阵和本 TODO；`sh run_tests.sh` 通过，输出 `ALL TESTS PASSED`。
 
 ## 10. 统一验收门槛
 

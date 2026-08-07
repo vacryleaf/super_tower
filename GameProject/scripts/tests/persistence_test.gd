@@ -127,7 +127,7 @@ func test_npc_unlock_persists() -> void:
 	assert_true(not session.is_npc_unlocked("mage"), "mage should remain locked before floor five boss")
 	session.floor_index = 5
 	session.current_encounter = {"type": "boss", "units": [{"id": "test_boss"}]}
-	session._unlock_boss_npc(5)
+	session.run_progress._unlock_boss_npc(session, 5)
 	assert_true(session.end_run_to_camp(), "ending run should persist NPC progress")
 	var loaded = session_script.new()
 	loaded._load_account()
