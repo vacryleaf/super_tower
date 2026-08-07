@@ -24,7 +24,7 @@
 - [~] 任务 14｜拆分实时战斗流程与效果执行
   - 对应 `ARCH-01` ～ `ARCH-12`：先建立上下文、时机、模块注册和空流程，再按行动、技能、命中、闪避、伤害、触发、回合和结果逐项迁移。
   - 每个 ARCH 子项必须保持当前数值和流程兼容，并有单独的服务级或契约测试。
-  - 已完成 `ARCH-01` ～ `ARCH-11`；下一个子项为 `ARCH-12`，抽取战斗结果和 Run 层回调。
+  - 已完成 `ARCH-01` ～ `ARCH-12`；下一个子项为 `ARCH-13`，建立 RuntimeCatalog 查询门面。
 
 - [ ] 任务 15｜统一内容运行时注册边界
   - 对应 `ARCH-13` ～ `ARCH-14`：建立 `RuntimeCatalog`，统一原版、外部表、Mod 和图鉴的规范化查询。
@@ -244,3 +244,8 @@
 
 - `sh run_tests.sh`：通过，输出 `ALL TESTS PASSED`。
 - 已新增 TurnOrderModule 与 RoundLifecycleModule；玩家回合开始、冷却、状态 tick、每回合效果、回合收尾、状态 Buff 抽取和先手判定从 PlaySession/BattleService 迁入模块，`_begin_player_turn()` 降为薄适配，新增 `round_lifecycle_test.gd` 覆盖教程/正式战斗、冷却、状态到期、先手、死亡单位和回合结束。
+
+### 2026-08-07 ARCH-12
+
+- `sh run_tests.sh`：通过，输出 `ALL TESTS PASSED`。
+- 已新增 BattleResult 纯数据类与 BattleResultModule（judge 判定玩家死亡→defeat、敌人全灭→victory、未结束→null）；PlaySession 的胜负回调改经 `battle_result.build_*` 生成结果后传给 RunProgressService（新增可选 result 参数，行为不变），奖励、存档和下一场仍由 Run 层处理；新增 `battle_result_boundary_test.gd` 覆盖胜利/失败判定、未结束、正式/教程失败、重复结算幂等和快照不变性。

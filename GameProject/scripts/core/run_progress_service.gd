@@ -4,7 +4,7 @@ class_name RunProgressService
 const DataCatalog = preload("res://scripts/core/data_catalog.gd")
 
 
-func on_victory(session: Variant) -> void:
+func on_victory(session: Variant, result: Variant = null) -> void:
 	session.player["battles_completed"] += 1
 	session._unlock_enemies_in_bestiary()
 	var encounter_type := String(session.current_encounter.get("type", ""))
@@ -19,7 +19,7 @@ func on_victory(session: Variant) -> void:
 	session._build_reward_options()
 
 
-func on_defeat(session: Variant) -> void:
+func on_defeat(session: Variant, result: Variant = null) -> void:
 	if session.is_tutorial():
 		session.player["tutorial_restarts"] += 1
 		session.player["hp"] = int(session.player.get("max_hp", session.player.get("base_max_hp", 1)))

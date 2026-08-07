@@ -1,6 +1,6 @@
 # 模块化架构优化 TODO
 
-状态：ARCH-00 ～ ARCH-11 已完成，ARCH-12 ～ ARCH-20 待执行。
+状态：ARCH-00 ～ ARCH-12 已完成，ARCH-13 ～ ARCH-20 待执行。
 
 方案：`docs/architecture/design/modular_architecture_optimization.md`
 
@@ -162,7 +162,7 @@
 - 完成标准：`PlaySession` 不再直接实现战斗回合时机。
 - 结果：已完成于 2026-08-07；新增 `TurnOrderModule`（行动顺序计算/玩家定位/调试文本）和 `RoundLifecycleModule`（回合开始、冷却、状态 tick、每回合效果、回合收尾、状态 Buff 抽取与先手判定），`PlaySession._begin_player_turn()` 降为一行薄适配，`BattleService` 的回合收尾段改调 `round_lifecycle.end_round()`。`sh run_tests.sh` 通过，输出 `ALL TESTS PASSED`。
 
-### [ ] ARCH-12｜抽取战斗结果和 Run 层回调
+### [x] ARCH-12｜抽取战斗结果和 Run 层回调
 
 - 依赖：ARCH-11。
 - 目标：战斗流程只返回 `BattleResult`，由 Run 层处理奖励、解锁、存档和下一场。
@@ -170,6 +170,7 @@
 - 禁止：不改变奖励池、楼层或教程规则。
 - 针对性测试：`battle_result_boundary_test.gd`，覆盖胜利、失败、玩家死亡、敌人全灭、奖励回调和重复结算。
 - 完成标准：`BattleFlow` 不直接调用 `RewardService`、`SaveProfile` 或 UI。
+- 结果：已完成于 2026-08-07；新增 `BattleResult` 纯数据类（outcome/reason/回合/楼层/战斗序号/教程标记/玩家血量/存活敌人/扩展数据）和 `BattleResultModule.judge()`（玩家死亡→defeat、敌人全灭→victory、未结束→null），`PlaySession._on_victory()/_on_defeat()` 改经 `battle_result.build_*` 生成结果后传给 `RunProgressService.on_victory/on_defeat`（新增可选 result 参数，行为不变），奖励、存档和下一场仍由 Run 层处理，`BattleFlow` 未新增对 `RewardService`、`SaveProfile` 或 UI 的直接调用。新增 `battle_result_boundary_test.gd` 覆盖胜利/失败判定、未结束返回 null、正式与教程失败、重复结算幂等和快照不变性。`sh run_tests.sh` 通过，输出 `ALL TESTS PASSED`。
 
 ## 7. 内容与运行时边界阶段
 

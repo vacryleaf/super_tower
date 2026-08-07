@@ -25,6 +25,7 @@ const ActionContext = preload("res://scripts/core/action_context.gd")
 const ActionPipeline = preload("res://scripts/core/action_pipeline.gd")
 const TurnOrderModule = preload("res://scripts/core/battle/lifecycle/turn_order_module.gd")
 const RoundLifecycleModule = preload("res://scripts/core/battle/lifecycle/round_lifecycle_module.gd")
+const BattleResultModule = preload("res://scripts/core/battle/lifecycle/battle_result_module.gd")
 
 const MAX_CHARGES := 5
 const BATTLE_LOG_LIMIT := 200
@@ -47,6 +48,7 @@ var status_service := StatusService.new()
 var rng := RandomNumberGenerator.new()
 var turn_order := TurnOrderModule.new()
 var round_lifecycle := RoundLifecycleModule.new(null, null, turn_order)
+var battle_result := BattleResultModule.new()
 
 var battle_state := BattleState.new()
 var scene_skill_sources: Array[Dictionary] = []
@@ -730,13 +732,15 @@ func deal_damage(ctx: Dictionary) -> void:
 
 
 func _on_victory() -> void:
-	_debug_log("victory floor=%d battle=%d" % [floor_index, battle_index])
-	run_progress.on_victory(self)
+	var result := battle_result.build_victory(self)
+	_debug_log("victory floor=%d battle=%d reason=%s" % [floor_index, battle_index, result.reason])
+	run_progress.on_victory(self, result)
 
 
 func _on_defeat() -> void:
-	_debug_log("defeat floor=%d battle=%d" % [floor_index, battle_index])
-	run_progress.on_defeat(self)
+	var result := battle_result.build_defeat(self, "player_death")
+	_debug_log("defeat floor=%d battle=%d reason=%s" % [floor_index, battle_index, result.reason])
+	run_progress.on_defeat(self, result)
 
 
 func _unlock_next_class_skill() -> void:

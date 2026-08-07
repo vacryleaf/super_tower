@@ -83,3 +83,8 @@
 
 - `sh run_tests.sh`：通过，输出 `ALL TESTS PASSED`。
 - 已建立 TurnOrderModule 与 RoundLifecycleModule；回合开始、冷却、状态 tick、每回合效果、回合收尾、状态 Buff 抽取和先手判定迁入模块，PlaySession 回合入口降为薄适配；新增 `round_lifecycle_test.gd`。
+
+### ARCH-12
+
+- `sh run_tests.sh`：通过，输出 `ALL TESTS PASSED`。
+- 已建立 BattleResult 数据类与 BattleResultModule 胜负判定；PlaySession 胜负回调改经模块生成结果后传给 RunProgressService（新增可选 result 参数，行为不变）；新增 `battle_result_boundary_test.gd`，覆盖胜利/失败判定、未结束返回 null、正式/教程失败、重复结算幂等和快照不变性。

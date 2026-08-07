@@ -24,3 +24,5 @@ ARCH-07 已新增 `battle/hit/hit_resolution_module.gd`，将兼容 `ActionConte
 ARCH-08、ARCH-09 已依次接入 DodgeResolutionModule 与 DamageResolutionModule。当前 `BattleService` 仍负责兼容调用、日志和触发器，但护甲、格挡、抗性、生命和反伤的主体规则已移入 `battle/hit/`。
 
 ARCH-10 已新增 `battle/trigger/trigger_dispatch_module.gd` 与 `battle/trigger/battle_action_queue.gd`：`TriggerService` 只做事件与条件筛选，触发动作由 `TriggerDispatchModule` 统一执行；伤害类触发动作进入 `BattleActionQueue` 嵌套行动队列后调用 `session.deal_damage()`，重新经过统一命中与伤害流程，并带父链深度与递归保护。
+
+ARCH-11、ARCH-12 起，回合生命周期由 `battle/lifecycle/round_lifecycle_module.gd` 与 `battle/lifecycle/turn_order_module.gd` 管理；战斗胜负由 `battle/lifecycle/battle_result_module.gd` 判定并输出 `BattleResult`（玩家死亡→defeat、敌人全灭→victory、未结束→null），`PlaySession` 的胜负回调把结果交给 `RunProgressService`，奖励、解锁、存档和下一场仍由 Run 层处理。`BattleFlow` 不直接调用 `RewardService`、`SaveProfile` 或 UI。
