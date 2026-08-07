@@ -29,10 +29,11 @@
 - [~] 任务 15｜统一内容运行时注册边界
   - 对应 `ARCH-13` ～ `ARCH-14`：建立 `RuntimeCatalog`，统一原版、外部表、Mod 和图鉴的规范化查询。
   - 未完成 parity 的外部表必须继续 fallback，禁止改变原版内容权威。
-  - 已完成 `ARCH-13` ～ `ARCH-14`，RuntimeCatalog 门面与三个调用方（Encounter/Reward/Encyclopedia）已接入；下一个子项为 `ARCH-15`，建立 RunContext 与存档快照边界。
+  - 已完成 `ARCH-13` ～ `ARCH-14`，RuntimeCatalog 门面与三个调用方（Encounter/Reward/Encyclopedia）已接入。
 
-- [ ] 任务 16｜分离 Run、成长与存档边界
+- [~] 任务 16｜分离 Run、成长与存档边界
   - 对应 `ARCH-15` ～ `ARCH-16`：建立 RunContext/快照边界，保持教程、楼层、奖励、NPC 和旧存档规则不变。
+  - 已完成 `ARCH-15`，RunContext/RunStateSnapshot 与存档快照边界已落地；下一个子项为 `ARCH-16`，建立成长与奖励协调边界。
 
 - [ ] 任务 17｜建立 UI 展示与意图边界
   - 对应 `ARCH-17`：渐进建立 Screen/Presenter/View 契约；UI 仅展示状态和派发意图。
@@ -260,3 +261,8 @@
 
 - `sh run_tests.sh`：通过，输出 `ALL TESTS PASSED`。
 - 已扩展 ContentTableAdapter（`equipment`/`consumables`/`passive_skills`/`innate_skills`）与 RuntimeCatalog（`monster_units`/`monster_group*`/`get_floor_battle_type`/`tutorial_unlock_ids`/`skill_class_compatible`/`equipment_class_compatible`/`innate_skills_table`）；EncounterService、RewardService、EncyclopediaIndexService 注入可选 catalog（无参构造兼容），遭遇单位、塔内奖励、教程解锁和图鉴索引统一走 catalog；新增 `content_registry_integration_test.gd` 接入默认入口，覆盖技能/装备/怪物一致性、遭遇生成、奖励引用和图鉴一致性。
+
+### 2026-08-07 ARCH-15
+
+- `sh run_tests.sh`：通过，输出 `ALL TESTS PASSED`。
+- 已新增 RunContext（Run 层状态容器，capture/apply_data 含旧存档迁移与楼层组历史恢复）与 RunStateSnapshot（run/battle 字段切分的纯数据快照，磁盘格式与 version=4 不变）；RunStateSerializer 重写为委托 RunContext+RunStateSnapshot，保存输出保持扁平字段；SaveProfile 新增 `read_active_run/write_active_run` 支持 Run 层独立读写；新增 `run_context_persistence_test.gd` 接入默认入口，覆盖独立往返、字段切分、旧存档迁移、缺失默认值、中断恢复、SaveProfile 独立读写和 PlaySession 存档被 RunContext 独立恢复。

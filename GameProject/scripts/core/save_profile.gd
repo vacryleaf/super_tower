@@ -42,6 +42,18 @@ func read_slot_profile(slot_index: int, persistent_snapshot: Callable) -> Dictio
 	return _normalize_slot_profile(slot_profile, persistent_snapshot)
 
 
+func read_active_run(slot_index: int, persistent_snapshot: Callable) -> Dictionary:
+	return _dictionary(read_slot_profile(slot_index, persistent_snapshot).get("active_run", {}))
+
+
+func write_active_run(slot_index: int, active_run: Dictionary) -> bool:
+	var root := _load_root()
+	var slot_value := _slot_profile(root.get("slots", {}), slot_index)
+	var slot_profile := _dictionary(slot_value) if not slot_value.is_empty() else empty_profile(slot_index)
+	slot_profile["active_run"] = _dictionary(active_run)
+	return write_slot_profile(slot_index, slot_profile)
+
+
 func list_slot_profiles(persistent_snapshot: Callable) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	var root := _load_root()

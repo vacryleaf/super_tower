@@ -98,3 +98,8 @@
 
 - `sh run_tests.sh`：通过，输出 `ALL TESTS PASSED`。
 - 已扩展 ContentTableAdapter（`equipment`/`consumables`/`passive_skills`/`innate_skills`）与 RuntimeCatalog 系列内容查询接口；EncounterService/RewardService/EncyclopediaIndexService 注入可选 `catalog_instance`（无参构造兼容），遭遇单位、塔内奖励（仅运行时表，Mod 不进塔内奖励池）、教程解锁（带越界保护）和图鉴索引统一走 catalog；新增 `content_registry_integration_test.gd` 并接入默认入口，覆盖技能/装备/怪物一致性、遭遇生成、奖励引用和图鉴一致性。
+
+### ARCH-15
+
+- `sh run_tests.sh`：通过，输出 `ALL TESTS PASSED`。
+- 已新增 RunContext（Run 层状态容器，`capture/capture_from_session/apply_data`，含旧存档迁移与楼层组历史恢复）与 RunStateSnapshot（run/battle 字段切分快照，磁盘 active_run 格式与 version=4 不变）；RunStateSerializer 重写为委托 RunContext+RunStateSnapshot，save_data 输出保持扁平字段、load_save_data 保留版本检查、NPC 解锁副作用和战斗状态归一化；SaveProfile 新增 `read_active_run/write_active_run`；新增 `run_context_persistence_test.gd` 并接入默认入口，覆盖独立往返、字段切分、旧存档迁移、缺失默认值、中断恢复、SaveProfile 独立读写和 PlaySession 存档被 RunContext 独立恢复。

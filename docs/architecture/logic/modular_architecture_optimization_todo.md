@@ -1,10 +1,10 @@
 # 模块化架构优化 TODO
 
-状态：ARCH-00 ～ ARCH-14 已完成，ARCH-15 ～ ARCH-20 待执行。
+状态：ARCH-00 ～ ARCH-15 已完成，ARCH-16 ～ ARCH-20 待执行。
 
 方案：`docs/architecture/design/modular_architecture_optimization.md`
 
-需求：`docs/assistant/requirements/2026-08-06-modular-architecture-optimization.md`
+需求：`docs/requirements/2026-08-06-modular-architecture-optimization.md`
 
 总清单：`docs/develop_list.md`
 
@@ -196,7 +196,7 @@
 
 ## 8. Run、存档与 UI 阶段
 
-### [ ] ARCH-15｜建立 RunContext 与存档快照边界
+### [x] ARCH-15｜建立 RunContext 与存档快照边界
 
 - 依赖：ARCH-12。
 - 目标：将高塔/教程/奖励状态与战斗状态通过明确快照连接，保留旧存档迁移。
@@ -204,6 +204,7 @@
 - 禁止：不迁移用户存档格式，不保存节点或对象引用。
 - 针对性测试：`run_context_persistence_test.gd`，覆盖新建、保存、读取、旧字段迁移、缺失内容和中断恢复。
 - 完成标准：Battle 层不直接读写 Profile，Run 层可以独立恢复快照。
+- 结果：已完成于 2026-08-07；新增 `RunContext`（Run 层状态容器，`capture/capture_from_session/apply_data`，含旧存档迁移与楼层组历史恢复）与 `RunStateSnapshot`（run/battle 字段切分的纯数据快照，`to_dict/from_dict`，磁盘 active_run 格式与 version=4 不变）。`RunStateSerializer` 重写为委托 RunContext+RunStateSnapshot：save_data 输出保持扁平字段，load_save_data 保留版本检查、NPC 解锁副作用、战斗状态归一化与 charge 效果恢复；新增 `SaveProfile.read_active_run/write_active_run` 支持 Run 层独立读写 active_run（Profile 格式不变）。新增 `run_context_persistence_test.gd` 并接入默认入口，覆盖独立往返（不依赖 PlaySession）、run/battle 字段切分、旧存档迁移（legacy class_id、楼层组历史、tutorial 推断）、缺失默认值、中断恢复、SaveProfile 独立读写和 PlaySession 存档被 RunContext 独立恢复；`sh run_tests.sh` 通过，输出 `ALL TESTS PASSED`。BattleService/BattleState 本就未直接读写 Profile，完成标准已满足。
 
 ### [ ] ARCH-16｜建立成长与奖励协调边界
 
