@@ -7,6 +7,11 @@ const BattleTiming = preload("res://scripts/core/battle/battle_timing.gd")
 
 var module_registry: RefCounted
 var nested_actions: Array[RefCounted] = []
+var trace: RefCounted = null
+
+
+func set_trace(value: RefCounted) -> void:
+	trace = value
 
 
 func _init(registry: RefCounted = null) -> void:
@@ -22,7 +27,49 @@ func unregister_module(module: RefCounted) -> bool:
 
 
 func dispatch_timing(timing: String, context: RefCounted) -> RefCounted:
-	return module_registry.call("dispatch", timing, context)
+	_trace_record("timing", timing, context, null)
+	var result: RefCounted = module_registry.call("dispatch", timing, context)
+	_trace_record("timing_result", timing, context, result)
+	return result
+
+
+func _trace_record(kind: String, timing: String, context: RefCounted, result: RefCounted) -> void:
+	if trace == null:
+		return
+	var payload: Dictionary = _trace_payload(context)
+	if result != null:
+		payload["result"] = String(result.get("kind"))
+		payload["error"] = String(result.get("message"))
+		payload["error_code"] = String(result.get("error_code"))
+	trace.call("record", kind, timing, payload)
+
+
+func _trace_payload(context: RefCounted) -> Dictionary:
+	var payload: Dictionary = {}
+	if context == null:
+		return payload
+	var context_id: Variant = context.get("context_id")
+	if context_id != null:
+		payload["context_id"] = String(context_id)
+	var actor: Variant = context.get("actor")
+	if actor == null:
+		actor = context.get("current_actor")
+	if actor == null:
+		actor = context.get("source_actor")
+	payload["actor"] = _trace_entity_label(actor)
+	var target: Variant = context.get("target_actor")
+	if target == null:
+		target = context.get("target")
+	payload["target"] = _trace_entity_label(target)
+	return payload
+
+
+static func _trace_entity_label(value: Variant) -> String:
+	if value is Dictionary:
+		return String((value as Dictionary).get("name", (value as Dictionary).get("id", "")))
+	if value is String:
+		return value
+	return ""
 
 
 func start_battle(context: RefCounted) -> RefCounted:
@@ -86,6 +133,8 @@ func enqueue_nested_action(action_context: RefCounted) -> bool:
 	if action_context == null:
 		return false
 	nested_actions.append(action_context)
+	if trace != null:
+		trace.call("begin_span", "nested_action", "", _trace_payload(action_context))
 	return true
 
 
@@ -94,6 +143,8 @@ func dequeue_nested_action() -> RefCounted:
 		return null
 	var action_context: RefCounted = nested_actions[0]
 	nested_actions.remove_at(0)
+	if trace != null:
+		trace.call("end_span")
 	return action_context
 
 

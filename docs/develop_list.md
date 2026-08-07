@@ -39,8 +39,9 @@
   - 对应 `ARCH-17`：渐进建立 Screen/Presenter/View 契约；UI 仅展示状态和派发意图。
   - 已完成 `ARCH-17`：新增 `UiIntent` 意图门面，UI 战斗/奖励回调全部经意图入口派发；`ui_contract_test.gd` 源码扫描保证 UI 不计算伤害、不选 AI 行动、不直读 Mod 文件。
 
-- [ ] 任务 18｜完成架构诊断、跨平台回归与收尾审计
+- [~] 任务 18｜完成架构诊断、跨平台回归与收尾审计
   - 对应 `ARCH-18` ～ `ARCH-20`：补齐结构化 Trace、默认测试入口、文档和旧路径审计。
+  - 已完成 `ARCH-18`：BattleTrace 与结构化事件断言落地；下一个子项为 `ARCH-19`。
 
 ### 数据契约与迁移
 
@@ -271,6 +272,11 @@
 ### 2026-08-07 ARCH-16
 
 ### 2026-08-07 ARCH-17
+
+### 2026-08-07 ARCH-18
+
+- `sh run_tests.sh`：通过，连续 5 轮输出 `ALL TESTS PASSED`。
+- 已新增 `BattleTrace` 纯事件记录器（时机/上下文 ID/行动者/目标/结果/错误，span 嵌套链路，关闭后 no-op）与 `BattleTraceLogger` 日志适配（绑定 sink、flush 整批输出、静态格式化）；`BattleFlow` 接入 `set_trace`，`dispatch_timing` 记录进入与结果事件、嵌套行动队列记录 span；新增 `battle_trace_assert.gd` 测试基类与 `battle_trace_test.gd` 并接入默认入口，覆盖时机顺序、结果与错误字段、嵌套链路、关闭 trace、日志格式与 flush、禁用跳过 sink；新增诊断文档 `docs/architecture/logic/battle_trace.md`。
 
 - `sh run_tests.sh`：通过，连续 10 轮输出 `ALL TESTS PASSED`。
 - 已新增 `UiIntent` 意图门面（10 个意图：攻击/防御/闪避/血瓶/结束回合/技能/充能/消耗品/奖励选择/附着目标），转发到 session 公开方法，未绑定 session 时 no-op；`main.gd` 战斗与奖励回调改经 `ui_intent` 派发，返回主菜单重建 session 后重新绑定；新增 `ui_contract_test.gd` 接入默认入口，源码扫描 `main.gd` 与 `scripts/ui/*.gd` 断言不出现伤害结算、敌人 AI 决策与 Mod 文件直读模式，FakeSession 验证意图转发，unbound no-op；`pre_run_ui_smoke_test.gd` 与 `ui_click_smoke_test.gd` 保持通过；同时修复 ARCH-16 遗留的 `test_choose_reward_direct_apply_advances` 偶发失败（固定无 first_strike 的 rat 群组，避免随机先手扣血干扰 heal 断言）。

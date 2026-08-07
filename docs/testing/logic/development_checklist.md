@@ -108,6 +108,11 @@
 
 ### ARCH-17
 
+### ARCH-18
+
+- `sh run_tests.sh`：通过，连续 5 轮输出 `ALL TESTS PASSED`。
+- 已新增 `BattleTrace` 事件记录器与 `BattleTraceLogger` 日志适配；`BattleFlow` 支持 `set_trace` 并记录时机进入/结果事件与嵌套行动 span；新增 `battle_trace_assert.gd` 测试基类与 `battle_trace_test.gd`（接入默认入口），覆盖时机顺序、结果与错误、嵌套链路、关闭 trace、日志格式与 flush；新增诊断文档 `docs/architecture/logic/battle_trace.md`。
+
 - `sh run_tests.sh`：通过，连续 10 轮输出 `ALL TESTS PASSED`。
 - 已新增 `UiIntent` 意图门面（10 个意图，全部转发到 session 公开方法，未绑定 no-op）；`main.gd` 战斗/奖励回调改经 `ui_intent` 派发并随 session 重建重新绑定；新增 `ui_contract_test.gd` 并接入默认入口，源码扫描断言 UI 不计算伤害、不选敌人 AI 行动、不直读 Mod 文件，`main.gd` 不直接调用 session 战斗/奖励方法；FakeSession 验证转发与 unbound no-op；`pre_run_ui_smoke_test.gd` 与 `ui_click_smoke_test.gd` 保持通过；另修复 ARCH-16 遗留 `test_choose_reward_direct_apply_advances` 偶发失败（固定 rat 群组避免随机 first_strike 干扰）。
 

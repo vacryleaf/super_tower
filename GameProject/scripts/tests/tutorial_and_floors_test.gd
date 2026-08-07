@@ -23,6 +23,7 @@ const ContentRegistryIntegrationTests = preload("res://scripts/tests/content_reg
 const RunContextPersistenceTests = preload("res://scripts/tests/run_context_persistence_test.gd")
 const RunProgressBoundaryTests = preload("res://scripts/tests/run_progress_boundary_test.gd")
 const UiContractTests = preload("res://scripts/tests/ui_contract_test.gd")
+const BattleTraceTests = preload("res://scripts/tests/battle_trace_test.gd")
 const ModLoaderTests = preload("res://scripts/tests/mod_loader_test.gd")
 
 var failures: Array[String] = []
@@ -67,6 +68,7 @@ func run_all() -> void:
 	_run(RunContextPersistenceTests.new())
 	_run(RunProgressBoundaryTests.new())
 	_run(UiContractTests.new())
+	_run(BattleTraceTests.new())
 	_run(ModLoaderTests.new())
 
 

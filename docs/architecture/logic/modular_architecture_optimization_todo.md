@@ -1,6 +1,6 @@
 # 模块化架构优化 TODO
 
-状态：ARCH-00 ～ ARCH-17 已完成，ARCH-18 ～ ARCH-20 待执行。
+状态：ARCH-00 ～ ARCH-18 已完成，ARCH-19 ～ ARCH-20 待执行。
 
 方案：`docs/architecture/design/modular_architecture_optimization.md`
 
@@ -228,7 +228,7 @@
 
 ## 9. 诊断、测试与收尾阶段
 
-### [ ] ARCH-18｜建立 BattleTrace 与结构化事件断言
+### [x] ARCH-18｜建立 BattleTrace 与结构化事件断言
 
 - 依赖：ARCH-10、ARCH-12。
 - 目标：统一记录时机、上下文 ID、行动者、目标、结果和错误，帮助定位模块顺序问题。
@@ -236,6 +236,7 @@
 - 禁止：Trace 不得改变业务状态或作为业务判断依据。
 - 针对性测试：`battle_trace_test.gd`，覆盖事件顺序、嵌套链路、错误和关闭 Trace。
 - 完成标准：测试可以用事件顺序断言流程，不依赖 UI 文案。
+- 结果：已完成于 2026-08-07；新增 `BattleTrace` 纯事件记录器（`record` 事件含 seq/kind/timing/context_id/actor/target/result/error/error_code/parent_seq/depth，`begin_span/end_span` 维护嵌套链路，`update_result` 回填结果，`errors/by_kind/sequence_of_*` 查询辅助，`set_enabled(false)` 后全部 no-op）与 `BattleTraceLogger` 日志适配（绑定 `log(message)` sink，`flush` 整批输出，静态格式化）；`BattleFlow` 接入 `set_trace`，`dispatch_timing` 对每个时机记录进入与结果事件，嵌套行动队列以 span 记录链路；新增 `battle_trace_assert.gd` 测试基类（`assert_event_kinds/timings/field/parented`）与 `battle_trace_test.gd` 并接入默认入口，覆盖时机顺序、结果与错误字段、嵌套链路、关闭 trace、日志格式与 flush、禁用跳过 sink；新增诊断文档 `docs/architecture/logic/battle_trace.md`；`sh run_tests.sh` 连续 5 轮通过，输出 `ALL TESTS PASSED`。
 
 ### [ ] ARCH-19｜补齐架构契约测试入口和跨平台回归
 
