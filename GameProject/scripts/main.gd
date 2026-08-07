@@ -31,11 +31,13 @@ var EndScreenView
 var NpcShopView
 var TraitCatalog
 var CombatFeedback
+var UiIntent
 
 @onready var root: VBoxContainer = $Root
 
 var debug_mode := OS.is_debug_build()
 var session
+var ui_intent
 var debug_logger
 var combat_feedback
 var battle_view
@@ -121,10 +123,13 @@ func _ready() -> void:
 	NpcShopView = load("res://scripts/ui/npc_shop_view.gd")
 	TraitCatalog = load("res://scripts/core/trait_catalog.gd")
 	CombatFeedback = load("res://scripts/ui/combat_feedback.gd")
+	UiIntent = load("res://scripts/ui/ui_intent.gd")
 	_install_default_theme()
 	debug_logger = DebugLogger.new()
 	debug_logger.configure("main", debug_mode)
 	session = PlaySession.new()
+	ui_intent = UiIntent.new()
+	ui_intent.bind(session)
 	session.debug_mode = debug_mode
 	session.debug_logger = debug_logger
 	app_settings = AppSettings.new()
@@ -645,27 +650,27 @@ func _on_player_status_clicked(event: InputEvent) -> void:
 
 func _on_attack_pressed() -> void:
 	_debug_log("ui_attack target=%d" % selected_target)
-	_run_action(Callable(session, "player_attack").bind(selected_target))
+	_run_action(ui_intent.attack.bind(selected_target))
 
 
 func _on_defend_pressed() -> void:
 	_debug_log("ui_defend")
-	_run_action(Callable(session, "player_defend"))
+	_run_action(ui_intent.defend)
 
 
 func _on_dodge_pressed() -> void:
 	_debug_log("ui_dodge")
-	_run_action(Callable(session, "player_dodge"))
+	_run_action(ui_intent.dodge)
 
 
 func _on_blood_potion_pressed() -> void:
 	_debug_log("ui_blood_potion")
-	_run_action(Callable(session, "use_blood_potion_in_battle"))
+	_run_action(ui_intent.use_blood_potion)
 
 
 func _on_end_turn_pressed() -> void:
 	_debug_log("ui_end_turn")
-	_run_action(Callable(session, "end_turn"))
+	_run_action(ui_intent.end_turn)
 
 
 func _on_skill_pressed(index: int) -> void:
@@ -677,24 +682,24 @@ func _on_skill_pressed(index: int) -> void:
 			session.message = "请先点击角色面板选择治疗目标。"
 			_request_game_render()
 			return
-		_run_action(Callable(session, "use_skill").bind(index, selected_heal_target))
+		_run_action(ui_intent.use_skill.bind(index, selected_heal_target))
 	else:
-		_run_action(Callable(session, "use_skill").bind(index, selected_target))
+		_run_action(ui_intent.use_skill.bind(index, selected_target))
 
 
 func _on_charge_pressed(charge_id: String) -> void:
 	_debug_log("ui_charge %s" % charge_id)
-	_run_action(Callable(session, "use_charge").bind(charge_id))
+	_run_action(ui_intent.use_charge.bind(charge_id))
 
 
 func _on_consumable_pressed(consumable_id: String) -> void:
 	_debug_log("ui_consumable %s" % consumable_id)
-	_run_action(Callable(session, "use_consumable").bind(consumable_id))
+	_run_action(ui_intent.use_consumable.bind(consumable_id))
 
 
 func _on_reward_pressed(index: int) -> void:
 	_debug_log("reward_pressed index=%d" % index)
-	session.choose_reward(index)
+	ui_intent.choose_reward(index)
 	_persist_session()
 	selected_target = 0
 	_request_game_render()
@@ -702,7 +707,7 @@ func _on_reward_pressed(index: int) -> void:
 
 func _on_reward_target_pressed(index: int) -> void:
 	_debug_log("reward_target_pressed index=%d" % index)
-	session.choose_reward_target(index)
+	ui_intent.choose_reward_target(index)
 	_persist_session()
 	selected_target = 0
 	_request_game_render()
@@ -711,6 +716,7 @@ func _on_reward_target_pressed(index: int) -> void:
 func _on_return_to_menu_pressed() -> void:
 	_debug_log("return_to_menu pressed")
 	session = PlaySession.new()
+	ui_intent.bind(session)
 	session.debug_mode = debug_mode
 	session.debug_logger = debug_logger
 	title_screen = "title"

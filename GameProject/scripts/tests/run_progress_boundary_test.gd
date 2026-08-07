@@ -165,6 +165,9 @@ func test_choose_reward_attachment_flow() -> void:
 
 func test_choose_reward_direct_apply_advances() -> void:
 	var session := _formal_session()
+	# 固定无 first_strike 的群组：advance_after_reward 后 _start_current_battle
+	# 若随机到暗影群落会先手扣血，干扰 heal 生效断言；rat 群落无先手被动。
+	session.floor_group_id = "rat"
 	session.player["hp"] = 1
 	session.phase = "reward"
 	var heal_options: Array[Dictionary] = [RewardService.make_reward("heal", "恢复生命", "legacy", "player", {"value": 10})]

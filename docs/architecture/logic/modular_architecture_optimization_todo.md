@@ -1,6 +1,6 @@
 # 模块化架构优化 TODO
 
-状态：ARCH-00 ～ ARCH-16 已完成，ARCH-17 ～ ARCH-20 待执行。
+状态：ARCH-00 ～ ARCH-17 已完成，ARCH-18 ～ ARCH-20 待执行。
 
 方案：`docs/architecture/design/modular_architecture_optimization.md`
 
@@ -216,7 +216,7 @@
 - 完成标准：成长服务不反向调用命中/技能私有方法。
 - 结果：已完成于 2026-08-07；`RunProgressService` 重写为 Run 层协调边界：`on_victory/on_defeat/advance_after_reward/apply_limited_post_battle_recovery/post_reward_heal_amount` 作为权威路径，胜利侧不再调用 PlaySession 私有方法，改经公开服务端口（`reward_apply.build_reward_options` 构建奖励、`run_progress.advance_after_reward` 推进），图鉴、塔币、Boss NPC 解锁与塔通关记录迁移为本服务私有实现（与旧方法等价）。`RewardApplyService` 的 `choose_reward`/`choose_reward_target` 不再调用 `session._advance_after_reward()`，改调 `session.run_progress.advance_after_reward(session)`；新增静态 `target_label` 替代 `_target_label`。新增 `run_progress_boundary_test.gd` 并接入默认入口，覆盖胜利（普通/Boss/通关/教程）、失败（正式/教程）、奖励选择（附着/直接生效）、楼层推进、塔通关、教程收尾和私有 API 依赖扫描（源码不引用 `battle_service`/`play_session`/`combat_engine` 及命中/技能私有方法）。`sh run_tests.sh` 通过，输出 `ALL TESTS PASSED`。奖励数值与楼层规则未调整，PlaySession 旧私有方法保留兼容（ARCH-20 统一清理），完成标准已满足。
 
-### [ ] ARCH-17｜建立 UI Screen/Presenter/View 契约
+### [x] ARCH-17｜建立 UI Screen/Presenter/View 契约
 
 - 依赖：ARCH-12、ARCH-15；可与 ARCH-13 并行。
 - 目标：让 UI 从只读展示状态生成控件，并通过统一意图入口调用 Run/Battle 层。
@@ -224,6 +224,7 @@
 - 禁止：不读取图片资源，不重做视觉样式，不在本项拆完所有大页面。
 - 针对性测试：`ui_contract_test.gd`、`pre_run_ui_smoke_test.gd`、`ui_click_smoke_test.gd`。
 - 完成标准：UI 不计算伤害、不选择 AI 行动、不直接读取 Mod 文件。
+- 结果：已完成于 2026-08-07；新增 `UiIntent` 意图门面（`bind/is_bound`，攻击/防御/闪避/血瓶/结束回合/技能/充能/消耗品/奖励选择/附着目标共 10 个意图，全部转发到 session 公开方法，未绑定 session 时 no-op），`main.gd` 的 8 个战斗回调与 2 个奖励回调改经 `ui_intent` 派发、返回主菜单重建 session 后重新 bind；新增 `ui_contract_test.gd` 并接入默认入口，源码扫描 `main.gd` 与 `scripts/ui/*.gd` 断言不出现伤害结算私有模式（`deal_damage(` 等 6 个）、敌人 AI 决策模式（`_enemy_attack(` 等 4 个）与 Mod 文件直读模式（`mods/`、`ModLoader` 等 4 个），且 `main.gd` 不直接调用 session 战斗/奖励方法；FakeSession 验证 10 个意图转发，unbound no-op；`sh run_tests.sh` 连续 10 轮通过，输出 `ALL TESTS PASSED`；`pre_run_ui_smoke_test.gd` 与 `ui_click_smoke_test.gd` 保持通过。
 
 ## 9. 诊断、测试与收尾阶段
 

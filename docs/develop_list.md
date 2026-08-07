@@ -35,8 +35,9 @@
   - 对应 `ARCH-15` ～ `ARCH-16`：建立 RunContext/快照边界，保持教程、楼层、奖励、NPC 和旧存档规则不变。
   - 已完成 `ARCH-15` ～ `ARCH-16`：RunContext/RunStateSnapshot 与存档快照边界落地，RunProgressService/RewardApplyService 建立成长与奖励协调边界。
 
-- [ ] 任务 17｜建立 UI 展示与意图边界
+- [x] 任务 17｜建立 UI 展示与意图边界
   - 对应 `ARCH-17`：渐进建立 Screen/Presenter/View 契约；UI 仅展示状态和派发意图。
+  - 已完成 `ARCH-17`：新增 `UiIntent` 意图门面，UI 战斗/奖励回调全部经意图入口派发；`ui_contract_test.gd` 源码扫描保证 UI 不计算伤害、不选 AI 行动、不直读 Mod 文件。
 
 - [ ] 任务 18｜完成架构诊断、跨平台回归与收尾审计
   - 对应 `ARCH-18` ～ `ARCH-20`：补齐结构化 Trace、默认测试入口、文档和旧路径审计。
@@ -268,6 +269,11 @@
 - 已新增 RunContext（Run 层状态容器，capture/apply_data 含旧存档迁移与楼层组历史恢复）与 RunStateSnapshot（run/battle 字段切分的纯数据快照，磁盘格式与 version=4 不变）；RunStateSerializer 重写为委托 RunContext+RunStateSnapshot，保存输出保持扁平字段；SaveProfile 新增 `read_active_run/write_active_run` 支持 Run 层独立读写；新增 `run_context_persistence_test.gd` 接入默认入口，覆盖独立往返、字段切分、旧存档迁移、缺失默认值、中断恢复、SaveProfile 独立读写和 PlaySession 存档被 RunContext 独立恢复。
 
 ### 2026-08-07 ARCH-16
+
+### 2026-08-07 ARCH-17
+
+- `sh run_tests.sh`：通过，连续 10 轮输出 `ALL TESTS PASSED`。
+- 已新增 `UiIntent` 意图门面（10 个意图：攻击/防御/闪避/血瓶/结束回合/技能/充能/消耗品/奖励选择/附着目标），转发到 session 公开方法，未绑定 session 时 no-op；`main.gd` 战斗与奖励回调改经 `ui_intent` 派发，返回主菜单重建 session 后重新绑定；新增 `ui_contract_test.gd` 接入默认入口，源码扫描 `main.gd` 与 `scripts/ui/*.gd` 断言不出现伤害结算、敌人 AI 决策与 Mod 文件直读模式，FakeSession 验证意图转发，unbound no-op；`pre_run_ui_smoke_test.gd` 与 `ui_click_smoke_test.gd` 保持通过；同时修复 ARCH-16 遗留的 `test_choose_reward_direct_apply_advances` 偶发失败（固定无 first_strike 的 rat 群组，避免随机先手扣血干扰 heal 断言）。
 
 - `sh run_tests.sh`：通过，输出 `ALL TESTS PASSED`。
 - 已将 RunProgressService 重写为 Run 层协调边界：`on_victory/on_defeat/advance_after_reward/apply_limited_post_battle_recovery/post_reward_heal_amount` 作为权威路径；胜利侧不再调用 PlaySession 私有方法，改经 `reward_apply.build_reward_options` 与 `run_progress.advance_after_reward` 公开端口，图鉴、塔币、Boss NPC 解锁与塔通关记录迁移为本服务私有实现（与旧方法等价）；RewardApplyService 的奖励选择/附着目标不再调用 `_advance_after_reward`/`_target_label`，改调 `run_progress` 端口与新增 `target_label`。新增 `run_progress_boundary_test.gd` 接入默认入口，覆盖胜利（普通/Boss/通关/教程）、失败（正式/教程）、奖励选择（附着/直接生效）、楼层推进、塔通关、教程收尾和私有 API 依赖扫描。
